@@ -1,0 +1,263 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Catálogo Académico Digital</title>
+    <link rel="stylesheet" href="styles.css">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap" rel="stylesheet">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+</head>
+<body>
+    <!-- Modal de Autenticación (Bloqueo Inicial) -->
+    <div id="authModal" class="auth-modal">
+        <div class="auth-modal-content">
+            <div class="auth-header">
+                <i class="fa-solid fa-graduation-cap auth-icon"></i>
+                <h2>Hola, bienvenido a EduSpace</h2>
+            </div>
+            <div class="auth-body">
+                <div class="auth-section">
+                    <p class="auth-text">Regístrate con tu nombre.</p>
+                    <input type="text" id="authUserName" class="auth-input" placeholder="Ingresa tu nombre completo" autocomplete="off">
+                </div>
+                <div class="auth-section">
+                    <p class="auth-text">Hola, pon tu código de compra. Si aún no lo compraste, acércate al administrador para que te lo dé.</p>
+                    <input type="text" id="authCode" class="auth-input" placeholder="Ingresa tu código" autocomplete="off">
+                </div>
+                <div id="authError" class="auth-error" style="display: none;"></div>
+                <button id="authSubmit" class="auth-submit">
+                    <i class="fa-solid fa-sign-in-alt"></i> Ingresar
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Mensaje Exclusivo para Código Especial -->
+    <div id="specialUserMessage" class="special-user-message" style="display: none;">
+        <i class="fa-solid fa-star"></i>
+        <span>Bienvenido usuario especial con código 6578hy</span>
+    </div>
+
+    <header class="main-header">
+        <div class="logo-container">
+            <i class="fa-solid fa-graduation-cap logo-icon"></i>
+            <h1>ClouDesk<span class="subtitle">Repositorio del I.E.S.P.P.P de la especialidad de comunicación VI</span></h1>
+        </div>
+        <nav>
+            <ul>
+                <li><a id="tab-repositorio" class="tab-btn active" onclick="switchTab('repositorio')">Repositorio</a></li>
+                <li>
+                    <a id="tab-trabajos" class="tab-btn" onclick="switchTab('trabajos')">
+                        Trabajos
+                        <span id="pending-badge" class="notification-badge" style="display: none;">0</span>
+                    </a>
+                </li>
+                <li><a id="tab-recursos" class="tab-btn" onclick="switchTab('recursos')">Recursos</a></li>
+                <li><a id="tab-docentes" class="tab-btn" onclick="switchTab('docentes')">Docentes</a></li>
+                <li><a id="tab-estudiantes" class="tab-btn" onclick="switchTab('estudiantes')"><!--Estudiantes--></a></li>
+            </ul>
+        </nav>
+    </header>
+    <main class="container">
+        <!-- Sección de Repositorio: Visible por defecto -->
+        <section id="repositorio" class="section-content" style="display: block;">
+            <div class="header-section">
+                <div class="header-with-search">
+                    <div class="header-text">
+                        <h2><i class="fa-solid fa-folder-open"></i> Archivos Académicos</h2>
+                        <p>Selecciona un área para filtrar los recursos.</p>
+                    </div>
+                    <div class="search-container-inline">
+                        <button class="search-toggle" onclick="toggleSearch('repositorio')">
+                            <i class="fa-solid fa-search"></i>
+                        </button>
+                        <div class="search-bar-expandable" id="searchBarRepositorio">
+                            <input type="text" id="searchInputRepositorio" placeholder="Buscar archivos..." onkeyup="searchFiles()">
+                            <button class="search-close" onclick="toggleSearch('repositorio')">
+                                <i class="fa-solid fa-times"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="filter-buttons">
+                <button class="filter-btn active" onclick="filterFiles('all')">Todo</button>
+                <button class="filter-btn" onclick="filterFiles('Matemáticas')">Matemáticas</button>
+                <button class="filter-btn" onclick="filterFiles('Ciencias')">Ciencias</button>
+                <button class="filter-btn" onclick="filterFiles('Literatura')">Literatura</button>
+                <button class="filter-btn" onclick="filterFiles('Historia')">Historia</button>
+            </div>
+            <div id="files-grid" class="grid-container">
+            </div>
+        </section>
+        <!-- Sección de Trabajos: Oculta por defecto -->
+        <section id="trabajos" class="section-content" style="display: none;">
+            <div class="header-section">
+                <div class="trabajos-header-flex">
+                    <div>
+                        <h2><i class="fa-solid fa-clipboard-list"></i> Gestión de Trabajos</h2>
+                        <p>Estado de entregas y tareas pendientes por docente.</p>
+                    </div>
+                    <button id="btn-trabajos-finalizados" class="btn-trabajos-finalizados" onclick="toggleTrabajosFinalizados()">
+                        <i class="fa-solid fa-clock"></i> <span id="btn-trabajos-text">Ver trabajos finalizados</span>
+                    </button>
+                </div>
+            </div>
+            <div id="trabajos-pendientes-section" style="display: block;">
+                <h3 class="subsection-title"><i class="fa-solid fa-hourglass-half"></i> Trabajos Pendientes</h3>
+                <div class="assignments-container" id="assignments-container">
+                </div>
+            </div>
+            <div id="trabajos-finalizados-section" style="display: none;">
+                <h3 class="subsection-title"><i class="fa-solid fa-check-double"></i> Trabajos Finalizados</h3>
+                <div class="assignments-container" id="finalizados-container">
+                </div>
+            </div>
+        </section>
+        <!-- Sección de Recursos: Nueva sección -->
+        <section id="recursos" class="section-content" style="display: none;">
+            <div class="header-section">
+                <div class="header-with-search">
+                    <div class="header-text">
+                        <h2><i class="fa-solid fa-book"></i> Recursos del Área de la Especialidad de Comunicación</h2>
+                        <p>Materiales y documentos especializados para el área de comunicación.</p>
+                    </div>
+                    <div class="search-container-inline">
+                        <button class="search-toggle" onclick="toggleSearch('recursos')">
+                            <i class="fa-solid fa-search"></i>
+                        </button>
+                        <div class="search-bar-expandable" id="searchBarRecursos">
+                            <input type="text" id="searchInputRecursos" placeholder="Buscar recursos..." onkeyup="searchFiles()">
+                            <button class="search-close" onclick="toggleSearch('recursos')">
+                                <i class="fa-solid fa-times"></i>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="recursos-list">
+                <div id="recursos-container"></div>
+            </div>
+        </section>
+        <!-- Sección de Docentes: Nueva sección -->
+        <section id="docentes" class="section-content" style="display: none;">
+            <div class="header-section">
+                <h2><i class="fa-solid fa-chalkboard-user"></i> Directorio de Docentes</h2>
+                <p>Información de contacto y perfil de los profesores.</p>
+            </div>
+            <div id="docentes-grid" class="grid-container">
+            </div>
+        </section>
+        <!-- Sección de Estudiantes: Nueva sección -->
+        <section id="estudiantes" class="section-content" style="display: none;">
+            <div class="header-section">
+                <h2><i class="fa-solid fa-user-graduate"></i> Lista de Estudiantes</h2>
+                <p>Estudiantes registrados en la especialidad de comunicación VII.</p>
+            </div>
+            <div id="estudiantes-grid" class="grid-container">
+            </div>
+        </section>
+    </main>
+    <footer>
+        <p>&copy; 2025 EduSpace Plataforma Académica - Todos los derechos reservados.</p>
+    </footer>
+
+    <!-- Modal para ampliar foto de perfil -->
+    <div id="profileModal" class="modal">
+        <div class="modal-content">
+            <span class="close-modal" onclick="closeProfileModal()">&times;</span>
+            <img id="modalProfileImage" src="" alt="Foto de perfil">
+            <div id="modalProfileInfo" class="modal-profile-info"></div>
+        </div>
+    </div>
+
+    <!-- Modal para detalles del trabajo -->
+    <div id="detailsModal" class="modal">
+        <div class="modal-content-details">
+            <div class="modal-header-details">
+                <h2 id="detailsTitle"><i class="fa-solid fa-file-lines"></i> Detalles del Trabajo</h2>
+                <span class="close-modal" onclick="closeDetailsModal()">&times;</span>
+            </div>
+            <div class="modal-body-details">
+                <div class="detail-section">
+                    <h3 id="detailsTaskName"></h3>
+                    <div class="detail-info">
+                        <p><i class="fa-solid fa-user-tie"></i> <strong>Profesor:</strong> <span id="detailsTeacher"></span></p>
+                        <p><i class="fa-regular fa-calendar"></i> <strong>Fecha límite:</strong> <span id="detailsDeadline"></span></p>
+                        <p><i class="fa-solid fa-circle-info"></i> <strong>Estado:</strong> <span id="detailsStatus"></span></p>
+                    </div>
+                </div>
+                <div class="detail-section">
+                    <h4><i class="fa-solid fa-clipboard-check"></i> Descripción del Trabajo</h4>
+                    <div class="description-box" id="detailsDescription"></div>
+                </div>
+                <div class="detail-section">
+                    <h4><i class="fa-solid fa-list-check"></i> Requisitos</h4>
+                    <ul class="requirements-list" id="detailsRequirements"></ul>
+                </div>
+                <div class="detail-section">
+                    <h4><i class="fa-solid fa-paperclip"></i> Recursos Adjuntos</h4>
+                    <div class="attachments-list" id="detailsAttachments"></div>
+                </div>
+            </div>
+            <div class="modal-footer-details">
+                <button class="btn-modal btn-close" onclick="closeDetailsModal()">
+                    <i class="fa-solid fa-xmark"></i> Cerrar
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal para visualizar archivos -->
+    <div id="fileViewerModal" class="modal">
+        <div class="modal-content-viewer">
+            <div class="modal-header-viewer">
+                <h2 id="viewerTitle"><i class="fa-solid fa-eye"></i> Vista Previa del Archivo</h2>
+                <span class="close-modal" onclick="closeFileViewerModal()">&times;</span>
+            </div>
+            <div class="modal-body-viewer">
+                <div id="fileViewerContent" class="file-viewer-content">
+                    <!-- Skeleton loader will be injected here -->
+                </div>
+                <div class="viewer-controls">
+                    <button class="viewer-control-btn" onclick="openFullscreen()" title="Pantalla completa">
+                        <i class="fa-solid fa-expand"></i>
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Modal de confirmación para marcar como cumplido -->
+    <div id="completedModal" class="modal">
+        <div class="modal-content-completed">
+            <div class="modal-header-completed">
+                <h2><i class="fa-solid fa-check-circle"></i> Confirmar Finalización</h2>
+                <span class="close-modal" onclick="closeCompletedModal()">&times;</span>
+            </div>
+            <div class="modal-body-completed">
+                <div class="completed-message">
+                    <i class="fa-solid fa-info-circle completed-icon"></i>
+                    <p id="completedMessage"></p>
+                </div>
+            </div>
+            <div class="modal-footer-completed">
+                <button class="btn-modal btn-cancel" onclick="closeCompletedModal()">
+                    <i class="fa-solid fa-times"></i> Cancelar
+                </button>
+                <button class="btn-modal btn-confirm" onclick="confirmCompleted()">
+                    <i class="fa-solid fa-check"></i> Entendido
+                </button>
+            </div>
+        </div>
+    </div>
+
+ <!-- Firebase SDK -->
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-database-compat.js"></script>
+<!-- Tu script -->
+<script src="script.js"></script>
+</body>
+</html>
