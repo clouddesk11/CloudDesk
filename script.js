@@ -1997,19 +1997,17 @@ function renderEstudiantesReales(estudiantes) {
         estudianteCard.style.animation = 'fadeIn 0.5s ease';
         estudianteCard.style.animationDelay = `${index * 0.1}s`;
         
-        const codigo = `EST-${String(estudiante.id).padStart(4, '0')}`;
         
         estudianteCard.innerHTML = `
-            <img src="${estudiante.foto_url}" 
-                 alt="${estudiante.nombre_completo}" 
-                 class="estudiante-avatar"
-                 onerror="this.src='https://ui-avatars.com/api/?name=${encodeURIComponent(estudiante.nombre_completo)}&background=3b82f6&color=fff&size=200'">
-            <h3 class="estudiante-name">${estudiante.nombre_completo}</h3>
-            <p class="estudiante-code">${codigo}</p>
-            <p class="estudiante-date">
-                <i class="fa-solid fa-calendar-check"></i> 
-                ${new Date(estudiante.created_at).toLocaleDateString('es-ES')}
-            </p>
+    <img src="${estudiante.foto_url}" 
+         alt="${estudiante.nombre_completo}" 
+         class="estudiante-avatar"
+         onerror="this.src='https://ui-avatars.com/api/?name=${encodeURIComponent(estudiante.nombre_completo)}&background=3b82f6&color=fff&size=200'">
+    <h3 class="estudiante-name">${estudiante.nombre_completo}</h3>
+    <p class="estudiante-date">
+        <i class="fa-solid fa-calendar-check"></i> 
+        ${new Date(estudiante.created_at).toLocaleDateString('es-ES')}
+    </p>
         `;
         
         grid.appendChild(estudianteCard);
