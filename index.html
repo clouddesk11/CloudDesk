@@ -3,15 +3,30 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Catálogo Académico Digital</title>
+    <title>CloudDesk</title>
     <link rel="stylesheet" href="styles.css">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <link href="https://fonts.googleapis.com/css2?family=Roboto:wght@300;400;500;700&display=swap" rel="stylesheet">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
 </head>
 <body>
-    <!-- Modal de Autenticación (Bloqueo Inicial) -->
-    <div id="authModal" class="auth-modal">
+    <!-- ========================================
+         MODALES DE AUTENTICACIÓN (PRIMERO)
+         ======================================== -->
+    
+    <!-- Estado de Conexión -->
+    <div id="connectionLoader" class="connection-loader" style="display: none;">
+        <div class="connection-loader-content">
+            <div class="connection-spinner">
+                <i class="fa-solid fa-circle-notch fa-spin"></i>
+            </div>
+            <h2>Conectando con el servidor…</h2>
+            <p>Por favor espera mientras verificamos tu sesión</p>
+        </div>
+    </div>
+
+    <!-- Modal de Autenticación -->
+    <div id="authModal" class="auth-modal" style="display: none;">
         <div class="auth-modal-content">
             <div class="auth-header">
                 <i class="fa-solid fa-graduation-cap auth-icon"></i>
@@ -23,7 +38,7 @@
                     <input type="text" id="authUserName" class="auth-input" placeholder="Ingresa tu nombre completo" autocomplete="off">
                 </div>
                 <div class="auth-section">
-                    <p class="auth-text">Hola, pon tu código de compra. Si aún no lo compraste, acércate al administrador para que te lo dé.</p>
+                    <p class="auth-text">Ingresa tu código de compra. Si aún no dispones de uno, solicítalo al administrador del sistema.</p>
                     <input type="text" id="authCode" class="auth-input" placeholder="Ingresa tu código" autocomplete="off">
                 </div>
                 <div id="authError" class="auth-error" style="display: none;"></div>
@@ -34,151 +49,241 @@
         </div>
     </div>
 
-    <!-- Mensaje Exclusivo para Código Especial -->
+    <!-- Mensaje Especial -->
     <div id="specialUserMessage" class="special-user-message" style="display: none;">
         <i class="fa-solid fa-star"></i>
         <span>Bienvenido usuario especial con código 6578hy</span>
     </div>
 
-    <header class="main-header">
-        <div class="logo-container">
-            <i class="fa-solid fa-graduation-cap logo-icon"></i>
-            <h1>ClouDesk<span class="subtitle">Repositorio del I.E.S.P.P.P de la especialidad de comunicación VI</span></h1>
+    <!-- ========================================
+         SIDEBAR COLAPSABLE
+         ======================================== -->
+    <aside class="sidebar" id="sidebar">
+    <!-- ORDEN CORRECTO: Imagen → Texto → Hamburguesa -->
+    <div class="sidebar-header">
+        <div class="sidebar-logo">
+            <img src="https://res.cloudinary.com/dwzwa3gp0/image/upload/v1771013132/BackgroundEraser_20260213_121333179_r5yzoo.png" 
+                 alt="CloudDesk Logo" 
+                 class="sidebar-logo-img">
+            <span class="sidebar-logo-text">CloudDesk</span>
         </div>
-        <nav>
-            <ul>
-                <li><a id="tab-repositorio" class="tab-btn active" onclick="switchTab('repositorio')">Repositorio</a></li>
-                <li>
-                    <a id="tab-trabajos" class="tab-btn" onclick="switchTab('trabajos')">
-                        Trabajos
-                        <span id="pending-badge" class="notification-badge" style="display: none;">0</span>
-                    </a>
-                </li>
-                <li><a id="tab-recursos" class="tab-btn" onclick="switchTab('recursos')">Recursos</a></li>
-                <li><a id="tab-docentes" class="tab-btn" onclick="switchTab('docentes')">Docentes</a></li>
-                <li><a id="tab-estudiantes" class="tab-btn" onclick="switchTab('estudiantes')"><!--Estudiantes--></a></li>
-            </ul>
-        </nav>
-    </header>
-    <main class="container">
-        <!-- Sección de Repositorio: Visible por defecto -->
-        <section id="repositorio" class="section-content" style="display: block;">
-            <div class="header-section">
-                <div class="header-with-search">
-                    <div class="header-text">
-                        <h2><i class="fa-solid fa-folder-open"></i> Archivos Académicos</h2>
-                        <p>Selecciona un área para filtrar los recursos.</p>
-                    </div>
-                    <div class="search-container-inline">
-                        <button class="search-toggle" onclick="toggleSearch('repositorio')">
-                            <i class="fa-solid fa-search"></i>
-                        </button>
-                        <div class="search-bar-expandable" id="searchBarRepositorio">
-                            <input type="text" id="searchInputRepositorio" placeholder="Buscar archivos..." onkeyup="searchFiles()">
-                            <button class="search-close" onclick="toggleSearch('repositorio')">
-                                <i class="fa-solid fa-times"></i>
+        
+        <button class="sidebar-toggle" id="sidebarToggle" onclick="toggleSidebar()">
+            <i class="fa-solid fa-bars"></i>
+        </button>
+    </div>
+    
+    <button id="tab-repositorio" class="sidebar-btn active" onclick="switchTab('repositorio')">
+    <i class="fa-solid fa-folder-open"></i>
+    <span class="sidebar-btn-text">Repositorio</span>
+</button>
+
+<button id="tab-trabajos" class="sidebar-btn" onclick="switchTab('trabajos')">
+    <i class="fa-solid fa-clipboard-list"></i>
+    <span class="sidebar-btn-text">Trabajos</span>
+    <span id="pending-badge" class="sidebar-badge" style="display: none;">0</span>
+</button>
+
+<button id="tab-recursos" class="sidebar-btn" onclick="switchTab('recursos')">
+    <i class="fa-solid fa-book"></i>
+    <span class="sidebar-btn-text">Recursos</span>
+</button>
+
+<button id="tab-docentes" class="sidebar-btn" onclick="switchTab('docentes')">
+    <i class="fa-solid fa-chalkboard-user"></i>
+    <span class="sidebar-btn-text">Docentes</span>
+</button>
+
+<button id="tab-estudiantes" class="sidebar-btn" onclick="switchTab('estudiantes')">
+    <i class="fa-solid fa-user-graduate"></i>
+    <span class="sidebar-btn-text">Estudiantes</span>
+</button>
+    </nav>
+</aside>
+    <button class="mobile-menu-btn" id="mobileSidebarToggle" onclick="toggleSidebar()">
+    <i class="fa-solid fa-bars"></i>
+</button>
+
+<div class="sidebar-overlay" id="sidebarOverlay" onclick="closeSidebar()"></div>
+
+    <!-- ========================================
+         CONTENIDO PRINCIPAL
+         ======================================== -->
+    <div class="main-content" id="mainContent">
+        <main class="container">
+            <!-- Sección de Repositorio -->
+            <section id="repositorio" class="section-content" style="display: block;">
+                <div class="header-section">
+                    <div class="header-with-search">
+                        <div class="header-text">
+                            <h2><i class="fa-solid fa-folder-open"></i> Archivos Académicos</h2>
+                            <p>Selecciona un área para filtrar los recursos.</p>
+                        </div>
+                        <div class="search-container-inline">
+                            <button class="search-toggle" onclick="toggleSearch('repositorio')">
+                                <i class="fa-solid fa-search"></i>
                             </button>
+                            <div class="search-bar-expandable" id="searchBarRepositorio">
+                                <input type="text" id="searchInputRepositorio" placeholder="Buscar archivos..." onkeyup="searchFiles()">
+                                <button class="search-close" onclick="toggleSearch('repositorio')">
+                                    <i class="fa-solid fa-times"></i>
+                                </button>
+                            </div>
                         </div>
                     </div>
                 </div>
-            </div>
-            <div class="filter-buttons">
-                <button class="filter-btn active" onclick="filterFiles('all')">Todo</button>
-                <button class="filter-btn" onclick="filterFiles('Matemáticas')">Matemáticas</button>
-                <button class="filter-btn" onclick="filterFiles('Ciencias')">Ciencias</button>
-                <button class="filter-btn" onclick="filterFiles('Literatura')">Literatura</button>
-                <button class="filter-btn" onclick="filterFiles('Historia')">Historia</button>
-            </div>
-            <div id="files-grid" class="grid-container">
-            </div>
-        </section>
-        <!-- Sección de Trabajos: Oculta por defecto -->
-        <section id="trabajos" class="section-content" style="display: none;">
-            <div class="header-section">
-                <div class="trabajos-header-flex">
-                    <div>
-                        <h2><i class="fa-solid fa-clipboard-list"></i> Gestión de Trabajos</h2>
-                        <p>Estado de entregas y tareas pendientes por docente.</p>
+                <div class="filter-buttons">
+                    <button class="filter-btn active" onclick="filterFiles('all')">Todo</button>
+                    <button class="filter-btn" onclick="filterFiles('Matemáticas')">Matemáticas</button>
+                    <button class="filter-btn" onclick="filterFiles('Ciencias')">Ciencias</button>
+                    <button class="filter-btn" onclick="filterFiles('Literatura')">Literatura</button>
+                    <button class="filter-btn" onclick="filterFiles('Historia')">Historia</button>
+                </div>
+                <div id="files-grid" class="grid-container"></div>
+            </section>
+
+            <!-- Sección de Trabajos -->
+            <section id="trabajos" class="section-content" style="display: none;">
+                <div class="header-section">
+                    <div class="trabajos-header-flex">
+                        <div>
+                            <h2><i class="fa-solid fa-clipboard-list"></i> Gestión de Trabajos</h2>
+                            <p>Estado de entregas y tareas pendientes por docente.</p>
+                        </div>
+                        <button id="btn-trabajos-finalizados" class="btn-trabajos-finalizados" onclick="toggleTrabajosFinalizados()">
+                            <i class="fa-solid fa-clock"></i> <span id="btn-trabajos-text">Ver trabajos finalizados</span>
+                        </button>
                     </div>
-                    <button id="btn-trabajos-finalizados" class="btn-trabajos-finalizados" onclick="toggleTrabajosFinalizados()">
-                        <i class="fa-solid fa-clock"></i> <span id="btn-trabajos-text">Ver trabajos finalizados</span>
+                </div>
+                <div id="trabajos-pendientes-section" style="display: block;">
+                    <h3 class="subsection-title"><i class="fa-solid fa-hourglass-half"></i> Trabajos Pendientes</h3>
+                    <div class="assignments-container" id="assignments-container"></div>
+                </div>
+                <div id="trabajos-finalizados-section" style="display: none;">
+                    <h3 class="subsection-title"><i class="fa-solid fa-check-double"></i> Trabajos Finalizados</h3>
+                    <div class="assignments-container" id="finalizados-container"></div>
+                </div>
+            </section>
+
+            <!-- Sección de Recursos -->
+            <section id="recursos" class="section-content" style="display: none;">
+                <div class="header-section">
+                    <div class="header-with-search">
+                        <div class="header-text">
+                            <h2><i class="fa-solid fa-book"></i> Recursos del Área de la Especialidad de Comunicación</h2>
+                        </div>
+                        <div class="search-container-inline">
+                            <button class="search-toggle" onclick="toggleSearch('recursos')">
+                                <i class="fa-solid fa-search"></i>
+                            </button>
+                            <div class="search-bar-expandable" id="searchBarRecursos">
+                                <input type="text" id="searchInputRecursos" placeholder="Buscar recursos..." onkeyup="searchRecursos()">
+                                <button class="search-close" onclick="toggleSearch('recursos')">
+                                    <i class="fa-solid fa-times"></i>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="recursos-filter-buttons">
+                    <button class="recursos-filter-btn active" onclick="filterRecursos('Materiales')" data-category="Materiales">
+                        <i class="fa-solid fa-folder"></i> Materiales
+                        <i class="fa-solid fa-bars recursos-hamburger" onclick="toggleRecursosMenu(event, 'Materiales')"></i>
+                    </button>
+                    <button class="recursos-filter-btn" onclick="filterRecursos('Cuentos')" data-category="Cuentos">
+                        <i class="fa-solid fa-book-open"></i> Cuentos
+                        <i class="fa-solid fa-bars recursos-hamburger" onclick="toggleRecursosMenu(event, 'Cuentos')"></i>
+                    </button>
+                    <button class="recursos-filter-btn" onclick="filterRecursos('Historias')" data-category="Historias">
+                        <i class="fa-solid fa-scroll"></i> Historias
+                        <i class="fa-solid fa-bars recursos-hamburger" onclick="toggleRecursosMenu(event, 'Historias')"></i>
+                    </button>
+                    <button class="recursos-filter-btn" onclick="filterRecursos('Leyendas')" data-category="Leyendas">
+                        <i class="fa-solid fa-dragon"></i> Leyendas
+                        <i class="fa-solid fa-bars recursos-hamburger" onclick="toggleRecursosMenu(event, 'Leyendas')"></i>
+                    </button>
+                    <button class="recursos-filter-btn" onclick="filterRecursos('Poemas')" data-category="Poemas">
+                        <i class="fa-solid fa-feather"></i> Poemas
+                        <i class="fa-solid fa-bars recursos-hamburger" onclick="toggleRecursosMenu(event, 'Poemas')"></i>
+                    </button>
+                    <button class="recursos-filter-btn" onclick="filterRecursos('Libros')" data-category="Libros">
+                        <i class="fa-solid fa-book"></i> Libros
                     </button>
                 </div>
-            </div>
-            <div id="trabajos-pendientes-section" style="display: block;">
-                <h3 class="subsection-title"><i class="fa-solid fa-hourglass-half"></i> Trabajos Pendientes</h3>
-                <div class="assignments-container" id="assignments-container">
-                </div>
-            </div>
-            <div id="trabajos-finalizados-section" style="display: none;">
-                <h3 class="subsection-title"><i class="fa-solid fa-check-double"></i> Trabajos Finalizados</h3>
-                <div class="assignments-container" id="finalizados-container">
-                </div>
-            </div>
-        </section>
-        <!-- Sección de Recursos: Nueva sección -->
-        <section id="recursos" class="section-content" style="display: none;">
-            <div class="header-section">
-                <div class="header-with-search">
-                    <div class="header-text">
-                        <h2><i class="fa-solid fa-book"></i> Recursos del Área de la Especialidad de Comunicación</h2>
-                        <p>Materiales y documentos especializados para el área de comunicación.</p>
-                    </div>
-                    <div class="search-container-inline">
-                        <button class="search-toggle" onclick="toggleSearch('recursos')">
-                            <i class="fa-solid fa-search"></i>
-                        </button>
-                        <div class="search-bar-expandable" id="searchBarRecursos">
-                            <input type="text" id="searchInputRecursos" placeholder="Buscar recursos..." onkeyup="searchFiles()">
-                            <button class="search-close" onclick="toggleSearch('recursos')">
-                                <i class="fa-solid fa-times"></i>
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            </div>
-            <div class="recursos-list">
-                <div id="recursos-container"></div>
-            </div>
-        </section>
-        <!-- Sección de Docentes: Nueva sección -->
-        <section id="docentes" class="section-content" style="display: none;">
-            <div class="header-section">
-                <h2><i class="fa-solid fa-chalkboard-user"></i> Directorio de Docentes</h2>
-                <p>Información de contacto y perfil de los profesores.</p>
-            </div>
-            <div id="docentes-grid" class="grid-container">
-            </div>
-        </section>
-        <!-- Sección de Estudiantes: Nueva sección -->
-        <section id="estudiantes" class="section-content" style="display: none;">
-            <div class="header-section">
-                <h2><i class="fa-solid fa-user-graduate"></i> Lista de Estudiantes</h2>
-                <p>Estudiantes registrados en la especialidad de comunicación VII.</p>
-            </div>
-            <div id="estudiantes-grid" class="grid-container">
-            </div>
-        </section>
-    </main>
-    <footer>
-        <p>&copy; 2025 EduSpace Plataforma Académica - Todos los derechos reservados.</p>
-    </footer>
 
-    <!-- Modal para ampliar foto de perfil -->
+                <div id="recursosSubMenu" class="recursos-submenu" style="display: none;">
+                    <button class="submenu-btn active" onclick="filterRecursosType('Documentos')">
+                        <i class="fa-solid fa-file-lines"></i> Documentos
+                    </button>
+                    <button class="submenu-btn" onclick="filterRecursosType('Videos')">
+                        <i class="fa-solid fa-video"></i> Videos
+                    </button>
+                    <button class="submenu-btn" onclick="filterRecursosType('Imágenes')">
+                        <i class="fa-solid fa-image"></i> Imágenes
+                    </button>
+                </div>
+
+                <div class="recursos-list">
+                    <div id="recursos-container" class="recursos-grid"></div>
+                </div>
+            </section>
+
+            <!-- Sección de Docentes -->
+            <section id="docentes" class="section-content" style="display: none;">
+                <div class="header-section">
+                    <h2><i class="fa-solid fa-chalkboard-user"></i> Directorio de Docentes</h2>
+                    <p>Información de contacto y perfil de los profesores.</p>
+                </div>
+                <div id="docentes-grid" class="grid-container"></div>
+            </section>
+
+            <!-- Sección de Estudiantes -->
+            <section id="estudiantes" class="section-content" style="display: none;">
+    <div class="header-section header-with-button">
+        <div class="header-text-estudiantes">
+            <h2><i class="fa-solid fa-user-graduate"></i> Registro de Estudiantes</h2>
+            <p>Únete a la comunidad de estudiantes de Comunicación VII.</p>
+        </div>
+        
+        <button id="btn-registrarme" class="btn-registrarme" onclick="openRegistroModal()">
+            <i class="fa-solid fa-user-plus"></i> Registrarme
+        </button>
+    </div>
+    
+    <div id="estudiantes-grid" class="grid-container">
+                    <div class="loading-estudiantes" id="loading-estudiantes">
+                        <i class="fa-solid fa-spinner fa-spin"></i>
+                        <p>Cargando estudiantes...</p>
+                    </div>
+                </div>
+            </section>
+        </main>
+
+        <footer>
+            <p>© 2025 EduSpace Plataforma Académica - Todos los derechos reservados.</p>
+        </footer>
+    </div>
+
+    <!-- ========================================
+         MODALES (FUERA DE MAIN-CONTENT)
+         ======================================== -->
+    
+    <!-- Modal Perfil -->
     <div id="profileModal" class="modal">
         <div class="modal-content">
-            <span class="close-modal" onclick="closeProfileModal()">&times;</span>
+            <span class="close-modal" onclick="closeProfileModal()">×</span>
             <img id="modalProfileImage" src="" alt="Foto de perfil">
             <div id="modalProfileInfo" class="modal-profile-info"></div>
         </div>
     </div>
 
-    <!-- Modal para detalles del trabajo -->
+    <!-- Modal Detalles -->
     <div id="detailsModal" class="modal">
         <div class="modal-content-details">
             <div class="modal-header-details">
                 <h2 id="detailsTitle"><i class="fa-solid fa-file-lines"></i> Detalles del Trabajo</h2>
-                <span class="close-modal" onclick="closeDetailsModal()">&times;</span>
+                <span class="close-modal" onclick="closeDetailsModal()">×</span>
             </div>
             <div class="modal-body-details">
                 <div class="detail-section">
@@ -210,17 +315,15 @@
         </div>
     </div>
 
-    <!-- Modal para visualizar archivos -->
+    <!-- Modal Visor -->
     <div id="fileViewerModal" class="modal">
         <div class="modal-content-viewer">
             <div class="modal-header-viewer">
                 <h2 id="viewerTitle"><i class="fa-solid fa-eye"></i> Vista Previa del Archivo</h2>
-                <span class="close-modal" onclick="closeFileViewerModal()">&times;</span>
+                <span class="close-modal" onclick="closeFileViewerModal()">×</span>
             </div>
             <div class="modal-body-viewer">
-                <div id="fileViewerContent" class="file-viewer-content">
-                    <!-- Skeleton loader will be injected here -->
-                </div>
+                <div id="fileViewerContent" class="file-viewer-content"></div>
                 <div class="viewer-controls">
                     <button class="viewer-control-btn" onclick="openFullscreen()" title="Pantalla completa">
                         <i class="fa-solid fa-expand"></i>
@@ -230,12 +333,12 @@
         </div>
     </div>
 
-    <!-- Modal de confirmación para marcar como cumplido -->
+    <!-- Modal Completado -->
     <div id="completedModal" class="modal">
         <div class="modal-content-completed">
             <div class="modal-header-completed">
                 <h2><i class="fa-solid fa-check-circle"></i> Confirmar Finalización</h2>
-                <span class="close-modal" onclick="closeCompletedModal()">&times;</span>
+                <span class="close-modal" onclick="closeCompletedModal()">×</span>
             </div>
             <div class="modal-body-completed">
                 <div class="completed-message">
@@ -254,10 +357,95 @@
         </div>
     </div>
 
- <!-- Firebase SDK -->
-<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-database-compat.js"></script>
-<!-- Tu script -->
-<script src="script.js"></script>
+    <!-- Modal Registro Estudiante -->
+    <div id="registroModal" class="modal">
+        <div class="modal-content-registro">
+            <span class="close-modal" onclick="closeRegistroModal()">×</span>
+            
+            <div class="registro-modal-body">
+                <div class="registro-imagen-container">
+                    <img src="https://res.cloudinary.com/dwzwa3gp0/image/upload/v1771094272/BackgroundEraser_20260214_132959021_rfzi5a.png" 
+                         alt="Registro Estudiante" 
+                         class="registro-imagen-decorativa">
+                </div>
+                
+                <div class="registro-form-container">
+                    <h2><i class="fa-solid fa-user-graduate"></i> Registro de Estudiante</h2>
+                    
+                    <div class="terminos-container">
+                        <div class="terminos-scroll">
+                            <h3>📋 Términos y Condiciones</h3>
+                            <p><strong>Al registrarte en CloudDesk, aceptas lo siguiente:</strong></p>
+                            <ul>
+                                <li>✓ Compartir tu <strong>nombre completo</strong> y <strong>fotografía de perfil</strong> con la comunidad educativa.</li>
+                                <li>✓ Tus datos serán <strong>visibles públicamente</strong> para todos los usuarios de la plataforma.</li>
+                                <li>✓ CloudDesk <strong>no se responsabiliza</strong> por el uso indebido de la información compartida por terceros.</li>
+                                <li>✓ Garantizamos el <strong>almacenamiento seguro</strong> de tus datos en servidores certificados (Supabase + Cloudinary).</li>
+                                <li>✓ Puedes solicitar la <strong>eliminación de tus datos</strong> contactando al administrador del sistema.</li>
+                                <li>✓ Tu foto será procesada y almacenada en <strong>Cloudinary</strong>, cumpliendo con estándares de privacidad internacionales.</li>
+                                <li>✓ No compartiremos tus datos con terceros sin tu consentimiento explícito.</li>
+                            </ul>
+                            <p class="terminos-footer">
+                                <i class="fa-solid fa-shield-halved"></i> 
+                                <strong>Política de Privacidad:</strong> Tus datos están protegidos bajo encriptación SSL/TLS.
+                            </p>
+                        </div>
+                        
+                        <label class="checkbox-container">
+                            <input type="checkbox" id="aceptoTerminos">
+                            <span class="checkmark"></span>
+                            <span class="checkbox-label">He leído y acepto los términos y condiciones</span>
+                        </label>
+                    </div>
+                    
+                    <div id="form-registro" class="form-registro" style="display: none;">
+                        <div class="form-group">
+                            <label for="nombreCompleto">
+                                <i class="fa-solid fa-user"></i> Nombre Completo
+                            </label>
+                            <input type="text" 
+                                   id="nombreCompleto" 
+                                   placeholder="Ej: María González Pérez"
+                                   maxlength="100">
+                        </div>
+                        
+                        <div class="form-group">
+                            <label>
+                                <i class="fa-solid fa-camera"></i> Foto de Perfil
+                            </label>
+                            <div class="upload-area" id="uploadArea">
+                                <input type="file" 
+                                       id="fotoInput" 
+                                       accept="image/*" 
+                                       style="display: none;"
+                                       onchange="previewImage(event)">
+                                <div id="uploadPlaceholder" class="upload-placeholder">
+                                    <i class="fa-solid fa-cloud-upload-alt"></i>
+                                    <p>Haz clic para seleccionar una foto</p>
+                                    <span>JPG, PNG o GIF • Máx. 5MB</span>
+                                </div>
+                                <div id="imagePreview" class="image-preview" style="display: none;">
+                                    <img id="previewImg" src="" alt="Vista previa">
+                                    <button type="button" class="btn-change-photo" onclick="document.getElementById('fotoInput').click()">
+                                        <i class="fa-solid fa-exchange-alt"></i> Cambiar foto
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <button id="btnRegistrar" class="btn-registrar" onclick="registrarEstudiante()">
+                            <i class="fa-solid fa-check-circle"></i> Registrarme Ahora
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Scripts -->
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-database-compat.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+    <script src="script.js"></script>
 </body>
 </html>
