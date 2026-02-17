@@ -1,7 +1,6 @@
 // ============================================
 // CONFIGURACIÓN DE FIREBASE
 // ============================================
-// ⚠️ REEMPLAZA CON TUS DATOS DE FIREBASE
 const firebaseConfig = {
  apiKey: "AIzaSyBKiq_t-gZj_l1Bzj9Y1Jpft03b60pyyuQ",
   authDomain: "eduspace-auth-d7577.firebaseapp.com",
@@ -11,7 +10,6 @@ const firebaseConfig = {
   messagingSenderId: "49398558176",
   appId: "1:49398558176:web:e1c5f750543d5a4d6b4f85"
 };
-
 
 // Inicializar Firebase
 firebase.initializeApp(firebaseConfig);
@@ -41,7 +39,6 @@ function generateDeviceFingerprint() {
         touchSupport: 'ontouchstart' in window
     };
     
-    // Generar hash simple pero efectivo
     const jsonString = JSON.stringify(data);
     let hash = 0;
     for (let i = 0; i < jsonString.length; i++) {
@@ -56,21 +53,49 @@ function generateDeviceFingerprint() {
 function getDeviceType() {
     const userAgent = navigator.userAgent.toLowerCase();
     
-    // Detectar tablets
     if (/(tablet|ipad|playbook|silk)|(android(?!.*mobi))/i.test(userAgent)) {
-        return 'mobile'; // Tablets cuentan como mobile
+        return 'mobile';
     }
     
-    // Detectar móviles
     if (/mobile|iphone|ipod|blackberry|opera mini|iemobile|wpdesktop|android.*mobile/i.test(userAgent)) {
         return 'mobile';
     }
     
-    // Todo lo demás es desktop
     return 'desktop';
 }
 
 // ============================================
+// FUNCIONES DE GESTIÓN DE ESTADO UI
+// ============================================
+function showConnectionLoader() {
+    const loader = document.getElementById('connectionLoader');
+    if (loader) {
+        loader.style.display = 'flex';
+    }
+}
+
+function hideConnectionLoader() {
+    const loader = document.getElementById('connectionLoader');
+    if (loader) {
+        loader.style.display = 'none';
+    }
+}
+
+function showAuthModal() {
+    const authModal = document.getElementById('authModal');
+    if (authModal) {
+        authModal.style.display = 'flex';
+    }
+}
+
+function hideAuthModal() {
+    const authModal = document.getElementById('authModal');
+    if (authModal) {
+        authModal.style.display = 'none';
+    }
+}
+
+// ============================================  
 // VERIFICAR SI CÓDIGO EXISTE EN FIREBASE
 // ============================================
 async function codigoExisteEnFirebase(codigo) {
@@ -96,7 +121,6 @@ async function validateAuthWithFirebase() {
         const parsed = JSON.parse(authData);
         const { codigo, deviceFingerprint, userName } = parsed;
         
-        // Verificar si el código existe en Firebase
         const codigoRef = database.ref(`codigos/${codigo}`);
         const snapshot = await codigoRef.once('value');
         const codigoData = snapshot.val();
@@ -107,34 +131,28 @@ async function validateAuthWithFirebase() {
             return false;
         }
         
-        // ⭐ VERIFICAR SI EL CÓDIGO ESTÁ BLOQUEADO
         if (codigoData.bloqueado === true) {
             localStorage.removeItem('eduspace_auth');
             const motivoBloqueo = codigoData.motivoBloqueo || 'Tu acceso ha sido bloqueado por el administrador.';
             showAuthError(`🚫 ACCESO BLOQUEADO: ${motivoBloqueo}`);
             return false;
         }
-      
         
-        // Verificar si este fingerprint está registrado
         const dispositivos = codigoData.dispositivos || {};
         const dispositivoRegistrado = Object.keys(dispositivos).find(
             key => dispositivos[key].fingerprint === deviceFingerprint
         );
         
         if (!dispositivoRegistrado) {
-            // Este dispositivo no está registrado con este código
             localStorage.removeItem('eduspace_auth');
             showAuthError('Sesión inválida. Este dispositivo no está autorizado para este código.');
             return false;
         }
         
-        // Actualizar último acceso
         const updates = {};
         updates[`codigos/${codigo}/dispositivos/${dispositivoRegistrado}/ultimoAcceso`] = new Date().toISOString();
         await database.ref().update(updates);
         
-        // Mostrar mensaje especial si es código 6578hy
         if (codigo === '6578hy') {
             showSpecialUserMessage();
         }
@@ -175,11 +193,9 @@ async function handleAuthSubmit() {
     const errorDiv = document.getElementById('authError');
     const submitBtn = document.getElementById('authSubmit');
     
-    // Limpiar error previo
     errorDiv.style.display = 'none';
     errorDiv.textContent = '';
     
-    // Validar campos vacíos
     if (!userName) {
         errorDiv.textContent = 'Por favor, ingresa tu nombre.';
         errorDiv.style.display = 'block';
@@ -192,12 +208,10 @@ async function handleAuthSubmit() {
         return;
     }
     
-    // Deshabilitar botón durante la validación
     submitBtn.disabled = true;
     submitBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Validando...';
     
     try {
-        // ⭐ VERIFICAR SI EL CÓDIGO EXISTE EN FIREBASE (SIN CÓDIGOS HARDCODEADOS)
         const codigoExiste = await codigoExisteEnFirebase(codigo);
         
         if (!codigoExiste) {
@@ -208,16 +222,13 @@ async function handleAuthSubmit() {
             return;
         }
         
-        // Generar fingerprint del dispositivo
         const deviceFingerprint = generateDeviceFingerprint();
         const deviceType = getDeviceType();
         
-        // Referencia al código en Firebase
         const codigoRef = database.ref(`codigos/${codigo}`);
         const snapshot = await codigoRef.once('value');
         const codigoData = snapshot.val();
         
-        // ⭐ VERIFICAR SI EL CÓDIGO ESTÁ BLOQUEADO
         if (codigoData.bloqueado === true) {
             const motivoBloqueo = codigoData.motivoBloqueo || 'Tu acceso ha sido bloqueado por el administrador.';
             errorDiv.textContent = `🚫 ACCESO BLOQUEADO: ${motivoBloqueo}`;
@@ -229,13 +240,11 @@ async function handleAuthSubmit() {
         
         const dispositivos = codigoData.dispositivos || {};
         
-        // Verificar si este dispositivo ya está registrado
         const dispositivoExistente = Object.keys(dispositivos).find(
             key => dispositivos[key].fingerprint === deviceFingerprint
         );
         
         if (dispositivoExistente) {
-            // Dispositivo ya registrado, permitir acceso
             const updates = {};
             updates[`codigos/${codigo}/dispositivos/${dispositivoExistente}/usuario`] = userName;
             updates[`codigos/${codigo}/dispositivos/${dispositivoExistente}/ultimoAcceso`] = new Date().toISOString();
@@ -250,20 +259,20 @@ async function handleAuthSubmit() {
             };
             localStorage.setItem('eduspace_auth', JSON.stringify(authData));
             
-            document.getElementById('authModal').style.display = 'none';
+            hideAuthModal();
             if (codigo === '6578hy') {
                 showSpecialUserMessage();
             }
+            
+            iniciarListenerBloqueo();
             
             submitBtn.disabled = false;
             submitBtn.innerHTML = '<i class="fa-solid fa-sign-in-alt"></i> Ingresar';
             return;
         }
         
-        // ⭐ NUEVO DISPOSITIVO - VALIDAR TIPO Y CANTIDAD
         const { mobile, desktop } = contarDispositivosPorTipo(dispositivos);
         
-        // Validar límite por tipo de dispositivo
         if (deviceType === 'mobile' && mobile >= 1) {
             errorDiv.textContent = '📱 Este código ya está en uso en 1 dispositivo móvil. Solo se permite 1 móvil por código.';
             errorDiv.style.display = 'block';
@@ -280,7 +289,6 @@ async function handleAuthSubmit() {
             return;
         }
         
-        // Verificar que no se excedan los 2 dispositivos totales
         const totalDispositivos = Object.keys(dispositivos).length;
         if (totalDispositivos >= 2) {
             errorDiv.textContent = '⚠️ Este código ya alcanzó el límite de 2 dispositivos (1 móvil + 1 PC).';
@@ -290,7 +298,6 @@ async function handleAuthSubmit() {
             return;
         }
         
-        // Registrar nuevo dispositivo
         const dispositivoId = `device_${Date.now()}`;
         const updates = {};
         updates[`codigos/${codigo}/dispositivos/${dispositivoId}`] = {
@@ -301,7 +308,6 @@ async function handleAuthSubmit() {
             ultimoAcceso: new Date().toISOString()
         };
         
-        // Actualizar contador de usos restantes
         const usosRestantes = Math.max(0, 2 - (totalDispositivos + 1));
         updates[`codigos/${codigo}/usosRestantes`] = usosRestantes;
         
@@ -311,7 +317,6 @@ async function handleAuthSubmit() {
         
         await database.ref().update(updates);
         
-        // Guardar autenticación local
         const authData = {
             userName,
             codigo,
@@ -321,11 +326,12 @@ async function handleAuthSubmit() {
         };
         localStorage.setItem('eduspace_auth', JSON.stringify(authData));
         
-        // Éxito
-        document.getElementById('authModal').style.display = 'none';
+        hideAuthModal();
         if (codigo === '6578hy') {
             showSpecialUserMessage();
         }
+        
+        iniciarListenerBloqueo();
         
         submitBtn.disabled = false;
         submitBtn.innerHTML = '<i class="fa-solid fa-sign-in-alt"></i> Ingresar';
@@ -362,44 +368,167 @@ function hideSpecialUserMessage() {
 }
 
 // ============================================
-// INICIALIZACIÓN
+// INICIALIZACIÓN CON ESTADO DE CONEXIÓN
 // ============================================
 document.addEventListener('DOMContentLoaded', async () => {
-    const isAuthenticated = await validateAuthWithFirebase();
+    showConnectionLoader();
     
-    if (!isAuthenticated) {
-        // Mostrar modal de autenticación
-        document.getElementById('authModal').style.display = 'flex';
+    await new Promise(resolve => setTimeout(resolve, 300));
+    
+    try {
+        const isAuthenticated = await validateAuthWithFirebase();
         
-        // Event listeners
-        document.getElementById('authSubmit').addEventListener('click', handleAuthSubmit);
+        hideConnectionLoader();
         
-        document.getElementById('authUserName').addEventListener('keypress', (e) => {
-            if (e.key === 'Enter') {
-                handleAuthSubmit();
-            }
-        });
+        if (!isAuthenticated) {
+            showAuthModal();
+            
+            document.getElementById('authSubmit').addEventListener('click', handleAuthSubmit);
+            
+            document.getElementById('authUserName').addEventListener('keypress', (e) => {
+                if (e.key === 'Enter') {
+                    handleAuthSubmit();
+                }
+            });
+            
+            document.getElementById('authCode').addEventListener('keypress', (e) => {
+                if (e.key === 'Enter') {
+                    handleAuthSubmit();
+                }
+            });
+        } else {
+            hideAuthModal();
+            iniciarListenerBloqueo();
+        }
         
-        document.getElementById('authCode').addEventListener('keypress', (e) => {
-            if (e.key === 'Enter') {
-                handleAuthSubmit();
-            }
-        });
-    } else {
-        // Usuario autenticado
-        document.getElementById('authModal').style.display = 'none';
+        updatePendingBadge();
+        switchTab('repositorio');
+        
+    } catch (error) {
+        console.error('Error en inicialización:', error);
+        hideConnectionLoader();
+        showAuthModal();
     }
-    
-    // Continuar con inicialización normal
-    updatePendingBadge();
-    switchTab('repositorio');
 });
 
 // ============================================
-// RESTO DEL CÓDIGO ORIGINAL
+// LISTENER DE BLOQUEO EN TIEMPO REAL
+// ============================================
+let bloqueoListener = null;
+
+function iniciarListenerBloqueo() {
+    const authData = localStorage.getItem('eduspace_auth');
+    
+    if (!authData) return;
+    
+    try {
+        const parsed = JSON.parse(authData);
+        const { codigo } = parsed;
+        
+        if (bloqueoListener) {
+            database.ref(`codigos/${codigo}/bloqueado`).off('value', bloqueoListener);
+        }
+        
+        bloqueoListener = database.ref(`codigos/${codigo}/bloqueado`).on('value', (snapshot) => {
+            const estaBloqueado = snapshot.val();
+            
+            if (estaBloqueado === true) {
+                database.ref(`codigos/${codigo}/motivoBloqueo`).once('value', (motivoSnapshot) => {
+                    const motivo = motivoSnapshot.val() || 'Tu acceso ha sido bloqueado por el administrador.';
+                    
+                    showAuthModal();
+                    
+                    const errorDiv = document.getElementById('authError');
+                    errorDiv.textContent = `🚫 ACCESO BLOQUEADO: ${motivo}`;
+                    errorDiv.style.display = 'block';
+                    
+                    hideSpecialUserMessage();
+                    
+                    document.getElementById('authSubmit').disabled = true;
+                    document.getElementById('authSubmit').innerHTML = '<i class="fa-solid fa-ban"></i> Acceso Bloqueado';
+                });
+                
+            } else if (estaBloqueado === false) {
+                const authData = localStorage.getItem('eduspace_auth');
+                
+                if (authData) {
+                    validateAuthWithFirebase().then(isValid => {
+                        if (isValid) {
+                            hideAuthModal();
+                            
+                            const errorDiv = document.getElementById('authError');
+                            errorDiv.textContent = '';
+                            errorDiv.style.display = 'none';
+                            
+                            document.getElementById('authSubmit').disabled = false;
+                            document.getElementById('authSubmit').innerHTML = '<i class="fa-solid fa-sign-in-alt"></i> Ingresar';
+                            
+                            const parsed = JSON.parse(authData);
+                            if (parsed.codigo === '6578hy') {
+                                showSpecialUserMessage();
+                            }
+                            
+                            mostrarNotificacionDesbloqueo();
+                        }
+                    });
+                }
+            }
+        });
+        
+    } catch (e) {
+        console.error('Error iniciando listener de bloqueo:', e);
+    }
+}
+
+function mostrarNotificacionDesbloqueo() {
+    const notif = document.createElement('div');
+    notif.style.cssText = `
+        position: fixed;
+        top: 20px;
+        right: 20px;
+        background: linear-gradient(135deg, #10b981, #0d9668);
+        color: white;
+        padding: 1rem 1.5rem;
+        border-radius: 12px;
+        box-shadow: 0 4px 15px rgba(16, 185, 129, 0.4);
+        display: flex;
+        align-items: center;
+        gap: 10px;
+        font-weight: 600;
+        z-index: 9999;
+        animation: slideInRight 0.5s ease;
+    `;
+    notif.innerHTML = `
+        <i class="fa-solid fa-check-circle" style="font-size: 1.5rem;"></i>
+        <span>Tu acceso ha sido restaurado</span>
+    `;
+    
+    document.body.appendChild(notif);
+    
+    setTimeout(() => {
+        notif.style.animation = 'slideOutRight 0.5s ease';
+        setTimeout(() => notif.remove(), 500);
+    }, 5000);
+}
+
+window.addEventListener('beforeunload', () => {
+    const authData = localStorage.getItem('eduspace_auth');
+    
+    if (authData && bloqueoListener) {
+        try {
+            const parsed = JSON.parse(authData);
+            const { codigo } = parsed;
+            database.ref(`codigos/${codigo}/bloqueado`).off('value', bloqueoListener);
+        } catch (e) {
+            console.error('Error limpiando listener:', e);
+        }
+    }
+});
+
+// ============================================
+// BASE DE DATOS
 // ============================================
 
-// Base de datos de profesores con fotos y teléfonos
 const teachersDB = {
     "Prof. Alejandro Ruiz": {
         name: "Prof. Alejandro Ruiz",
@@ -410,7 +539,7 @@ const teachersDB = {
     },
     "Dra. María González": {
         name: "Dra. María González",
-        title: "Doctora en  Biológicas",
+        title: "Doctora en Biológicas",
         photo: "https://i.pravatar.cc/150?img=12",
         email: "alejandro.ruiz@eduspace.com",
         phone: "+51 987 654 321"
@@ -429,28 +558,310 @@ const teachersDB = {
         email: "alejandro.ruiz@eduspace.com",
         phone: "+51 987 654 321"
     }
-  
-  
 };
 
-// Base de datos de estudiantes
-const studentsDB = [
-    { id: 1, name: "Ana María López", photo: "https://i.pravatar.cc/150?img=1", code: "EST-2025-001" },
-    { id: 2, name: "Carlos Mendoza", photo: "https://i.pravatar.cc/150?img=13", code: "EST-2025-002" },
-    { id: 3, name: "Diana Flores", photo: "https://i.pravatar.cc/150?img=5", code: "EST-2025-003" },
-    { id: 4, name: "Eduardo Ramírez", photo: "https://i.pravatar.cc/150?img=15", code: "EST-2025-004" },
-    { id: 5, name: "Fernanda Castro", photo: "https://i.pravatar.cc/150?img=9", code: "EST-2025-005" },
-    { id: 6, name: "Gabriel Torres", photo: "https://i.pravatar.cc/150?img=17", code: "EST-2025-006" },
-    { id: 7, name: "Helena Vargas", photo: "https://i.pravatar.cc/150?img=10", code: "EST-2025-007" },
-    { id: 8, name: "Ignacio Rojas", photo: "https://i.pravatar.cc/150?img=18", code: "EST-2025-008" },
-    { id: 9, name: "Julia Morales", photo: "https://i.pravatar.cc/150?img=23", code: "EST-2025-009" },
-    { id: 10, name: "Kevin Sánchez", photo: "https://i.pravatar.cc/150?img=20", code: "EST-2025-010" },
-    { id: 11, name: "Laura Gutiérrez", photo: "https://i.pravatar.cc/150?img=24", code: "EST-2025-011" },
-    { id: 12, name: "Miguel Herrera", photo: "https://i.pravatar.cc/150?img=21", code: "EST-2025-012" }
+
+
+const filesDB = [
+    {
+        id: 1,
+        title: "Guía de Álgebra Avanzada",
+        area: "Matemáticas",
+        teacher: "Prof. Alejandro Ruiz",
+        date: "2025-05-10",
+        type: "PDF",
+        urlView: "https://docs.google.com/document/d/1u223FM_asu6nkbkHdYPc48QyOMow7sDH/edit?usp=drive_link&ouid=110125860748103327612&rtpof=true&sd=true",
+        urlDownload: "https://res.cloudinary.com/dwzwa3gp0/raw/upload/v1766695102/D%C3%89FICIT_DE_PROYECTO_DE_INVESTIGACI%C3%93N_mxcrj4.docx"
+    },
+    {
+        id: 2,
+        title: "La Célula y sus partes",
+        area: "Ciencias",
+        teacher: "Dra. María González",
+        date: "2025-05-12",
+        type: "PPTX",
+        urlView: "https://docs.google.com/presentation/d/1234567890/preview",
+        urlDownload: "https://docs.google.com/presentation/d/1234567890/export/pptx"
+    },
+    {
+        id: 3,
+        title: "Ensayo: Realismo Mágico",
+        area: "Literatura",
+        teacher: "Lic. Carlos Fuentes",
+        date: "2025-05-14",
+        type: "DOCX",
+        urlView: "https://docs.google.com/document/d/1234567890/preview",
+        urlDownload: "https://docs.google.com/document/d/1234567890/export?format=docx"
+    },
+    {
+        id: 4,
+        title: "Revolución Industrial",
+        area: "Historia",
+        teacher: "Prof. Diana Prince",
+        date: "2025-05-15",
+        type: "PDF",
+        urlView: "https://drive.google.com/file/d/1234567890/preview",
+        urlDownload: "https://drive.google.com/uc?export=download&id=1234567890"
+    },
+    {
+        id: 5,
+        title: "Ejercicios de Trigonometría",
+        area: "Matemáticas",
+        teacher: "Prof. Alejandro Ruiz",
+        date: "2025-05-18",
+        type: "PDF",
+        urlView: "https://drive.google.com/file/d/0987654321/preview",
+        urlDownload: "https://drive.google.com/uc?export=download&id=0987654321"
+    }
+];
+
+const assignmentsDB = [
+    {
+        id: 101,
+        task: "Informe de Laboratorio #3",
+        teacher: "Dra. María González",
+        deadline: "2025-05-25",
+        status: "Pendiente",
+        description: "Realizar un informe completo sobre el experimento de fotosíntesis realizado en clase. El informe debe incluir introducción, metodología, resultados, análisis y conclusiones. Se espera un trabajo detallado que demuestre comprensión del proceso científico.",
+        requirements: [
+            "Mínimo 5 páginas, máximo 8 páginas",
+            "Incluir gráficos y tablas de los datos obtenidos",
+            "Referencias bibliográficas en formato APA",
+            "Análisis crítico de los resultados",
+            "Conclusiones basadas en evidencia científica"
+        ],
+        attachments: [
+            {
+                name: "Guía del Informe.pdf",
+                size: "245 KB",
+                type: "PDF",
+                downloadUrl: "enlace de google drive"
+            },
+            {
+                name: "Datos del Experimento.xlsx",
+                size: "128 KB",
+                type: "Excel",
+                downloadUrl: "enlace desde google drive"
+            }
+        ]
+    },
+    {
+        id: 102,
+        task: "Análisis de 'Cien Años de Soledad'",
+        teacher: "Lic. Carlos Fuentes",
+        deadline: "2025-05-20",
+        status: "Pendiente",
+        description: "Realizar un análisis literario profundo de la obra 'Cien Años de Soledad' de Gabriel García Márquez. El análisis debe cubrir los temas principales, el uso del realismo mágico, la estructura narrativa y el contexto histórico-social de la obra.",
+        requirements: [
+            "Ensayo de 6-8 páginas",
+            "Análisis de al menos 3 personajes principales",
+            "Identificación de elementos del realismo mágico",
+            "Contexto histórico y social de la obra",
+            "Citas textuales debidamente referenciadas"
+        ],
+        attachments: [
+            {
+                name: "Rúbrica de Evaluación.pdf",
+                size: "156 KB",
+                type: "PDF",
+                downloadUrl: "enlace de google drive"
+            },
+            {
+                name: "Ejemplos de Análisis.docx",
+                size: "89 KB",
+                type: "Word",
+                downloadUrl: "enlace desde github"
+            }
+        ]
+    },
+    {
+        id: 103,
+        task: "Línea de tiempo S.XIX",
+        teacher: "Prof. Diana Prince",
+        deadline: "2025-05-10",
+        status: "Pendiente",
+        description: "Crear una línea de tiempo interactiva que muestre los eventos más importantes del siglo XIX a nivel mundial. La línea debe incluir eventos políticos, sociales, culturales y tecnológicos, con imágenes y descripciones breves de cada acontecimiento.",
+        requirements: [
+            "Mínimo 20 eventos históricos relevantes",
+            "Incluir imágenes representativas de cada evento",
+            "Descripción de 50-100 palabras por evento",
+            "Formato digital (PowerPoint, Prezi o similar)",
+            "Presentación visual atractiva y organizada"
+        ],
+        attachments: [
+            {
+                name: "Plantilla Línea de Tiempo.pptx",
+                size: "512 KB",
+                type: "PowerPoint",
+                downloadUrl: "enlace de google drive"
+            },
+            {
+                name: "Lista de Eventos Sugeridos.pdf",
+                size: "198 KB",
+                type: "PDF",
+                downloadUrl: "enlace desde github"
+            }
+        ]
+    }
 ];
 
 
-// Referencias al DOM
+// ============================================
+// NUEVA BASE DE DATOS DE RECURSOS MEJORADA
+// ============================================
+const recursosDB = {
+    Materiales: {
+        Documentos: [
+            {
+                id: 'mat-doc-1',
+                title: "Manual de Redacción Periodística",
+                description: "Guía completa sobre técnicas de redacción para medios de comunicación",
+                type: "PDF",
+                coverImage: "https://via.placeholder.com/400x250/3b82f6/ffffff?text=Manual+Redaccion",
+                urlView: "https://drive.google.com/file/d/EJEMPLO1/preview",
+                urlDownload: "https://drive.google.com/uc?export=download&id=EJEMPLO1"
+            },
+            {
+                id: 'mat-doc-2',
+                title: "Teorías de la Comunicación",
+                description: "Documento académico sobre las principales teorías comunicativas",
+                type: "PDF",
+                coverImage: "https://via.placeholder.com/400x250/2563eb/ffffff?text=Teorias+Comunicacion",
+                urlView: "https://drive.google.com/file/d/EJEMPLO2/preview",
+                urlDownload: "https://drive.google.com/uc?export=download&id=EJEMPLO2"
+            },
+            {
+                id: 'mat-doc-3',
+                title: "Teorías de la Comunicación",
+                description: "Documento académico sobre las principales teorías comunicativas",
+                type: "PDF",
+                coverImage: "https://via.placeholder.com/400x250/2563eb/ffffff?text=Teorias+Comunicacion",
+                urlView: "https://drive.google.com/file/d/EJEMPLO2/preview",
+                urlDownload: "https://drive.google.com/uc?export=download&id=EJEMPLO2"
+            }
+        ],
+        Videos: [
+            {
+                id: 'mat-vid-1',
+                title: "Introducción a la Comunicación Digital",
+                description: "Video tutorial sobre fundamentos de comunicación en medios digitales",
+                type: "Video",
+                videoUrl: "https://www.youtube.com/embed/dQw4w9WgXcQ"
+            }
+        ],
+        Imágenes: [
+            {
+                id: 'mat-img-1',
+                title: "Infografía: Proceso Comunicativo",
+                description: "Representación visual del modelo de comunicación de Shannon y Weaver",
+                type: "Imagen",
+                imageUrl: "https://via.placeholder.com/600x400/10b981/ffffff?text=Proceso+Comunicativo"
+            }
+        ]
+    },
+    Cuentos: {
+        Documentos: [
+            {
+                id: 'cue-doc-1',
+                title: "Antología de Cuentos Latinoamericanos",
+                description: "Colección de cuentos clásicos de autores latinoamericanos",
+                type: "PDF",
+                coverImage: "https://via.placeholder.com/400x250/f59e0b/ffffff?text=Cuentos+Latinoamericanos",
+                urlView: "https://drive.google.com/file/d/EJEMPLO3/preview",
+                urlDownload: "https://drive.google.com/uc?export=download&id=EJEMPLO3"
+            }
+        ],
+        Videos: [
+          {
+                id: 'mat-vid-1',
+                title: "Introducción a la Comunicación Digital",
+                description: "Video tutorial sobre fundamentos de comunicación en medios digitales",
+                type: "Video",
+                videoUrl: "https://www.youtube.com/embed/dQw4w9WgXcQ"
+            }
+        ],
+        Imágenes: [
+           {
+                id: 'mat-img-1',
+                title: "Infografía: Proceso Comunicativo",
+                description: "Representación visual del modelo de comunicación de Shannon y Weaver",
+                type: "Imagen",
+                imageUrl: "https://res.cloudinary.com/dwzwa3gp0/image/upload/v1769784312/image_89_anqelh.jpg"
+            }
+        ]
+        
+    },
+    Historias: {
+        Documentos: [
+            {
+                id: 'his-doc-1',
+                title: "Historias de la Comunicación Peruana",
+                description: "Recopilación de historias sobre el desarrollo de los medios en Perú",
+                type: "DOCX",
+                coverImage: "https://via.placeholder.com/400x250/ef4444/ffffff?text=Historias+Peruanas",
+                urlView: "https://docs.google.com/document/d/EJEMPLO4/preview",
+                urlDownload: "https://docs.google.com/document/d/EJEMPLO4/export?format=docx"
+            }
+        ],
+        Videos: [],
+        Imágenes: []
+    },
+    Leyendas: {
+        Documentos: [
+            {
+                id: 'ley-doc-1',
+                title: "Leyendas Peruanas Ilustradas",
+                description: "Compilación de leyendas tradicionales del Perú con ilustraciones",
+                type: "PDF",
+                coverImage: "https://via.placeholder.com/400x250/8b5cf6/ffffff?text=Leyendas+Peruanas",
+                urlView: "https://drive.google.com/file/d/EJEMPLO5/preview",
+                urlDownload: "https://drive.google.com/uc?export=download&id=EJEMPLO5"
+            }
+        ],
+        Videos: [],
+        Imágenes: []
+    },
+    Poemas: {
+        Documentos: [
+            {
+                id: 'poe-doc-1',
+                title: "Poesía Contemporánea Peruana",
+                description: "Selección de poemas de autores peruanos contemporáneos",
+                type: "PDF",
+                coverImage: "https://via.placeholder.com/400x250/ec4899/ffffff?text=Poesia+Peruana",
+                urlView: "https://drive.google.com/file/d/EJEMPLO6/preview",
+                urlDownload: "https://drive.google.com/uc?export=download&id=EJEMPLO6"
+            }
+        ],
+        Videos: [],
+        Imágenes: []
+    },
+    Libros: [
+        {
+            id: 'lib-1',
+            title: "Comunicación Organizacional Moderna",
+            description: "Libro completo sobre estrategias de comunicación en organizaciones del siglo XXI",
+            type: "PDF",
+            coverImage: "https://via.placeholder.com/400x250/06b6d4/ffffff?text=Comunicacion+Organizacional",
+            urlView: "https://drive.google.com/file/d/EJEMPLO7/preview",
+            urlDownload: "https://drive.google.com/uc?export=download&id=EJEMPLO7"
+        },
+        {
+            id: 'lib-2',
+            title: "Semiótica y Análisis del Discurso",
+            description: "Texto académico sobre análisis semiótico aplicado a la comunicación",
+            type: "PDF",
+            coverImage: "https://via.placeholder.com/400x250/14b8a6/ffffff?text=Semiotica",
+            urlView: "https://drive.google.com/file/d/EJEMPLO8/preview",
+            urlDownload: "https://drive.google.com/uc?export=download&id=EJEMPLO8"
+        }
+    ]
+};
+
+// Variables globales
+let currentRecursosCategory = 'Materiales';
+let currentRecursosType = 'Documentos';
+
 const filesGrid = document.getElementById('files-grid');
 const assignmentsContainer = document.getElementById('assignments-container');
 const finalizadosContainer = document.getElementById('finalizados-container');
@@ -487,7 +898,6 @@ let currentAssignmentToComplete = null;
 let showingFinalizados = false;
 let fullscreenCloseBtn = null;
 
-// LocalStorage Management
 function getCompletedAssignments() {
     const completed = localStorage.getItem('completedAssignments');
     return completed ? JSON.parse(completed) : [];
@@ -521,7 +931,11 @@ function toggleSearch(section) {
         setTimeout(() => searchInput.focus(), 300);
     } else {
         searchInput.value = '';
-        searchFiles();
+        if (section === 'repositorio') {
+            searchFiles();
+        } else if (section === 'recursos') {
+            searchRecursos();
+        }
     }
 }
 
@@ -531,7 +945,7 @@ function updatePendingBadge() {
     
     if (pendingCount > 0) {
         badge.textContent = pendingCount;
-        badge.style.display = 'flex';
+        badge.style.display = 'flex'; // Cambiar de 'flex' a 'flex'
     } else {
         badge.style.display = 'none';
     }
@@ -572,49 +986,224 @@ function calculateRelevance(item, searchTerms, searchableFields) {
 }
 
 function searchFiles() {
-    let searchTerm = '';
-    
-    if (currentTab === 'repositorio') {
-        searchTerm = document.getElementById('searchInputRepositorio').value.toLowerCase().trim();
-    } else if (currentTab === 'recursos') {
-        searchTerm = document.getElementById('searchInputRecursos').value.toLowerCase().trim();
-    } else {
-        return;
-    }
+    let searchTerm = document.getElementById('searchInputRepositorio').value.toLowerCase().trim();
     
     if (searchTerm === '') {
-        if (currentTab === 'repositorio') {
-            renderFiles(currentFilter);
-        } else if (currentTab === 'recursos') {
-            renderRecursos();
-        }
+        renderFiles(currentFilter);
         return;
     }
     
     const searchTerms = normalizeText(searchTerm).split(/\s+/);
     
-    if (currentTab === 'repositorio') {
-        const filteredFiles = filesDB
-            .filter(file => currentFilter === 'all' || file.area === currentFilter)
-            .map(file => ({
-                ...file,
-                relevance: calculateRelevance(file, searchTerms, ['title', 'area', 'teacher'])
-            }))
-            .filter(file => file.relevance > 0)
-            .sort((a, b) => b.relevance - a.relevance);
-        
-        renderFilesArray(filteredFiles);
-    } else if (currentTab === 'recursos') {
-        const filteredRecursos = recursosDB
-            .map(recurso => ({
-                ...recurso,
-                relevance: calculateRelevance(recurso, searchTerms, ['title', 'description'])
-            }))
-            .filter(recurso => recurso.relevance > 0)
-            .sort((a, b) => b.relevance - a.relevance);
-        
-        renderRecursosArray(filteredRecursos);
+    const filteredFiles = filesDB
+        .filter(file => currentFilter === 'all' || file.area === currentFilter)
+        .map(file => ({
+            ...file,
+            relevance: calculateRelevance(file, searchTerms, ['title', 'area', 'teacher'])
+        }))
+        .filter(file => file.relevance > 0)
+        .sort((a, b) => b.relevance - a.relevance);
+    
+    renderFilesArray(filteredFiles);
+}
+
+// ============================================
+// NUEVAS FUNCIONES PARA RECURSOS
+// ============================================
+
+function filterRecursos(category) {
+    currentRecursosCategory = category;
+    currentRecursosType = 'Documentos';
+    
+    const buttons = document.querySelectorAll('.recursos-filter-btn');
+    buttons.forEach(btn => btn.classList.remove('active'));
+    event.target.closest('.recursos-filter-btn').classList.add('active');
+    
+    const subMenu = document.getElementById('recursosSubMenu');
+    if (category === 'Libros') {
+        subMenu.style.display = 'none';
+    } else {
+        subMenu.style.display = 'flex';
+        const subButtons = subMenu.querySelectorAll('.submenu-btn');
+        subButtons.forEach(btn => btn.classList.remove('active'));
+        subButtons[0].classList.add('active');
     }
+    
+    renderRecursosContent();
+}
+
+function toggleRecursosMenu(event, category) {
+    event.stopPropagation();
+    
+    const subMenu = document.getElementById('recursosSubMenu');
+    const isVisible = subMenu.style.display === 'flex';
+    
+    if (!isVisible) {
+        currentRecursosCategory = category;
+        currentRecursosType = 'Documentos';
+        
+        const buttons = document.querySelectorAll('.recursos-filter-btn');
+        buttons.forEach(btn => btn.classList.remove('active'));
+        event.target.closest('.recursos-filter-btn').classList.add('active');
+        
+        subMenu.style.display = 'flex';
+        const subButtons = subMenu.querySelectorAll('.submenu-btn');
+        subButtons.forEach(btn => btn.classList.remove('active'));
+        subButtons[0].classList.add('active');
+        
+        renderRecursosContent();
+    }
+}
+
+function filterRecursosType(type) {
+    currentRecursosType = type;
+    
+    const subButtons = document.querySelectorAll('.submenu-btn');
+    subButtons.forEach(btn => btn.classList.remove('active'));
+    event.target.classList.add('active');
+    
+    renderRecursosContent();
+}
+
+function renderRecursosContent() {
+    recursosContainer.innerHTML = '';
+    
+    let recursos = [];
+    
+    if (currentRecursosCategory === 'Libros') {
+        recursos = recursosDB.Libros;
+    } else {
+        const categoryData = recursosDB[currentRecursosCategory];
+        if (categoryData && categoryData[currentRecursosType]) {
+            recursos = categoryData[currentRecursosType];
+        }
+    }
+    
+    if (recursos.length === 0) {
+        recursosContainer.innerHTML = '<p style="grid-column: 1/-1; text-align: center; color: var(--text-muted); padding: 2rem;">No hay recursos disponibles en esta categoría.</p>';
+        return;
+    }
+    
+    recursos.forEach(recurso => {
+        if (recurso.type === 'Video') {
+            renderVideoCard(recurso);
+        } else if (recurso.type === 'Imagen') {
+            renderImageCard(recurso);
+        } else {
+            renderDocumentCard(recurso);
+        }
+    });
+}
+
+function renderDocumentCard(recurso) {
+    const card = document.createElement('div');
+    card.classList.add('recurso-card');
+    
+    let icon = 'fa-file-pdf';
+    if (recurso.type === 'DOCX' || recurso.type === 'DOC') icon = 'fa-file-word';
+    else if (recurso.type === 'PPTX' || recurso.type === 'PPT') icon = 'fa-file-powerpoint';
+    
+    card.innerHTML = `
+        <div class="recurso-cover">
+            ${recurso.coverImage ? `<img src="${recurso.coverImage}" alt="${recurso.title}">` : `<i class="fa-solid ${icon}"></i>`}
+        </div>
+        <div class="recurso-card-content">
+            <span class="recurso-card-type">${recurso.type}</span>
+            <h3 class="recurso-card-title">${recurso.title}</h3>
+            <p class="recurso-card-description">${recurso.description}</p>
+            <div class="recurso-card-actions">
+                <button onclick="viewFile('${recurso.urlView}')" class="btn btn-view">
+                    <i class="fa-regular fa-eye"></i> Ver
+                </button>
+                <a href="${recurso.urlDownload}" download class="btn btn-download">
+                    <i class="fa-solid fa-download"></i> Descargar
+                </a>
+            </div>
+        </div>
+    `;
+    
+    recursosContainer.appendChild(card);
+}
+
+function renderVideoCard(recurso) {
+    const card = document.createElement('div');
+    card.classList.add('recurso-multimedia-card');
+    
+    card.innerHTML = `
+        <div class="recurso-multimedia-content">
+            <iframe src="${recurso.videoUrl}" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
+        </div>
+        <div class="recurso-multimedia-description">
+            <h3 style="color: var(--text-light); margin-bottom: 0.5rem;">${recurso.title}</h3>
+            <p>${recurso.description}</p>
+        </div>
+    `;
+    
+    recursosContainer.appendChild(card);
+}
+
+function renderImageCard(recurso) {
+    const card = document.createElement('div');
+    card.classList.add('recurso-multimedia-card');
+    
+    card.innerHTML = `
+        <div class="recurso-multimedia-content">
+            <img src="${recurso.imageUrl}" alt="${recurso.title}">
+        </div>
+        <div class="recurso-multimedia-description">
+            <h3 style="color: var(--text-light); margin-bottom: 0.5rem;">${recurso.title}</h3>
+            <p>${recurso.description}</p>
+        </div>
+    `;
+    
+    recursosContainer.appendChild(card);
+}
+
+function searchRecursos() {
+    let searchTerm = document.getElementById('searchInputRecursos').value.toLowerCase().trim();
+    
+    if (searchTerm === '') {
+        renderRecursosContent();
+        return;
+    }
+    
+    const searchTerms = normalizeText(searchTerm).split(/\s+/);
+    let allRecursos = [];
+    
+    Object.keys(recursosDB).forEach(category => {
+        if (category === 'Libros') {
+            allRecursos = allRecursos.concat(recursosDB[category].map(r => ({...r, category})));
+        } else {
+            Object.keys(recursosDB[category]).forEach(type => {
+                allRecursos = allRecursos.concat(recursosDB[category][type].map(r => ({...r, category, type})));
+            });
+        }
+    });
+    
+    const filteredRecursos = allRecursos
+        .map(recurso => ({
+            ...recurso,
+            relevance: calculateRelevance(recurso, searchTerms, ['title', 'description'])
+        }))
+        .filter(recurso => recurso.relevance > 0)
+        .sort((a, b) => b.relevance - a.relevance);
+    
+    recursosContainer.innerHTML = '';
+    
+    if (filteredRecursos.length === 0) {
+        recursosContainer.innerHTML = '<p style="grid-column: 1/-1; text-align: center; color: var(--text-muted); padding: 2rem;">No se encontraron recursos.</p>';
+        return;
+    }
+    
+    filteredRecursos.forEach(recurso => {
+        if (recurso.type === 'Video') {
+            renderVideoCard(recurso);
+        } else if (recurso.type === 'Imagen') {
+            renderImageCard(recurso);
+        } else {
+            renderDocumentCard(recurso);
+        }
+    });
 }
 
 function renderFiles(filter = 'all') {
@@ -639,29 +1228,37 @@ function renderFilesArray(files) {
         const teacher = teachersDB[file.teacher];
         const card = document.createElement('div');
         card.classList.add('file-card');
+        
+        let iconClass = 'fa-file-pdf';
+        if (file.type === 'DOCX' || file.type === 'DOC') iconClass = 'fa-file-word';
+        else if (file.type === 'PPTX' || file.type === 'PPT') iconClass = 'fa-file-powerpoint';
+        else if (file.type === 'XLSX' || file.type === 'XLS') iconClass = 'fa-file-excel';
+        
         card.innerHTML = `
-            <div class="card-header">
-                <i class="fa-regular fa-file-lines file-icon"></i>
-                <span class="badge">${file.area}</span>
+            <div class="file-cover">
+                <i class="fa-solid ${iconClass} file-cover-icon"></i>
+                <span class="file-cover-badge">${file.area}</span>
             </div>
-            <h3 class="file-title">${file.title}</h3>
-            <div class="file-details">
-                <p><i class="fa-regular fa-calendar"></i> ${file.date}</p>
-                <div class="teacher-profile">
-                    <img src="${teacher.photo}" 
-                         alt="${teacher.name}" 
-                         class="teacher-avatar"
-                         onclick="openProfileModal('${file.teacher}')">
-                    <span class="teacher-name">${teacher.name}</span>
+            <div class="file-card-body">
+                <h3 class="file-title">${file.title}</h3>
+                <div class="file-details">
+                    <p><i class="fa-regular fa-calendar"></i> ${file.date}</p>
+                    <div class="teacher-profile">
+                        <img src="${teacher.photo}" 
+                             alt="${teacher.name}" 
+                             class="teacher-avatar"
+                             onclick="openProfileModal('${file.teacher}')">
+                        <span class="teacher-name">${teacher.name}</span>
+                    </div>
                 </div>
-            </div>
-            <div class="card-actions">
-                <button onclick="viewFile('${file.urlView}')" class="btn btn-view">
-                    <i class="fa-regular fa-eye"></i> Ver
-                </button>
-                <a href="${file.urlDownload}" download class="btn btn-download">
-                    <i class="fa-solid fa-download"></i> Descargar
-                </a>
+                <div class="card-actions">
+                    <button onclick="viewFile('${file.urlView}')" class="btn btn-view">
+                        <i class="fa-regular fa-eye"></i> Ver
+                    </button>
+                    <a href="${file.urlDownload}" download class="btn btn-download">
+                        <i class="fa-solid fa-download"></i> Descargar
+                    </a>
+                </div>
             </div>
         `;
         filesGrid.appendChild(card);
@@ -928,64 +1525,16 @@ function confirmCompleted() {
     }
 }
 
-function renderRecursos() {
-    renderRecursosArray(recursosDB);
-}
-
-function renderRecursosArray(recursos) {
-    recursosContainer.innerHTML = '';
-    
-    if (recursos.length === 0) {
-        recursosContainer.innerHTML = '<p style="text-align: center; color: var(--text-muted);">No se encontraron recursos.</p>';
-        return;
-    }
-    
-    recursos.forEach(recurso => {
-        const recursoItem = document.createElement('div');
-        recursoItem.classList.add('recurso-item');
-        
-        let icon = 'fa-file-lines';
-        if (recurso.type === 'PDF') icon = 'fa-file-pdf';
-        else if (recurso.type === 'DOCX' || recurso.type === 'DOC') icon = 'fa-file-word';
-        else if (recurso.type === 'PPTX' || recurso.type === 'PPT') icon = 'fa-file-powerpoint';
-        else if (recurso.type === 'XLSX' || recurso.type === 'XLS') icon = 'fa-file-excel';
-        
-        recursoItem.innerHTML = `
-            <div class="recurso-info">
-                <i class="fa-solid ${icon} recurso-icon"></i>
-                <div class="recurso-details">
-                    <h3 class="recurso-title">${recurso.title}</h3>
-                    <p class="recurso-description">${recurso.description}</p>
-                </div>
-            </div>
-            <div class="recurso-actions">
-                <button onclick="viewFile('${recurso.urlView}')" class="btn btn-view">
-                    <i class="fa-regular fa-eye"></i> Ver
-                </button>
-                <a href="${recurso.urlDownload}" download class="btn btn-download">
-                    <i class="fa-solid fa-download"></i> Descargar
-                </a>
-            </div>
-        `;
-        
-        recursosContainer.appendChild(recursoItem);
-    });
-}
-
 function renderDocentes() {
     const teachersArray = Object.values(teachersDB);
-    renderDocentesArray(teachersArray);
-}
-
-function renderDocentesArray(teachers) {
     docentesGrid.innerHTML = '';
     
-    if (teachers.length === 0) {
+    if (teachersArray.length === 0) {
         docentesGrid.innerHTML = '<p style="grid-column: 1/-1; text-align: center; color: var(--text-muted);">No se encontraron docentes.</p>';
         return;
     }
     
-    teachers.forEach(teacher => {
+    teachersArray.forEach(teacher => {
         const docenteCard = document.createElement('div');
         docenteCard.classList.add('docente-card');
         
@@ -1033,56 +1582,6 @@ function filterFiles(area) {
     document.getElementById('searchInputRepositorio').value = '';
 }
 
-function switchTab(tab) {
-    currentTab = tab;
-    showingFinalizados = false;
-    
-    sectionRepositorio.style.display = 'none';
-    sectionTrabajos.style.display = 'none';
-    sectionRecursos.style.display = 'none';
-    sectionDocentes.style.display = 'none';
-    sectionEstudiantes.style.display = 'none';
-    
-    tabRepositorio.classList.remove('active');
-    tabTrabajos.classList.remove('active');
-    tabRecursos.classList.remove('active');
-    tabDocentes.classList.remove('active');
-    tabEstudiantes.classList.remove('active');
-    
-    const searchInputRepo = document.getElementById('searchInputRepositorio');
-    const searchInputRec = document.getElementById('searchInputRecursos');
-    if (searchInputRepo) searchInputRepo.value = '';
-    if (searchInputRec) searchInputRec.value = '';
-    
-    if (tab === 'repositorio') {
-        sectionRepositorio.style.display = 'block';
-        tabRepositorio.classList.add('active');
-        renderFiles();
-    } else if (tab === 'trabajos') {
-        sectionTrabajos.style.display = 'block';
-        tabTrabajos.classList.add('active');
-        trabajosPendientesSection.style.display = 'block';
-        trabajosFinalizadosSection.style.display = 'none';
-        const btn = document.getElementById('btn-trabajos-finalizados');
-        const btnIcon = btn.querySelector('i');
-        document.getElementById('btn-trabajos-text').textContent = 'Ver trabajos finalizados';
-        btnIcon.className = 'fa-solid fa-check-circle';
-        btn.classList.remove('showing-finalizados');
-        renderAssignments();
-    } else if (tab === 'recursos') {
-        sectionRecursos.style.display = 'block';
-        tabRecursos.classList.add('active');
-        renderRecursos();
-    } else if (tab === 'docentes') {
-        sectionDocentes.style.display = 'block';
-        tabDocentes.classList.add('active');
-        renderDocentes();
-    } else if (tab === 'estudiantes') {
-        sectionEstudiantes.style.display = 'block';
-        tabEstudiantes.classList.add('active');
-        renderEstudiantes();
-    }
-}
 
 function openProfileModal(teacherName) {
     const teacher = teachersDB[teacherName];
@@ -1194,875 +1693,551 @@ window.onclick = function(event) {
 }
 
 // ============================================
-// LISTENER DE BLOQUEO EN TIEMPO REAL
+// SISTEMA DE REGISTRO DE ESTUDIANTES
 // ============================================
-let bloqueoListener = null;
 
-function iniciarListenerBloqueo() {
-    const authData = localStorage.getItem('eduspace_auth');
-    
-    if (!authData) return;
-    
+// ============================================
+// SISTEMA DE REGISTRO DE ESTUDIANTES - V2 CORREGIDO
+// ============================================
+
+// Configuración de Cloudinary y Supabase
+const CLOUDINARY_CONFIG = {
+    CLOUD_NAME: "dwzwa3gp0",
+    UPLOAD_PRESET: "hfqqxu13"
+};
+
+const SUPABASE_CONFIG = {
+    URL: 'https://pauaqgfqsitnjsikrjns.supabase.co',  // ← CAMBIAR POR TU URL
+    KEY: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBhdWFxZ2Zxc2l0bmpzaWtyam5zIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzEwOTMxODYsImV4cCI6MjA4NjY2OTE4Nn0.Jz-rCRPQkgm9wXicGRoCP4xP-NotY-YEQXUyxgU7HeM'      // ← CAMBIAR POR TU KEY
+};
+
+// Inicializar cliente de Supabase
+let supabaseClient = null;
+let estudiantesListener = null;
+let selectedImageFile = null;
+
+// Inicializar Supabase cuando el DOM esté listo
+function initSupabase() {
     try {
-        const parsed = JSON.parse(authData);
-        const { codigo } = parsed;
-        
-        // Si ya existe un listener, desconectarlo primero
-        if (bloqueoListener) {
-            database.ref(`codigos/${codigo}/bloqueado`).off('value', bloqueoListener);
-        }
-        
-        // Crear listener para monitorear cambios en el estado de bloqueo
-        bloqueoListener = database.ref(`codigos/${codigo}/bloqueado`).on('value', (snapshot) => {
-            const estaBloqueado = snapshot.val();
-            
-            if (estaBloqueado === true) {
-                // El código fue bloqueado - obtener motivo
-                database.ref(`codigos/${codigo}/motivoBloqueo`).once('value', (motivoSnapshot) => {
-                    const motivo = motivoSnapshot.val() || 'Tu acceso ha sido bloqueado por el administrador.';
-                    
-                    // Mostrar modal de autenticación con error
-                    document.getElementById('authModal').style.display = 'flex';
-                    
-                    // Mostrar error de bloqueo
-                    const errorDiv = document.getElementById('authError');
-                    errorDiv.textContent = `🚫 ACCESO BLOQUEADO: ${motivo}`;
-                    errorDiv.style.display = 'block';
-                    
-                    // Limpiar solo la autenticación, pero mantener los datos por si se desbloquea
-                    // NO borramos todo el localStorage, solo marcamos como bloqueado temporalmente
-                    
-                    // Ocultar mensaje especial si existía
-                    hideSpecialUserMessage();
-                    
-                    // Opcional: Desactivar botones del formulario
-                    document.getElementById('authSubmit').disabled = true;
-                    document.getElementById('authSubmit').innerHTML = '<i class="fa-solid fa-ban"></i> Acceso Bloqueado';
-                });
-                
-            } else if (estaBloqueado === false) {
-                // El código fue desbloqueado
-                const authData = localStorage.getItem('eduspace_auth');
-                
-                if (authData) {
-                    // Si tiene datos guardados, validar y permitir acceso automático
-                    validateAuthWithFirebase().then(isValid => {
-                        if (isValid) {
-                            // Cerrar modal de autenticación
-                            document.getElementById('authModal').style.display = 'none';
-                            
-                            // Limpiar mensajes de error
-                            const errorDiv = document.getElementById('authError');
-                            errorDiv.textContent = '';
-                            errorDiv.style.display = 'none';
-                            
-                            // Reactivar botón
-                            document.getElementById('authSubmit').disabled = false;
-                            document.getElementById('authSubmit').innerHTML = '<i class="fa-solid fa-sign-in-alt"></i> Ingresar';
-                            
-                            // Mostrar mensaje especial si es código 6578hy
-                            const parsed = JSON.parse(authData);
-                            if (parsed.codigo === '6578hy') {
-                                showSpecialUserMessage();
-                            }
-                            
-                            // Opcional: Mostrar notificación de desbloqueo
-                            mostrarNotificacionDesbloqueo();
-                        }
-                    });
-                }
-            }
-        });
-        
-    } catch (e) {
-        console.error('Error iniciando listener de bloqueo:', e);
-    }
-}
-
-function mostrarNotificacionDesbloqueo() {
-    // Crear notificación temporal
-    const notif = document.createElement('div');
-    notif.style.cssText = `
-        position: fixed;
-        top: 20px;
-        right: 20px;
-        background: linear-gradient(135deg, #10b981, #0d9668);
-        color: white;
-        padding: 1rem 1.5rem;
-        border-radius: 12px;
-        box-shadow: 0 4px 15px rgba(16, 185, 129, 0.4);
-        display: flex;
-        align-items: center;
-        gap: 10px;
-        font-weight: 600;
-        z-index: 9999;
-        animation: slideInRight 0.5s ease;
-    `;
-    notif.innerHTML = `
-        <i class="fa-solid fa-check-circle" style="font-size: 1.5rem;"></i>
-        <span>Tu acceso ha sido restaurado</span>
-    `;
-    
-    document.body.appendChild(notif);
-    
-    // Remover después de 5 segundos
-    setTimeout(() => {
-        notif.style.animation = 'slideOutRight 0.5s ease';
-        setTimeout(() => notif.remove(), 500);
-    }, 5000);
-}
-
-// ============================================
-// MODIFICAR LA FUNCIÓN handleAuthSubmit
-// ============================================
-// REEMPLAZA tu función handleAuthSubmit actual con esta versión mejorada:
-
-async function handleAuthSubmit() {
-    const userName = document.getElementById('authUserName').value.trim();
-    const codigo = document.getElementById('authCode').value.trim();
-    const errorDiv = document.getElementById('authError');
-    const submitBtn = document.getElementById('authSubmit');
-    
-    // Limpiar error previo
-    errorDiv.style.display = 'none';
-    errorDiv.textContent = '';
-    
-    // Validar campos vacíos
-    if (!userName) {
-        errorDiv.textContent = 'Por favor, ingresa tu nombre.';
-        errorDiv.style.display = 'block';
-        return;
-    }
-    
-    if (!codigo) {
-        errorDiv.textContent = 'Por favor, ingresa tu código.';
-        errorDiv.style.display = 'block';
-        return;
-    }
-    
-    // Deshabilitar botón durante la validación
-    submitBtn.disabled = true;
-    submitBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Validando...';
-    
-    try {
-        // Verificar si el código existe en Firebase
-        const codigoExiste = await codigoExisteEnFirebase(codigo);
-        
-        if (!codigoExiste) {
-            errorDiv.textContent = '❌ Código inválido. Verifica con el administrador.';
-            errorDiv.style.display = 'block';
-            submitBtn.disabled = false;
-            submitBtn.innerHTML = '<i class="fa-solid fa-sign-in-alt"></i> Ingresar';
-            return;
-        }
-        
-        // Generar fingerprint del dispositivo
-        const deviceFingerprint = generateDeviceFingerprint();
-        const deviceType = getDeviceType();
-        
-        // Referencia al código en Firebase
-        const codigoRef = database.ref(`codigos/${codigo}`);
-        const snapshot = await codigoRef.once('value');
-        const codigoData = snapshot.val();
-        
-        // Verificar si el código está bloqueado
-        if (codigoData.bloqueado === true) {
-            const motivoBloqueo = codigoData.motivoBloqueo || 'Tu acceso ha sido bloqueado por el administrador.';
-            errorDiv.textContent = `🚫 ACCESO BLOQUEADO: ${motivoBloqueo}`;
-            errorDiv.style.display = 'block';
-            submitBtn.disabled = false;
-            submitBtn.innerHTML = '<i class="fa-solid fa-sign-in-alt"></i> Ingresar';
-            return;
-        }
-        
-        const dispositivos = codigoData.dispositivos || {};
-        
-        // Verificar si este dispositivo ya está registrado
-        const dispositivoExistente = Object.keys(dispositivos).find(
-            key => dispositivos[key].fingerprint === deviceFingerprint
-        );
-        
-        if (dispositivoExistente) {
-            // Dispositivo ya registrado, permitir acceso
-            const updates = {};
-            updates[`codigos/${codigo}/dispositivos/${dispositivoExistente}/usuario`] = userName;
-            updates[`codigos/${codigo}/dispositivos/${dispositivoExistente}/ultimoAcceso`] = new Date().toISOString();
-            await database.ref().update(updates);
-            
-            const authData = {
-                userName,
-                codigo,
-                deviceFingerprint,
-                deviceType,
-                timestamp: Date.now()
-            };
-            localStorage.setItem('eduspace_auth', JSON.stringify(authData));
-            
-            document.getElementById('authModal').style.display = 'none';
-            if (codigo === '6578hy') {
-                showSpecialUserMessage();
-            }
-            
-            // ⭐ INICIAR LISTENER DE BLOQUEO EN TIEMPO REAL
-            iniciarListenerBloqueo();
-            
-            submitBtn.disabled = false;
-            submitBtn.innerHTML = '<i class="fa-solid fa-sign-in-alt"></i> Ingresar';
-            return;
-        }
-        
-        // Nuevo dispositivo - validar tipo y cantidad
-        const { mobile, desktop } = contarDispositivosPorTipo(dispositivos);
-        
-        if (deviceType === 'mobile' && mobile >= 1) {
-            errorDiv.textContent = '📱 Este código ya está en uso en 1 dispositivo móvil. Solo se permite 1 móvil por código.';
-            errorDiv.style.display = 'block';
-            submitBtn.disabled = false;
-            submitBtn.innerHTML = '<i class="fa-solid fa-sign-in-alt"></i> Ingresar';
-            return;
-        }
-        
-        if (deviceType === 'desktop' && desktop >= 1) {
-            errorDiv.textContent = '💻 Este código ya está en uso en 1 computadora. Solo se permite 1 PC/laptop por código.';
-            errorDiv.style.display = 'block';
-            submitBtn.disabled = false;
-            submitBtn.innerHTML = '<i class="fa-solid fa-sign-in-alt"></i> Ingresar';
-            return;
-        }
-        
-        const totalDispositivos = Object.keys(dispositivos).length;
-        if (totalDispositivos >= 2) {
-            errorDiv.textContent = '⚠️ Este código ya alcanzó el límite de 2 dispositivos (1 móvil + 1 PC).';
-            errorDiv.style.display = 'block';
-            submitBtn.disabled = false;
-            submitBtn.innerHTML = '<i class="fa-solid fa-sign-in-alt"></i> Ingresar';
-            return;
-        }
-        
-        // Registrar nuevo dispositivo
-        const dispositivoId = `device_${Date.now()}`;
-        const updates = {};
-        updates[`codigos/${codigo}/dispositivos/${dispositivoId}`] = {
-            fingerprint: deviceFingerprint,
-            tipo: deviceType,
-            usuario: userName,
-            fechaRegistro: new Date().toISOString(),
-            ultimoAcceso: new Date().toISOString()
-        };
-        
-        const usosRestantes = Math.max(0, 2 - (totalDispositivos + 1));
-        updates[`codigos/${codigo}/usosRestantes`] = usosRestantes;
-        
-        if (usosRestantes === 0) {
-            updates[`codigos/${codigo}/completado`] = true;
-        }
-        
-        await database.ref().update(updates);
-        
-        // Guardar autenticación local
-        const authData = {
-            userName,
-            codigo,
-            deviceFingerprint,
-            deviceType,
-            timestamp: Date.now()
-        };
-        localStorage.setItem('eduspace_auth', JSON.stringify(authData));
-        
-        // Éxito
-        document.getElementById('authModal').style.display = 'none';
-        if (codigo === '6578hy') {
-            showSpecialUserMessage();
-        }
-        
-        // ⭐ INICIAR LISTENER DE BLOQUEO EN TIEMPO REAL
-        iniciarListenerBloqueo();
-        
-        submitBtn.disabled = false;
-        submitBtn.innerHTML = '<i class="fa-solid fa-sign-in-alt"></i> Ingresar';
-        
-    } catch (error) {
-        console.error('Error en autenticación:', error);
-        errorDiv.textContent = '❌ Error de conexión. Por favor, intenta nuevamente.';
-        errorDiv.style.display = 'block';
-        submitBtn.disabled = false;
-        submitBtn.innerHTML = '<i class="fa-solid fa-sign-in-alt"></i> Ingresar';
-    }
-}
-
-// ============================================
-// MODIFICAR EL DOMContentLoaded PARA INCLUIR EL LISTENER
-// ============================================
-// REEMPLAZA tu código DOMContentLoaded actual con este:
-
-document.addEventListener('DOMContentLoaded', async () => {
-    const isAuthenticated = await validateAuthWithFirebase();
-    
-    if (!isAuthenticated) {
-        // Mostrar modal de autenticación
-        document.getElementById('authModal').style.display = 'flex';
-        
-        // Event listeners
-        document.getElementById('authSubmit').addEventListener('click', handleAuthSubmit);
-        
-        document.getElementById('authUserName').addEventListener('keypress', (e) => {
-            if (e.key === 'Enter') {
-                handleAuthSubmit();
-            }
-        });
-        
-        document.getElementById('authCode').addEventListener('keypress', (e) => {
-            if (e.key === 'Enter') {
-                handleAuthSubmit();
-            }
-        });
-    } else {
-        // Usuario autenticado
-        document.getElementById('authModal').style.display = 'none';
-        
-        // ⭐ INICIAR LISTENER DE BLOQUEO EN TIEMPO REAL
-        iniciarListenerBloqueo();
-        
-        // ⭐ SOLICITAR PERMISO PARA NOTIFICACIONES (solo para usuarios autenticados)
-        setTimeout(() => {
-            solicitarPermisoNotificaciones();
-        }, 3000); // Esperar 3 segundos después del login
-    }
-  
-    
-    // Continuar con inicialización normal
-    updatePendingBadge();
-    switchTab('repositorio');
-});
-
-// ============================================
-// LIMPIAR LISTENER AL CERRAR LA PÁGINA (OPCIONAL PERO RECOMENDADO)
-// ============================================
-window.addEventListener('beforeunload', () => {
-    const authData = localStorage.getItem('eduspace_auth');
-    
-    if (authData && bloqueoListener) {
-        try {
-            const parsed = JSON.parse(authData);
-            const { codigo } = parsed;
-            database.ref(`codigos/${codigo}/bloqueado`).off('value', bloqueoListener);
-        } catch (e) {
-            console.error('Error limpiando listener:', e);
-        }
-    }
-});
-
-
-// ============================================
-// MÓDULO DE NOTIFICACIONES PUSH
-// ============================================
-// Agrega este código a tu script.js (después de la inicialización de Firebase)
-
-// Inicializar Firebase Messaging
-let messaging = null;
-
-try {
-    messaging = firebase.messaging();
-} catch (error) {
-    console.error('Error inicializando Firebase Messaging:', error);
-}
-
-// ============================================
-// CONFIGURAR VAPID KEY
-// ============================================
-// ⚠️ IMPORTANTE: Debes generar tu VAPID key en Firebase Console
-// Firebase Console > Project Settings > Cloud Messaging > Web Push certificates > Generate key pair
-const VAPID_KEY = 'BKV0uIbb7wu936a81968wubvxkVMeelKU1zUSB3OrcSvk9ua2AWeq21-bABhJmDYiQ_EgA_2llOsEN0OsLI_m-A';
- // Reemplaza con tu VAPID key real
-
-// ============================================
-// SOLICITAR PERMISO PARA NOTIFICACIONES
-// ============================================
-async function solicitarPermisoNotificaciones() {
-    try {
-        // Verificar si el navegador soporta notificaciones
-        if (!('Notification' in window)) {
-            console.log('Este navegador no soporta notificaciones');
-            return false;
-        }
-
-        // Verificar si ya se otorgó permiso
-        if (Notification.permission === 'granted') {
-            console.log('Permiso de notificaciones ya otorgado');
-            await registrarTokenFCM();
-            return true;
-        }
-
-        // Si está denegado, no preguntar de nuevo
-        if (Notification.permission === 'denied') {
-            console.log('Permiso de notificaciones denegado');
-            return false;
-        }
-
-        // Mostrar modal personalizado antes de pedir permiso
-        const deseaNotificaciones = await mostrarModalPermisoNotificaciones();
-        
-        if (!deseaNotificaciones) {
-            return false;
-        }
-
-        // Solicitar permiso
-        const permission = await Notification.requestPermission();
-        
-        if (permission === 'granted') {
-            console.log('Permiso de notificaciones otorgado');
-            await registrarTokenFCM();
-            mostrarNotificacionExito('¡Notificaciones activadas! Te avisaremos de nuevos trabajos.');
+        if (typeof supabase !== 'undefined') {
+            supabaseClient = supabase.createClient(SUPABASE_CONFIG.URL, SUPABASE_CONFIG.KEY);
+            console.log('✅ Supabase inicializado correctamente');
+            console.log('📍 URL:', SUPABASE_CONFIG.URL);
             return true;
         } else {
-            console.log('Permiso de notificaciones denegado');
+            console.error('❌ Supabase no está cargado. Verifica el CDN.');
             return false;
         }
-        
     } catch (error) {
-        console.error('Error solicitando permiso:', error);
+        console.error('❌ Error al inicializar Supabase:', error);
         return false;
     }
 }
 
-// ============================================
-// MODAL PERSONALIZADO PARA PEDIR PERMISO
-// ============================================
-function mostrarModalPermisoNotificaciones() {
-    return new Promise((resolve) => {
-        const modal = document.createElement('div');
-        modal.style.cssText = `
-            position: fixed;
-            z-index: 10000;
-            left: 0;
-            top: 0;
-            width: 100%;
-            height: 100%;
-            background-color: rgba(0, 0, 0, 0.9);
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            animation: fadeIn 0.3s ease;
-        `;
-        
-        modal.innerHTML = `
-            <div style="
-                background: linear-gradient(135deg, #1a1a1a, #0a0a0a);
-                border-radius: 20px;
-                padding: 2.5rem;
-                max-width: 500px;
-                width: 90%;
-                box-shadow: 0 20px 60px rgba(59, 130, 246, 0.3);
-                border: 2px solid #3b82f6;
-                text-align: center;
-            ">
-                <i class="fa-solid fa-bell" style="
-                    font-size: 4rem;
-                    color: #3b82f6;
-                    margin-bottom: 1.5rem;
-                    animation: ring 1s ease-in-out infinite;
-                "></i>
-                <h2 style="
-                    color: #e5e7eb;
-                    font-size: 1.8rem;
-                    margin-bottom: 1rem;
-                    font-weight: 600;
-                ">¿Activar Notificaciones?</h2>
-                <p style="
-                    color: #9ca3af;
-                    font-size: 1rem;
-                    line-height: 1.6;
-                    margin-bottom: 2rem;
-                ">
-                    Recibe alertas instantáneas cuando se publiquen nuevos trabajos, 
-                    archivos o anuncios importantes. Las notificaciones llegarán 
-                    incluso cuando no estés en la página.
-                </p>
-                <div style="display: flex; gap: 1rem; justify-content: center;">
-                    <button id="btn-permitir-notif" style="
-                        padding: 1rem 2rem;
-                        background: linear-gradient(135deg, #3b82f6, #2563eb);
-                        color: white;
-                        border: none;
-                        border-radius: 10px;
-                        font-size: 1rem;
-                        font-weight: 600;
-                        cursor: pointer;
-                        transition: all 0.3s;
-                        box-shadow: 0 4px 15px rgba(59, 130, 246, 0.4);
-                    ">
-                        <i class="fa-solid fa-check"></i> Sí, activar
-                    </button>
-                    <button id="btn-cancelar-notif" style="
-                        padding: 1rem 2rem;
-                        background: transparent;
-                        color: #9ca3af;
-                        border: 1px solid #2a2a2a;
-                        border-radius: 10px;
-                        font-size: 1rem;
-                        font-weight: 600;
-                        cursor: pointer;
-                        transition: all 0.3s;
-                    ">
-                        <i class="fa-solid fa-times"></i> Ahora no
-                    </button>
-                </div>
-            </div>
-        `;
-        
-        document.body.appendChild(modal);
-        
-        // Agregar animación de campana
-        const style = document.createElement('style');
-        style.textContent = `
-            @keyframes ring {
-                0%, 100% { transform: rotate(0deg); }
-                10%, 30% { transform: rotate(-10deg); }
-                20%, 40% { transform: rotate(10deg); }
-            }
-        `;
-        document.head.appendChild(style);
-        
-        document.getElementById('btn-permitir-notif').onclick = () => {
-            document.body.removeChild(modal);
-            resolve(true);
-        };
-        
-        document.getElementById('btn-cancelar-notif').onclick = () => {
-            document.body.removeChild(modal);
-            resolve(false);
-        };
-    });
+
+// Abrir modal de registro
+function openRegistroModal() {
+    const modal = document.getElementById('registroModal');
+    const terminosContainer = document.querySelector('.terminos-container');
+    const formRegistro = document.getElementById('form-registro');
+    
+    modal.style.display = 'block';
+    
+    // Reset completo del formulario
+    document.getElementById('aceptoTerminos').checked = false;
+    document.getElementById('nombreCompleto').value = '';
+    selectedImageFile = null;
+    resetImagePreview();
+    
+    // Mostrar términos y ocultar formulario
+    terminosContainer.style.display = 'block';
+    terminosContainer.style.opacity = '1';
+    terminosContainer.style.transform = 'translateY(0)';
+    
+    formRegistro.style.display = 'none';
+    formRegistro.style.opacity = '0';
+    formRegistro.style.transform = 'translateY(20px)';
 }
 
-// ============================================
-// REGISTRAR TOKEN FCM EN FIREBASE
-// ============================================
-async function registrarTokenFCM() {
-    try {
-        if (!messaging) {
-            console.error('Firebase Messaging no está inicializado');
-            return;
-        }
+// Cerrar modal de registro
+function closeRegistroModal() {
+    const modal = document.getElementById('registroModal');
+    modal.style.display = 'none';
+}
 
-        // Registrar service worker
-        const registration = await navigator.serviceWorker.register('/firebase-messaging-sw.js');
-        console.log('Service Worker registrado:', registration);
-
-        // Obtener token FCM
-        const currentToken = await messaging.getToken({
-            vapidKey: VAPID_KEY,
-            serviceWorkerRegistration: registration
-        });
-
-        if (currentToken) {
-            console.log('Token FCM obtenido:', currentToken);
-            
-            // Guardar token en Firebase asociado al código del usuario
-            const authData = localStorage.getItem('eduspace_auth');
-            if (authData) {
-                const parsed = JSON.parse(authData);
-                const { codigo, deviceFingerprint } = parsed;
-                
-                // Buscar el dispositivo en Firebase
-                const codigoRef = database.ref(`codigos/${codigo}/dispositivos`);
-                const snapshot = await codigoRef.once('value');
-                const dispositivos = snapshot.val() || {};
-                
-                const dispositivoId = Object.keys(dispositivos).find(
-                    key => dispositivos[key].fingerprint === deviceFingerprint
-                );
-                
-                if (dispositivoId) {
-                    // Guardar token FCM en el dispositivo
-                    await database.ref(`codigos/${codigo}/dispositivos/${dispositivoId}/fcmToken`).set(currentToken);
-                    console.log('Token FCM guardado en Firebase');
-                }
-            }
-            
-        } else {
-            console.log('No se pudo obtener el token FCM');
-        }
-        
-    } catch (error) {
-        console.error('Error registrando token FCM:', error);
+// Vista previa de imagen
+function previewImage(event) {
+    const file = event.target.files[0];
+    
+    if (!file) return;
+    
+    // Validar tamaño (5MB máximo)
+    if (file.size > 5 * 1024 * 1024) {
+        alert('⚠️ La imagen es muy grande. El tamaño máximo es 5MB.');
+        return;
     }
-}
-
-// ============================================
-// MANEJAR NOTIFICACIONES EN PRIMER PLANO
-// ============================================
-if (messaging) {
-    messaging.onMessage((payload) => {
-        console.log('Mensaje recibido en primer plano:', payload);
-        
-        const notificationTitle = payload.notification.title || 'EduSpace';
-        const notificationOptions = {
-            body: payload.notification.body || 'Nueva actualización',
-            icon: payload.notification.icon || '/icon-192.png',
-            badge: '/badge-72.png',
-            tag: payload.data?.tag || 'eduspace-notification',
-            requireInteraction: true,
-            data: payload.data
-        };
-        
-        // Mostrar notificación del navegador
-        if (Notification.permission === 'granted') {
-            new Notification(notificationTitle, notificationOptions);
-        }
-        
-        // Mostrar notificación in-app
-        mostrarNotificacionInApp(payload);
-        
-        // Actualizar badge de trabajos pendientes
-        if (payload.data?.type === 'nuevo_trabajo') {
-            updatePendingBadge();
-            // Recargar trabajos si está en esa pestaña
-            if (currentTab === 'trabajos') {
-                renderAssignments();
-            }
-        }
-    });
-}
-
-// ============================================
-// NOTIFICACIÓN IN-APP (DENTRO DE LA PÁGINA)
-// ============================================
-function mostrarNotificacionInApp(payload) {
-    const notif = document.createElement('div');
-    notif.style.cssText = `
-        position: fixed;
-        top: 20px;
-        right: 20px;
-        background: linear-gradient(135deg, #3b82f6, #2563eb);
-        color: white;
-        padding: 1.5rem;
-        border-radius: 12px;
-        box-shadow: 0 8px 30px rgba(59, 130, 246, 0.5);
-        display: flex;
-        align-items: start;
-        gap: 15px;
-        max-width: 400px;
-        z-index: 9999;
-        animation: slideInRight 0.5s ease;
-        cursor: pointer;
-    `;
     
-    const iconMap = {
-        'nuevo_trabajo': 'fa-clipboard-list',
-        'nuevo_archivo': 'fa-file-lines',
-        'nuevo_recurso': 'fa-book',
-        'anuncio': 'fa-bullhorn'
+    // Validar tipo
+    if (!file.type.startsWith('image/')) {
+        alert('⚠️ Por favor selecciona un archivo de imagen válido.');
+        return;
+    }
+    
+    selectedImageFile = file;
+    
+    const reader = new FileReader();
+    reader.onload = function(e) {
+        document.getElementById('previewImg').src = e.target.result;
+        document.getElementById('uploadPlaceholder').style.display = 'none';
+        document.getElementById('imagePreview').style.display = 'block';
     };
-    
-    const icon = iconMap[payload.data?.type] || 'fa-bell';
-    
-    notif.innerHTML = `
-        <i class="fa-solid ${icon}" style="font-size: 2rem; flex-shrink: 0;"></i>
-        <div style="flex: 1;">
-            <h4 style="margin: 0 0 0.5rem 0; font-size: 1.1rem; font-weight: 600;">
-                ${payload.notification.title}
-            </h4>
-            <p style="margin: 0; font-size: 0.9rem; opacity: 0.95; line-height: 1.4;">
-                ${payload.notification.body}
-            </p>
-        </div>
-        <button onclick="this.parentElement.remove()" style="
-            background: rgba(255,255,255,0.2);
-            border: none;
-            color: white;
-            width: 30px;
-            height: 30px;
-            border-radius: 50%;
-            cursor: pointer;
-            font-size: 1rem;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            flex-shrink: 0;
-        ">×</button>
-    `;
-    
-    // Click para ir a la sección correspondiente
-    notif.onclick = (e) => {
-        if (e.target.tagName !== 'BUTTON') {
-            if (payload.data?.type === 'nuevo_trabajo') {
-                switchTab('trabajos');
-            } else if (payload.data?.type === 'nuevo_archivo') {
-                switchTab('repositorio');
-            } else if (payload.data?.type === 'nuevo_recurso') {
-                switchTab('recursos');
-            }
-            notif.remove();
-        }
-    };
-    
-    document.body.appendChild(notif);
-    
-    // Auto-remover después de 10 segundos
-    setTimeout(() => {
-        if (notif.parentElement) {
-            notif.style.animation = 'slideOutRight 0.5s ease';
-            setTimeout(() => notif.remove(), 500);
-        }
-    }, 10000);
+    reader.readAsDataURL(file);
 }
 
-// ============================================
-// FUNCIÓN AUXILIAR PARA MOSTRAR NOTIFICACIONES DE ÉXITO
-// ============================================
-function mostrarNotificacionExito(mensaje) {
-    const notif = document.createElement('div');
-    notif.style.cssText = `
-        position: fixed;
-        top: 20px;
-        right: 20px;
-        background: linear-gradient(135deg, #10b981, #0d9668);
-        color: white;
-        padding: 1rem 1.5rem;
-        border-radius: 12px;
-        box-shadow: 0 4px 15px rgba(16, 185, 129, 0.4);
-        display: flex;
-        align-items: center;
-        gap: 10px;
-        font-weight: 600;
-        z-index: 9999;
-        animation: slideInRight 0.5s ease;
-    `;
-    notif.innerHTML = `
-        <i class="fa-solid fa-check-circle" style="font-size: 1.5rem;"></i>
+// Resetear vista previa
+function resetImagePreview() {
+    document.getElementById('uploadPlaceholder').style.display = 'block';
+    document.getElementById('imagePreview').style.display = 'none';
+    document.getElementById('previewImg').src = '';
+    document.getElementById('fotoInput').value = '';
+}
+
+// Función para mostrar notificación toast (no bloqueante)
+function mostrarToast(mensaje, icono = 'fa-check-circle', duracion = 3000) {
+    // Crear elemento
+    const toast = document.createElement('div');
+    toast.className = 'toast-notification';
+    toast.innerHTML = `
+        <i class="fa-solid ${icono}"></i>
         <span>${mensaje}</span>
     `;
     
-    document.body.appendChild(notif);
+    // Agregar al body
+    document.body.appendChild(toast);
     
+    // Eliminar automáticamente después de la duración
     setTimeout(() => {
-        notif.style.animation = 'slideOutRight 0.5s ease';
-        setTimeout(() => notif.remove(), 500);
-    }, 5000);
+        toast.remove();
+    }, duracion);
 }
 
-let filesDB = [];
-let assignmentsDB = [];
-let recursosDB = [];
-
-// ============================================
-// LISTENERS EN TIEMPO REAL PARA DATOS
-// ============================================
-
-// Listener para archivos
-database.ref('archivos').on('value', (snapshot) => {
-    const archivos = snapshot.val();
+// Registrar estudiante (VERSIÓN MEJORADA CON ACTUALIZACIÓN INMEDIATA)
+async function registrarEstudiante() {
+    const nombreCompleto = document.getElementById('nombreCompleto').value.trim();
+    const btnRegistrar = document.getElementById('btnRegistrar');
     
-    if (archivos) {
-        filesDB = Object.keys(archivos).map(key => ({
-            id: archivos[key].id,
-            title: archivos[key].title,
-            area: archivos[key].area,
-            teacher: archivos[key].teacher,
-            date: archivos[key].date,
-            type: archivos[key].type,
-            urlView: archivos[key].urlView,
-            urlDownload: archivos[key].urlDownload
-        }));
-    } else {
-        filesDB = [];
+    // Validaciones
+    if (!nombreCompleto) {
+        alert('⚠️ Por favor ingresa tu nombre completo.');
+        return;
     }
     
-    // Renderizar si estamos en la pestaña de repositorio
-    if (currentTab === 'repositorio') {
-        renderFiles(currentFilter);
-    }
-});
-
-// Listener para trabajos
-database.ref('trabajos').on('value', (snapshot) => {
-    const trabajos = snapshot.val();
-    
-    if (trabajos) {
-        assignmentsDB = Object.keys(trabajos).map(key => ({
-            id: trabajos[key].id,
-            task: trabajos[key].task,
-            teacher: trabajos[key].teacher,
-            deadline: trabajos[key].deadline,
-            status: trabajos[key].status,
-            description: trabajos[key].description,
-            requirements: trabajos[key].requirements || [],
-            attachments: trabajos[key].attachments || []
-        }));
-    } else {
-        assignmentsDB = [];
+    if (nombreCompleto.length < 3) {
+        alert('⚠️ El nombre debe tener al menos 3 caracteres.');
+        return;
     }
     
-    // Actualizar badge y renderizar si estamos en trabajos
-    updatePendingBadge();
-    if (currentTab === 'trabajos') {
-        if (showingFinalizados) {
-            renderFinalizados();
-        } else {
-            renderAssignments();
+    if (!selectedImageFile) {
+        alert('⚠️ Por favor selecciona una foto de perfil.');
+        return;
+    }
+    
+    if (!supabaseClient) {
+        alert('❌ Error: No se pudo conectar con la base de datos. Recarga la página.');
+        console.error('Supabase no inicializado');
+        return;
+    }
+    
+    // Deshabilitar botón
+    btnRegistrar.disabled = true;
+    btnRegistrar.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Subiendo foto...';
+    
+    try {
+        // 1. Subir imagen a Cloudinary
+        console.log('📤 Subiendo imagen a Cloudinary...');
+        const formData = new FormData();
+        formData.append('file', selectedImageFile);
+        formData.append('upload_preset', CLOUDINARY_CONFIG.UPLOAD_PRESET);
+        formData.append('folder', 'estudiantes_clouddesk');
+        
+        const uploadResponse = await fetch(
+            `https://api.cloudinary.com/v1_1/${CLOUDINARY_CONFIG.CLOUD_NAME}/image/upload`,
+            {
+                method: 'POST',
+                body: formData
+            }
+        );
+        
+        if (!uploadResponse.ok) {
+            throw new Error('Error al subir la imagen a Cloudinary');
         }
+        
+        const cloudinaryData = await uploadResponse.json();
+        const fotoUrl = cloudinaryData.secure_url;
+        
+        console.log('✅ Imagen subida a Cloudinary:', fotoUrl);
+        
+        // 2. Guardar en Supabase
+        btnRegistrar.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Guardando datos...';
+        console.log('💾 Guardando en Supabase...');
+        
+        const { data, error } = await supabaseClient
+            .from('estudiantes')
+            .insert([
+                {
+                    nombre_completo: nombreCompleto,
+                    foto_url: fotoUrl
+                }
+            ])
+            .select();
+        
+        if (error) {
+            console.error('❌ Error de Supabase:', error);
+            throw new Error(`Error al guardar: ${error.message}`);
+        }
+        
+        console.log('✅ Estudiante registrado:', data);
+        
+        // 3. Cerrar modal
+        closeRegistroModal();
+        
+        // 4. Mostrar notificación toast
+        mostrarToast('🎉 ¡Registro exitoso! Bienvenido/a a CloudDesk');
+        
+        // 5. ⭐ ACTUALIZAR LA LISTA INMEDIATAMENTE (SIN ESPERAR REALTIME)
+        console.log('🔄 Actualizando lista de estudiantes...');
+        await cargarEstudiantes();
+        
+    } catch (error) {
+        console.error('❌ Error completo:', error);
+        alert(`❌ Error: ${error.message}\n\nPor favor, intenta nuevamente.`);
+    } finally {
+        // Rehabilitar botón
+        btnRegistrar.disabled = false;
+        btnRegistrar.innerHTML = '<i class="fa-solid fa-check-circle"></i> Registrarme Ahora';
     }
-});
+}
+        
+      
 
-// Listener para recursos
-database.ref('recursos').on('value', (snapshot) => {
-    const recursos = snapshot.val();
+// Cargar estudiantes desde Supabase
+async function cargarEstudiantes() {
+    const grid = document.getElementById('estudiantes-grid');
+    const loading = document.getElementById('loading-estudiantes');
     
-    if (recursos) {
-        recursosDB = Object.keys(recursos).map(key => ({
-            id: recursos[key].id,
-            title: recursos[key].title,
-            description: recursos[key].description,
-            type: recursos[key].type,
-            urlView: recursos[key].urlView,
-            urlDownload: recursos[key].urlDownload
-        }));
+    console.log('📥 Intentando cargar estudiantes...');
+    
+    if (!supabaseClient) {
+        console.error('❌ Supabase no inicializado al cargar estudiantes');
+        grid.innerHTML = `
+            <p style="grid-column: 1/-1; text-align: center; color: var(--danger); padding: 2rem;">
+                <i class="fa-solid fa-exclamation-triangle" style="font-size: 2rem; margin-bottom: 1rem;"></i><br>
+                Error: No se pudo conectar con la base de datos.<br>
+                <small>Verifica tus credenciales de Supabase en script.js</small>
+            </p>
+        `;
+        return;
+    }
+    
+    try {
+        if (loading) loading.style.display = 'block';
+        
+        console.log('🔍 Consultando tabla estudiantes...');
+        const { data, error } = await supabaseClient
+            .from('estudiantes')
+            .select('*')
+            .order('created_at', { ascending: false });
+        
+        if (error) {
+            console.error('❌ Error de Supabase al cargar:', error);
+            throw error;
+        }
+        
+        console.log(`✅ ${data.length} estudiantes cargados:`, data);
+        
+        renderEstudiantesReales(data);
+        
+    } catch (error) {
+        console.error('❌ Error al cargar estudiantes:', error);
+        grid.innerHTML = `
+            <p style="grid-column: 1/-1; text-align: center; color: var(--danger); padding: 2rem;">
+                <i class="fa-solid fa-exclamation-triangle" style="font-size: 2rem; margin-bottom: 1rem;"></i><br>
+                Error al cargar estudiantes: ${error.message}<br>
+                <small>Verifica las políticas RLS en Supabase</small>
+            </p>
+        `;
+    } finally {
+        if (loading) loading.style.display = 'none';
+    }
+}
+
+// Renderizar estudiantes reales
+function renderEstudiantesReales(estudiantes) {
+    const grid = document.getElementById('estudiantes-grid');
+    const loading = document.getElementById('loading-estudiantes');
+    
+    if (loading) loading.style.display = 'none';
+    
+    if (!estudiantes || estudiantes.length === 0) {
+        grid.innerHTML = `
+            <div style="grid-column: 1/-1; text-align: center; padding: 3rem; color: var(--text-muted);">
+                <i class="fa-solid fa-users" style="font-size: 4rem; margin-bottom: 1rem; opacity: 0.5;"></i>
+                <p style="font-size: 1.2rem;">Aún no hay estudiantes registrados.</p>
+                <p>¡Sé el primero en unirte!</p>
+            </div>
+        `;
+        return;
+    }
+    
+    grid.innerHTML = '';
+    
+    estudiantes.forEach((estudiante, index) => {
+        const estudianteCard = document.createElement('div');
+        estudianteCard.classList.add('estudiante-card');
+        estudianteCard.style.animation = 'fadeIn 0.5s ease';
+        estudianteCard.style.animationDelay = `${index * 0.1}s`;
+        
+        const codigo = `EST-${String(estudiante.id).padStart(4, '0')}`;
+        
+        estudianteCard.innerHTML = `
+            <img src="${estudiante.foto_url}" 
+                 alt="${estudiante.nombre_completo}" 
+                 class="estudiante-avatar"
+                 onerror="this.src='https://ui-avatars.com/api/?name=${encodeURIComponent(estudiante.nombre_completo)}&background=3b82f6&color=fff&size=200'">
+            <h3 class="estudiante-name">${estudiante.nombre_completo}</h3>
+            <p class="estudiante-code">${codigo}</p>
+            <p class="estudiante-date">
+                <i class="fa-solid fa-calendar-check"></i> 
+                ${new Date(estudiante.created_at).toLocaleDateString('es-ES')}
+            </p>
+        `;
+        
+        grid.appendChild(estudianteCard);
+    });
+    
+    console.log('✅ Estudiantes renderizados en pantalla');
+}
+
+// Inicializar listener de tiempo real
+function inicializarRealtimeEstudiantes() {
+    if (!supabaseClient) {
+        console.error('❌ No se puede inicializar Realtime: Supabase no está listo');
+        return;
+    }
+    
+    console.log('🔄 Iniciando listener de Realtime...');
+    
+    // Detener listener anterior si existe
+    if (estudiantesListener) {
+        supabaseClient.removeChannel(estudiantesListener);
+    }
+    
+    // Crear nuevo listener
+    estudiantesListener = supabaseClient
+        .channel('estudiantes-realtime')
+        .on(
+            'postgres_changes',
+            {
+                event: 'INSERT',
+                schema: 'public',
+                table: 'estudiantes'
+            },
+            (payload) => {
+                console.log('🔥 Nuevo estudiante detectado en tiempo real:', payload.new);
+                cargarEstudiantes();
+            }
+        )
+        .subscribe((status) => {
+            console.log('📡 Estado de Realtime:', status);
+            if (status === 'SUBSCRIBED') {
+                console.log('✅ Realtime activado y escuchando cambios');
+            }
+        });
+}
+
+// Modificar la función renderEstudiantes original
+function renderEstudiantes() {
+    console.log('🚀 Iniciando renderEstudiantes()...');
+    
+    if (supabaseClient) {
+        console.log('✅ Supabase ya inicializado, cargando estudiantes...');
+        cargarEstudiantes();
+        inicializarRealtimeEstudiantes();
     } else {
-        recursosDB = [];
+        console.log('⏳ Esperando inicialización de Supabase...');
+        setTimeout(() => {
+            if (supabaseClient) {
+                console.log('✅ Supabase inicializado (delayed), cargando estudiantes...');
+                cargarEstudiantes();
+                inicializarRealtimeEstudiantes();
+            } else {
+                console.error('❌ Supabase no pudo inicializarse después de espera');
+                const grid = document.getElementById('estudiantes-grid');
+                grid.innerHTML = `
+                    <p style="grid-column: 1/-1; text-align: center; color: var(--danger); padding: 2rem;">
+                        <i class="fa-solid fa-exclamation-triangle" style="font-size: 2rem; margin-bottom: 1rem;"></i><br>
+                        Error de conexión con Supabase.<br>
+                        <small>Verifica que el CDN esté cargado y las credenciales sean correctas.</small>
+                    </p>
+                `;
+            }
+        }, 1500);
+    }
+}
+
+// Event Listeners del DOM
+document.addEventListener('DOMContentLoaded', function() {
+    console.log('📄 DOM cargado, inicializando sistema de estudiantes...');
+    
+    // Inicializar Supabase
+    const supabaseReady = initSupabase();
+    
+    if (!supabaseReady) {
+        console.error('❌ Fallo crítico: Supabase no se pudo inicializar');
     }
     
-    // Renderizar si estamos en la pestaña de recursos
-    if (currentTab === 'recursos') {
-        renderRecursos();
-    }
-});
-
-
-// Listener para profesores
-database.ref('profesores').on('value', (snapshot) => {
-    const profesores = snapshot.val();
+    // Manejar aceptación de términos
     
-    if (profesores) {
-        // Convertir objeto de Firebase a formato teachersDB
-        teachersDB = {};
-        Object.values(profesores).forEach(prof => {
-            teachersDB[prof.name] = {
-                name: prof.name,
-                title: prof.title,
-                photo: prof.photo,
-                email: prof.email,
-                phone: prof.phone
-            };
+const checkbox = document.getElementById('aceptoTerminos');
+if (checkbox) {
+    checkbox.addEventListener('change', function() {
+        const formRegistro = document.getElementById('form-registro');
+        const terminosContainer = document.querySelector('.terminos-container');
+        
+        if (this.checked) {
+            // Ocultar términos con animación
+            terminosContainer.style.transition = 'opacity 0.3s ease, transform 0.3s ease';
+            terminosContainer.style.opacity = '0';
+            terminosContainer.style.transform = 'translateY(-20px)';
+            
+            setTimeout(() => {
+                terminosContainer.style.display = 'none';
+                // Mostrar formulario con animación
+                formRegistro.style.display = 'block';
+                formRegistro.style.opacity = '0';
+                formRegistro.style.transform = 'translateY(20px)';
+                
+                setTimeout(() => {
+                    formRegistro.style.transition = 'opacity 0.3s ease, transform 0.3s ease';
+                    formRegistro.style.opacity = '1';
+                    formRegistro.style.transform = 'translateY(0)';
+                }, 10);
+            }, 300);
+        } else {
+            // Mostrar términos de nuevo
+            formRegistro.style.opacity = '0';
+            formRegistro.style.transform = 'translateY(20px)';
+            
+            setTimeout(() => {
+                formRegistro.style.display = 'none';
+                terminosContainer.style.display = 'block';
+                terminosContainer.style.opacity = '0';
+                terminosContainer.style.transform = 'translateY(-20px)';
+                
+                setTimeout(() => {
+                    terminosContainer.style.opacity = '1';
+                    terminosContainer.style.transform = 'translateY(0)';
+                }, 10);
+            }, 300);
+        }
+    });
+}
+    
+    // Hacer clic en el área de upload
+    const uploadArea = document.getElementById('uploadArea');
+    if (uploadArea) {
+        uploadArea.addEventListener('click', function(e) {
+            if (!e.target.closest('.btn-change-photo')) {
+                document.getElementById('fotoInput').click();
+            }
         });
     }
-    
-    if (currentTab === 'docentes') {
-        renderDocentes();
-    }
 });
 
-// Listener para estudiantes
-database.ref('estudiantes').on('value', (snapshot) => {
-    const estudiantes = snapshot.val();
+// ============================================
+// FUNCIONES DEL SIDEBAR
+// ============================================
+
+// Alternar sidebar (abrir/cerrar)
+function toggleSidebar() {
+    const sidebar = document.getElementById('sidebar');
+    const overlay = document.getElementById('sidebarOverlay');
     
-    if (estudiantes) {
-        studentsDB = Object.values(estudiantes);
-    } else {
-        studentsDB = [];
+    sidebar.classList.toggle('open');
+    
+    // En móvil, mostrar overlay
+    if (window.innerWidth <= 768) {
+        overlay.classList.toggle('active');
+    }
+}
+
+// Cerrar sidebar (especialmente para móvil)
+function closeSidebar() {
+    const sidebar = document.getElementById('sidebar');
+    const overlay = document.getElementById('sidebarOverlay');
+    
+    sidebar.classList.remove('open');
+    overlay.classList.remove('active');
+}
+
+// Cerrar sidebar al hacer clic en un botón (en móvil)
+function switchTab(tab) {
+    currentTab = tab;
+    showingFinalizados = false;
+    
+    // Cerrar sidebar en móvil al seleccionar
+    if (window.innerWidth <= 768) {
+        closeSidebar();
     }
     
-    if (currentTab === 'estudiantes') {
+    // Ocultar todas las secciones
+    sectionRepositorio.style.display = 'none';
+    sectionTrabajos.style.display = 'none';
+    sectionRecursos.style.display = 'none';
+    sectionDocentes.style.display = 'none';
+    sectionEstudiantes.style.display = 'none';
+    
+    // Remover clase active de todos los botones
+    document.querySelectorAll('.sidebar-btn').forEach(btn => {
+        btn.classList.remove('active');
+    });
+    
+    // Limpiar búsquedas
+    const searchInputRepo = document.getElementById('searchInputRepositorio');
+    const searchInputRec = document.getElementById('searchInputRecursos');
+    if (searchInputRepo) searchInputRepo.value = '';
+    if (searchInputRec) searchInputRec.value = '';
+    
+    // Mostrar sección correspondiente y activar botón
+    if (tab === 'repositorio') {
+        sectionRepositorio.style.display = 'block';
+        document.getElementById('tab-repositorio').classList.add('active');
+        renderFiles();
+    } else if (tab === 'trabajos') {
+        sectionTrabajos.style.display = 'block';
+        document.getElementById('tab-trabajos').classList.add('active');
+        trabajosPendientesSection.style.display = 'block';
+        trabajosFinalizadosSection.style.display = 'none';
+        const btn = document.getElementById('btn-trabajos-finalizados');
+        if (btn) {
+            const btnIcon = btn.querySelector('i');
+            const btnTextSpan = document.getElementById('btn-trabajos-text');
+            if (btnTextSpan) btnTextSpan.textContent = 'Ver trabajos finalizados';
+            if (btnIcon) btnIcon.className = 'fa-solid fa-check-circle';
+            btn.classList.remove('showing-finalizados');
+        }
+        renderAssignments();
+    } else if (tab === 'recursos') {
+        sectionRecursos.style.display = 'block';
+        document.getElementById('tab-recursos').classList.add('active');
+        renderRecursosContent();
+    } else if (tab === 'docentes') {
+        sectionDocentes.style.display = 'block';
+        document.getElementById('tab-docentes').classList.add('active');
+        renderDocentes();
+    } else if (tab === 'estudiantes') {
+        sectionEstudiantes.style.display = 'block';
+        document.getElementById('tab-estudiantes').classList.add('active');
         renderEstudiantes();
     }
-});
+}
