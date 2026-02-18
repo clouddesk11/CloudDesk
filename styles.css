@@ -132,6 +132,18 @@ body {
     transform: scale(0.8);  /* ← AGREGADO: Empieza pequeña */
 }
 
+/* Ocultar imagen del logo SOLO en desktop/laptop */
+@media (min-width: 769px) {
+    .sidebar-logo-img {
+        display: none !important;
+    }
+    
+    /* Ajustar espaciado cuando no hay imagen */
+    .sidebar-logo {
+        padding-left: 0.8rem;
+    }
+}
+
 /* Cuando el sidebar está abierto, la imagen crece un poco */
 .sidebar.open .sidebar-logo-img {
     width: 40px;
@@ -301,31 +313,28 @@ body {
     border-radius: 0 4px 4px 0;
 }
 
-/* Badge de notificación */
-.sidebar-badge {
+
+/* Notificación estilo Messenger - círculo simple parpadeante */
+.notification-dot {
     position: absolute;
-    top: 8px;
-    right: 8px;
-    background: var(--danger);
-    color: white;
-    border-radius: 50%;
-    width: 22px;
-    height: 22px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 0.7rem;
-    font-weight: 700;
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.4);
-    animation: pulse 2s infinite;
+    top: -2px;
+    right: -2px;
+    width: 10px;
+    height: 10px;
+    background: #fd0f0f;
+    border-radius: 100%;
+    border: 2px solid var(--card-bg);
+    animation: pulseDot 2s ease-in-out infinite;
 }
 
-@keyframes pulse {
+@keyframes pulseDot {
     0%, 100% {
+        opacity: 1;
         transform: scale(1);
     }
     50% {
-        transform: scale(1.05);
+        opacity: 0.5;
+        transform: scale(1.2);
     }
 }
 
@@ -883,24 +892,6 @@ body {
     color: var(--danger);
 }
 
-/* --- Notification Badge --- */
-.notification-badge {
-    position: absolute;
-    top: -8px;
-    right: -8px;
-    background-color: var(--danger);
-    color: white;
-    border-radius: 50%;
-    width: 22px;
-    height: 22px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    font-size: 0.75rem;
-    font-weight: 700;
-    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.4);
-    animation: pulse 2s infinite;
-}
 
 .container {
     max-width: 1200px;
@@ -910,8 +901,19 @@ body {
 
 .header-section {
     margin-bottom: 2rem;
-    border-bottom: 2px solid var(--border-color);
-    padding-bottom: 1rem;
+    padding-bottom: 0; /* Eliminar padding */
+    border-bottom: none; /* Eliminar borde */
+}
+
+/* Header fijo para repositorio */
+.header-section-sticky {
+    position: sticky;
+    top: 0;
+    z-index: 900;
+    background-color: var(--bg-dark);
+    padding: 1.5rem 0;
+    margin-bottom: 0;
+    border-bottom: 2px solid var(--border-color); /* Borde DESPUÉS de los filtros */
 }
 
 .header-section h2 {
@@ -978,14 +980,15 @@ body {
 .filter-buttons {
     display: flex;
     gap: 10px;
-    margin-bottom: 2rem;
+    margin-bottom: 0; /* Cambiar de 2rem a 0 */
+    margin-top: 1.5rem; /* Agregar espacio arriba */
     flex-wrap: wrap;
     overflow-x: auto;
     overflow-y: hidden;
     -webkit-overflow-scrolling: touch;
     scrollbar-width: thin;
     scrollbar-color: var(--primary-color) var(--card-bg);
-    padding: 0.5rem 0;
+    padding: 0.5rem 0 1rem 0; /* Agregar padding abajo */
 }
 
 .filter-buttons::-webkit-scrollbar {
@@ -1288,6 +1291,7 @@ body {
     display: grid;
     grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
     gap: 2rem;
+    margin-top: 2rem; /* Agregar espacio arriba */
     margin-bottom: 4rem;
 }
 
@@ -2385,6 +2389,7 @@ body {
 }
 
 /* --- Footer --- */
+/* Footer - estilos base (desktop) */
 footer {
     text-align: center;
     padding: 2rem;
@@ -2394,6 +2399,11 @@ footer {
     background-color: var(--card-bg);
     box-shadow: 0 -2px 10px rgba(0,0,0,0.3);
     border-top: 1px solid var(--border-color);
+}
+
+/* Ocultar botones del footer en desktop */
+.mobile-footer-btn {
+    display: none; /* ← OCULTAR por defecto */
 }
 
 /* --- Responsividad --- */
@@ -3166,5 +3176,146 @@ footer {
     }
 }
 
+/* Botón hamburguesa en footer - SOLO MÓVIL */
+.mobile-menu-btn-footer {
+    display: none; /* Oculto por defecto */
+}
 
+@media (max-width: 768px) {
+    /* Ocultar botones de Estudiantes Y Trabajos del sidebar en móvil */
+    #tab-estudiantes,
+    #tab-trabajos {  /* ← CORREGIDO */
+        display: none !important;
+    }
+    
+    /* Footer fijo en la parte inferior */
+    footer {
+        position: fixed;
+        bottom: 0;
+        left: 0;
+        right: 0;
+        z-index: 998;
+        padding: 0.5rem 1rem;
+        display: flex;
+        align-items: center;
+        justify-content: flex-end;
+        gap: 0.5rem;
+        background-color: var(--card-bg);
+        box-shadow: 0 -2px 10px rgba(0,0,0,0.3);
+        border-top: 1px solid var(--border-color);
+    }
+    
+    /* Ocultar texto del footer en móvil */
+    .footer-text {
+        display: none;
+    }
+    
+    /* Botones del footer estilo Messenger */
+   
+    /* Botones del footer estilo Messenger */
+    .mobile-footer-btn {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 4px;
+        background: transparent;
+        border: none;
+        color: var(--text-light);
+        font-size: 1.2rem;
+        cursor: pointer;
+        padding: 0.5rem 0.8rem;
+        transition: all 0.3s ease;
+        min-width: 60px;
+        position: relative; /* ← Importante para el círculo */
+    }
+    
+    /* Círculo de notificación en footer móvil - Esquina superior derecha del botón */
+    .mobile-footer-btn .notification-dot {
+        position: absolute;
+        top: -9px;      /* ← Separado del borde superior */
+        right: -8px;    /* ← Separado del borde derecho */
+        width: 10px;
+        height: 10px;
+        background: #ff4444;
+        border-radius: 50%;
+        border: 2px solid var(--card-bg);
+    }
+    
+    .mobile-footer-btn i {
+        font-size: 1.4rem;
+    }
+    
+    .mobile-footer-btn span {
+        font-size: 0.7rem;
+        font-weight: 500;
+        margin-top: 2px;
+    }
+    
+    .mobile-footer-btn:hover {
+        color: var(--primary-color);
+    }
+    
+    .mobile-footer-btn:active {
+        transform: scale(0.95);
+    }
+    
+    /* Ocultar el botón hamburguesa original de arriba */
+    .mobile-menu-btn {
+        display: none !important;
+    }
+    
+    /* Ajustar espacio del contenido */
+    .main-content {
+        padding-bottom: 80px;
+    }
+}
 
+/* Ajustar filtros de recursos dentro del sticky header */
+.recursos-filter-buttons {
+    margin-top: 1.5rem;
+    margin-bottom: 0;
+    padding-bottom: 1rem;
+}
+
+/* Ajustar submenu de recursos */
+.recursos-submenu {
+    margin-bottom: 0;
+    padding-bottom: 1rem;
+}
+
+/* Ajustar espacio para subsection-title */
+.subsection-title {
+    margin-top: 2rem;
+}
+
+/* Ajustar grid de recursos para que no quede tapado */
+.recursos-grid {
+    margin-top: 2rem;
+}
+
+/* Ajustar subsection-title dentro del sticky */
+.header-section-sticky .subsection-title {
+    margin-top: 1.5rem;
+    margin-bottom: 0;
+    padding-bottom: 0.5rem;
+}
+
+/* Eliminar borde del subsection-title cuando está dentro del sticky */
+.header-section-sticky .subsection-title {
+    margin-top: 1.5rem;
+    margin-bottom: 0;
+    padding-bottom: 0.5rem;
+    border-bottom: none; /* ← ELIMINAR borde duplicado */
+}
+
+/* Separar contenedores de trabajos de la raya del header */
+#trabajos-pendientes-section,
+#trabajos-finalizados-section {
+    margin-top: 2rem; /* ← Espacio entre la raya y las tarjetas */
+}
+
+/* Asegurar espacio también en assignments-container */
+.assignments-container {
+    margin-top: 0; /* Ya tiene el espacio del section */
+}
