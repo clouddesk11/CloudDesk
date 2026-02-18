@@ -941,13 +941,16 @@ function toggleSearch(section) {
 
 function updatePendingBadge() {
     const pendingCount = getPendingAssignments().length;
-    const badge = document.getElementById('pending-badge');
+    const badgeSidebar = document.getElementById('pending-badge');
+    const badgeFooter = document.getElementById('pending-badge-footer');
     
+    // Mostrar/ocultar círculo (sin número)
     if (pendingCount > 0) {
-        badge.textContent = pendingCount;
-        badge.style.display = 'flex'; // Cambiar de 'flex' a 'flex'
+        if (badgeSidebar) badgeSidebar.style.display = 'block';
+        if (badgeFooter) badgeFooter.style.display = 'block';
     } else {
-        badge.style.display = 'none';
+        if (badgeSidebar) badgeSidebar.style.display = 'none';
+        if (badgeFooter) badgeFooter.style.display = 'none';
     }
 }
 
@@ -1376,9 +1379,15 @@ function toggleTrabajosFinalizados() {
     const btn = document.getElementById('btn-trabajos-finalizados');
     const btnIcon = btn.querySelector('i');
     
+    // Mostrar/ocultar títulos sticky
+    const pendientesTitle = document.getElementById('trabajos-pendientes-title');
+    const finalizadosTitle = document.getElementById('trabajos-finalizados-title');
+    
     if (showingFinalizados) {
         trabajosPendientesSection.style.display = 'none';
         trabajosFinalizadosSection.style.display = 'block';
+        pendientesTitle.style.display = 'none';
+        finalizadosTitle.style.display = 'block';
         btnText.textContent = 'Ver trabajos pendientes';
         btnIcon.className = 'fa-solid fa-clock';
         btn.classList.add('showing-finalizados');
@@ -1386,6 +1395,8 @@ function toggleTrabajosFinalizados() {
     } else {
         trabajosPendientesSection.style.display = 'block';
         trabajosFinalizadosSection.style.display = 'none';
+        pendientesTitle.style.display = 'block';
+        finalizadosTitle.style.display = 'none';
         btnText.textContent = 'Ver trabajos finalizados';
         btnIcon.className = 'fa-solid fa-check-circle';
         btn.classList.remove('showing-finalizados');
