@@ -4,8 +4,6 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>CloudDesk</title>
-    
-<!-- Favicon corregido - proporciones balanceadas -->
 <!-- Favicon con aspecto cuadrado balanceado -->
 <link rel="icon" type="image/png" sizes="16x16" 
   href="https://res.cloudinary.com/dwzwa3gp0/image/upload/e_trim/ar_1:1,c_lpad,b_transparent/w_16,h_16/v1771013132/BackgroundEraser_20260213_121333179_r5yzoo.png">
@@ -90,9 +88,11 @@
 </button>
 
 <button id="tab-trabajos" class="sidebar-btn" onclick="switchTab('trabajos')">
-    <i class="fa-solid fa-clipboard-list"></i>
+    <div style="position: relative; display: inline-block;">
+        <i class="fa-solid fa-clipboard-list"></i>
+        <span id="pending-badge" class="notification-dot" style="display: none;"></span>
+    </div>
     <span class="sidebar-btn-text">Trabajos</span>
-    <span id="pending-badge" class="sidebar-badge" style="display: none;">0</span>
 </button>
 
 <button id="tab-recursos" class="sidebar-btn" onclick="switchTab('recursos')">
@@ -123,135 +123,143 @@
     <div class="main-content" id="mainContent">
         <main class="container">
             <!-- Sección de Repositorio -->
-            <section id="repositorio" class="section-content" style="display: block;">
-                <div class="header-section">
-                    <div class="header-with-search">
-                        <div class="header-text">
-                            <h2><i class="fa-solid fa-folder-open"></i> Archivos Académicos</h2>
-                            <p>Selecciona un área para filtrar los recursos.</p>
-                        </div>
-                        <div class="search-container-inline">
-                            <button class="search-toggle" onclick="toggleSearch('repositorio')">
-                                <i class="fa-solid fa-search"></i>
-                            </button>
-                            <div class="search-bar-expandable" id="searchBarRepositorio">
-                                <input type="text" id="searchInputRepositorio" placeholder="Buscar archivos..." onkeyup="searchFiles()">
-                                <button class="search-close" onclick="toggleSearch('repositorio')">
-                                    <i class="fa-solid fa-times"></i>
-                                </button>
-                            </div>
-                        </div>
-                    </div>
+<section id="repositorio" class="section-content" style="display: block;">
+    <div class="header-section header-section-sticky">
+        <div class="header-with-search">
+            <div class="header-text">
+                <h2><i class="fa-solid fa-folder-open"></i> Archivos Académicos</h2>
+                <p>Selecciona un área para filtrar los recursos.</p>
+            </div>
+            <div class="search-container-inline">
+                <button class="search-toggle" onclick="toggleSearch('repositorio')">
+                    <i class="fa-solid fa-search"></i>
+                </button>
+                <div class="search-bar-expandable" id="searchBarRepositorio">
+                    <input type="text" id="searchInputRepositorio" placeholder="Buscar archivos..." onkeyup="searchFiles()">
+                    <button class="search-close" onclick="toggleSearch('repositorio')">
+                        <i class="fa-solid fa-times"></i>
+                    </button>
                 </div>
-                <div class="filter-buttons">
-                    <button class="filter-btn active" onclick="filterFiles('all')">Todo</button>
-                    <button class="filter-btn" onclick="filterFiles('Matemáticas')">Matemáticas</button>
-                    <button class="filter-btn" onclick="filterFiles('Ciencias')">Ciencias</button>
-                    <button class="filter-btn" onclick="filterFiles('Literatura')">Literatura</button>
-                    <button class="filter-btn" onclick="filterFiles('Historia')">Historia</button>
-                </div>
-                <div id="files-grid" class="grid-container"></div>
-            </section>
+            </div>
+        </div>
+        <div class="filter-buttons">
+            <button class="filter-btn active" onclick="filterFiles('all')">Todo</button>
+            <button class="filter-btn" onclick="filterFiles('Matemáticas')">Matemáticas</button>
+            <button class="filter-btn" onclick="filterFiles('Ciencias')">Ciencias</button>
+            <button class="filter-btn" onclick="filterFiles('Literatura')">Literatura</button>
+            <button class="filter-btn" onclick="filterFiles('Historia')">Historia</button>
+        </div>
+    </div>
+    <div id="files-grid" class="grid-container"></div>
+</section>
 
             <!-- Sección de Trabajos -->
-            <section id="trabajos" class="section-content" style="display: none;">
-                <div class="header-section">
-                    <div class="trabajos-header-flex">
-                        <div>
-                            <h2><i class="fa-solid fa-clipboard-list"></i> Gestión de Trabajos</h2>
-                            <p>Estado de entregas y tareas pendientes por docente.</p>
-                        </div>
-                        <button id="btn-trabajos-finalizados" class="btn-trabajos-finalizados" onclick="toggleTrabajosFinalizados()">
-                            <i class="fa-solid fa-clock"></i> <span id="btn-trabajos-text">Ver trabajos finalizados</span>
-                        </button>
-                    </div>
-                </div>
-                <div id="trabajos-pendientes-section" style="display: block;">
-                    <h3 class="subsection-title"><i class="fa-solid fa-hourglass-half"></i> Trabajos Pendientes</h3>
-                    <div class="assignments-container" id="assignments-container"></div>
-                </div>
-                <div id="trabajos-finalizados-section" style="display: none;">
-                    <h3 class="subsection-title"><i class="fa-solid fa-check-double"></i> Trabajos Finalizados</h3>
-                    <div class="assignments-container" id="finalizados-container"></div>
-                </div>
-            </section>
+<!-- Sección de Trabajos -->
+<section id="trabajos" class="section-content" style="display: none;">
+    <div class="header-section header-section-sticky">
+        <div class="trabajos-header-flex">
+            <div>
+                <h2><i class="fa-solid fa-clipboard-list"></i> Gestión de Trabajos</h2>
+                <p>Estado de entregas y tareas pendientes por docente.</p>
+            </div>
+            <button id="btn-trabajos-finalizados" class="btn-trabajos-finalizados" onclick="toggleTrabajosFinalizados()">
+                <i class="fa-solid fa-clock"></i> <span id="btn-trabajos-text">Ver trabajos finalizados</span>
+            </button>
+        </div>
+        
+        <!-- Títulos de subsección ahora dentro del sticky -->
+        <div id="trabajos-pendientes-title" style="display: block;">
+            <h3 class="subsection-title"><i class="fa-solid fa-hourglass-half"></i> Trabajos Pendientes</h3>
+        </div>
+        <div id="trabajos-finalizados-title" style="display: none;">
+            <h3 class="subsection-title"><i class="fa-solid fa-check-double"></i> Trabajos Finalizados</h3>
+        </div>
+    </div>
+    
+    <div id="trabajos-pendientes-section" style="display: block;">
+        <div class="assignments-container" id="assignments-container"></div>
+    </div>
+    <div id="trabajos-finalizados-section" style="display: none;">
+        <div class="assignments-container" id="finalizados-container"></div>
+    </div>
+</section>
 
             <!-- Sección de Recursos -->
-            <section id="recursos" class="section-content" style="display: none;">
-                <div class="header-section">
-                    <div class="header-with-search">
-                        <div class="header-text">
-                            <h2><i class="fa-solid fa-book"></i> Recursos del Área de la Especialidad de Comunicación</h2>
-                        </div>
-                        <div class="search-container-inline">
-                            <button class="search-toggle" onclick="toggleSearch('recursos')">
-                                <i class="fa-solid fa-search"></i>
-                            </button>
-                            <div class="search-bar-expandable" id="searchBarRecursos">
-                                <input type="text" id="searchInputRecursos" placeholder="Buscar recursos..." onkeyup="searchRecursos()">
-                                <button class="search-close" onclick="toggleSearch('recursos')">
-                                    <i class="fa-solid fa-times"></i>
-                                </button>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-                
-                <div class="recursos-filter-buttons">
-                    <button class="recursos-filter-btn active" onclick="filterRecursos('Materiales')" data-category="Materiales">
-                        <i class="fa-solid fa-folder"></i> Materiales
-                        <i class="fa-solid fa-bars recursos-hamburger" onclick="toggleRecursosMenu(event, 'Materiales')"></i>
-                    </button>
-                    <button class="recursos-filter-btn" onclick="filterRecursos('Cuentos')" data-category="Cuentos">
-                        <i class="fa-solid fa-book-open"></i> Cuentos
-                        <i class="fa-solid fa-bars recursos-hamburger" onclick="toggleRecursosMenu(event, 'Cuentos')"></i>
-                    </button>
-                    <button class="recursos-filter-btn" onclick="filterRecursos('Historias')" data-category="Historias">
-                        <i class="fa-solid fa-scroll"></i> Historias
-                        <i class="fa-solid fa-bars recursos-hamburger" onclick="toggleRecursosMenu(event, 'Historias')"></i>
-                    </button>
-                    <button class="recursos-filter-btn" onclick="filterRecursos('Leyendas')" data-category="Leyendas">
-                        <i class="fa-solid fa-dragon"></i> Leyendas
-                        <i class="fa-solid fa-bars recursos-hamburger" onclick="toggleRecursosMenu(event, 'Leyendas')"></i>
-                    </button>
-                    <button class="recursos-filter-btn" onclick="filterRecursos('Poemas')" data-category="Poemas">
-                        <i class="fa-solid fa-feather"></i> Poemas
-                        <i class="fa-solid fa-bars recursos-hamburger" onclick="toggleRecursosMenu(event, 'Poemas')"></i>
-                    </button>
-                    <button class="recursos-filter-btn" onclick="filterRecursos('Libros')" data-category="Libros">
-                        <i class="fa-solid fa-book"></i> Libros
+<section id="recursos" class="section-content" style="display: none;">
+    <div class="header-section header-section-sticky">
+        <div class="header-with-search">
+            <div class="header-text">
+                <h2><i class="fa-solid fa-book"></i> Recursos del Área de la Especialidad de Comunicación</h2>
+            </div>
+            <div class="search-container-inline">
+                <button class="search-toggle" onclick="toggleSearch('recursos')">
+                    <i class="fa-solid fa-search"></i>
+                </button>
+                <div class="search-bar-expandable" id="searchBarRecursos">
+                    <input type="text" id="searchInputRecursos" placeholder="Buscar recursos..." onkeyup="searchRecursos()">
+                    <button class="search-close" onclick="toggleSearch('recursos')">
+                        <i class="fa-solid fa-times"></i>
                     </button>
                 </div>
+            </div>
+        </div>
+        
+        <div class="recursos-filter-buttons">
+            <button class="recursos-filter-btn active" onclick="filterRecursos('Materiales')" data-category="Materiales">
+                <i class="fa-solid fa-folder"></i> Materiales
+                <i class="fa-solid fa-bars recursos-hamburger" onclick="toggleRecursosMenu(event, 'Materiales')"></i>
+            </button>
+            <button class="recursos-filter-btn" onclick="filterRecursos('Cuentos')" data-category="Cuentos">
+                <i class="fa-solid fa-book-open"></i> Cuentos
+                <i class="fa-solid fa-bars recursos-hamburger" onclick="toggleRecursosMenu(event, 'Cuentos')"></i>
+            </button>
+            <button class="recursos-filter-btn" onclick="filterRecursos('Historias')" data-category="Historias">
+                <i class="fa-solid fa-scroll"></i> Historias
+                <i class="fa-solid fa-bars recursos-hamburger" onclick="toggleRecursosMenu(event, 'Historias')"></i>
+            </button>
+            <button class="recursos-filter-btn" onclick="filterRecursos('Leyendas')" data-category="Leyendas">
+                <i class="fa-solid fa-dragon"></i> Leyendas
+                <i class="fa-solid fa-bars recursos-hamburger" onclick="toggleRecursosMenu(event, 'Leyendas')"></i>
+            </button>
+            <button class="recursos-filter-btn" onclick="filterRecursos('Poemas')" data-category="Poemas">
+                <i class="fa-solid fa-feather"></i> Poemas
+                <i class="fa-solid fa-bars recursos-hamburger" onclick="toggleRecursosMenu(event, 'Poemas')"></i>
+            </button>
+            <button class="recursos-filter-btn" onclick="filterRecursos('Libros')" data-category="Libros">
+                <i class="fa-solid fa-book"></i> Libros
+            </button>
+        </div>
 
-                <div id="recursosSubMenu" class="recursos-submenu" style="display: none;">
-                    <button class="submenu-btn active" onclick="filterRecursosType('Documentos')">
-                        <i class="fa-solid fa-file-lines"></i> Documentos
-                    </button>
-                    <button class="submenu-btn" onclick="filterRecursosType('Videos')">
-                        <i class="fa-solid fa-video"></i> Videos
-                    </button>
-                    <button class="submenu-btn" onclick="filterRecursosType('Imágenes')">
-                        <i class="fa-solid fa-image"></i> Imágenes
-                    </button>
-                </div>
+        <div id="recursosSubMenu" class="recursos-submenu" style="display: none;">
+            <button class="submenu-btn active" onclick="filterRecursosType('Documentos')">
+                <i class="fa-solid fa-file-lines"></i> Documentos
+            </button>
+            <button class="submenu-btn" onclick="filterRecursosType('Videos')">
+                <i class="fa-solid fa-video"></i> Videos
+            </button>
+            <button class="submenu-btn" onclick="filterRecursosType('Imágenes')">
+                <i class="fa-solid fa-image"></i> Imágenes
+            </button>
+        </div>
+    </div>
 
-                <div class="recursos-list">
-                    <div id="recursos-container" class="recursos-grid"></div>
-                </div>
-            </section>
+    <div class="recursos-list">
+        <div id="recursos-container" class="recursos-grid"></div>
+    </div>
+</section>
 
             <!-- Sección de Docentes -->
-            <section id="docentes" class="section-content" style="display: none;">
-                <div class="header-section">
-                    <h2><i class="fa-solid fa-chalkboard-user"></i> Directorio de Docentes</h2>
-                    <p>Información de contacto y perfil de los profesores.</p>
-                </div>
-                <div id="docentes-grid" class="grid-container"></div>
-            </section>
-
+<section id="docentes" class="section-content" style="display: none;">
+    <div class="header-section header-section-sticky">
+        <h2><i class="fa-solid fa-chalkboard-user"></i> Directorio de Docentes</h2>
+        <p>Información de contacto y perfil de los profesores.</p>
+    </div>
+    <div id="docentes-grid" class="grid-container"></div>
+</section>
             <!-- Sección de Estudiantes -->
-            <section id="estudiantes" class="section-content" style="display: none;">
-    <div class="header-section header-with-button">
+            <!-- Sección de Estudiantes -->
+<section id="estudiantes" class="section-content" style="display: none;">
+    <div class="header-section header-section-sticky header-with-button">
         <div class="header-text-estudiantes">
             <h2><i class="fa-solid fa-user-graduate"></i> Registro de Estudiantes</h2>
             <p>Únete a la comunidad de estudiantes de Comunicación VII.</p>
@@ -263,18 +271,38 @@
     </div>
     
     <div id="estudiantes-grid" class="grid-container">
-                    <div class="loading-estudiantes" id="loading-estudiantes">
-                        <i class="fa-solid fa-spinner fa-spin"></i>
-                        <p>Cargando estudiantes...</p>
-                    </div>
-                </div>
-            </section>
+        <div class="loading-estudiantes" id="loading-estudiantes">
+            <i class="fa-solid fa-spinner fa-spin"></i>
+            <p>Cargando estudiantes...</p>
+        </div>
+    </div>
+</section>
         </main>
 
-        <footer>
-            <p>© 2025 EduSpace Plataforma Académica - Todos los derechos reservados.</p>
-        </footer>
-    </div>
+       <footer>
+    <p class="footer-text">© 2025 EduSpace Plataforma Académica - Todos los derechos reservados.</p>
+    
+     <!-- Botón Trabajos con notificación -->
+    <button class="mobile-footer-btn" onclick="switchTab('trabajos')">
+        <div style="position: relative;">
+            <i class="fa-solid fa-clipboard-list"></i>
+            <span id="pending-badge-footer" class="notification-dot" style="display: none;"></span>
+        </div>
+        <span>Trabajos</span>
+    </button>
+
+    <!-- Botón Comunidad (antes Estudiantes) -->
+    <button class="mobile-footer-btn" onclick="switchTab('estudiantes')">
+        <i class="fa-solid fa-user-group"></i>
+        <span>Comunidad</span>
+    </button>
+    
+    <!-- Botón Menú hamburguesa -->
+    <button class="mobile-footer-btn" onclick="toggleSidebar()">
+        <i class="fa-solid fa-bars"></i>
+        <span>Menú</span>
+    </button>
+</footer>
 
     <!-- ========================================
          MODALES (FUERA DE MAIN-CONTENT)
