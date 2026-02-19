@@ -19,13 +19,25 @@ const database = firebase.database();
 // SISTEMA DE FINGERPRINTING ROBUSTO
 // ============================================
 function generateDeviceFingerprint() {
+    // ── IMPORTANTE: El fingerprint DEBE ser estable entre sesiones ──
+    // Si usáramos Date.now(), cada intento de login generaría un ID
+    // diferente, rompiendo el reconocimiento de dispositivos.
+    // Solución: guardar el fingerprint en localStorage la primera vez
+    // y reutilizarlo siempre en el mismo dispositivo.
+
+    const STORAGE_KEY = '_cdsk_device_fp';
+    const stored = localStorage.getItem(STORAGE_KEY);
+    if (stored) return stored;
+
+    // Primera vez en este dispositivo: generar fingerprint desde
+    // características de hardware (sin Date.now para que sea estable)
     const canvas = document.createElement('canvas');
     const ctx = canvas.getContext('2d');
     ctx.textBaseline = 'top';
     ctx.font = '14px Arial';
     ctx.fillText('fingerprint', 2, 2);
     const canvasData = canvas.toDataURL();
-    
+
     const data = {
         userAgent: navigator.userAgent,
         screen: `${screen.width}x${screen.height}x${screen.colorDepth}`,
@@ -36,9 +48,12 @@ function generateDeviceFingerprint() {
         memory: navigator.deviceMemory || 0,
         canvas: canvasData.substring(0, 50),
         plugins: Array.from(navigator.plugins || []).map(p => p.name).join(','),
-        touchSupport: 'ontouchstart' in window
+        touchSupport: 'ontouchstart' in window,
+        // Añadimos un token aleatorio para que sea único por dispositivo
+        // incluso si dos dispositivos tienen hardware idéntico
+        token: Math.random().toString(36).slice(2) + Math.random().toString(36).slice(2)
     };
-    
+
     const jsonString = JSON.stringify(data);
     let hash = 0;
     for (let i = 0; i < jsonString.length; i++) {
@@ -46,8 +61,10 @@ function generateDeviceFingerprint() {
         hash = ((hash << 5) - hash) + char;
         hash = hash & hash;
     }
-    
-    return Math.abs(hash).toString(36) + Date.now().toString(36);
+
+    const fp = Math.abs(hash).toString(36) + '_' + data.token;
+    localStorage.setItem(STORAGE_KEY, fp);
+    return fp;
 }
 
 function getDeviceType() {
@@ -110,6 +127,20 @@ async function codigoExisteEnFirebase(codigo) {
 }
 
 // ============================================
+// UTILIDAD: NORMALIZAR NOMBRE PARA COMPARACIÓN
+// Elimina espacios extra, convierte a minúsculas y
+// normaliza tildes/caracteres especiales
+// ============================================
+function normalizarNombre(nombre) {
+    return nombre
+        .trim()
+        .toLowerCase()
+        .normalize("NFD")
+        .replace(/[\u0300-\u036f]/g, "")   // elimina tildes
+        .replace(/\s+/g, " ");              // colapsa espacios múltiples
+}
+
+// ============================================
 // VALIDACIÓN CON FIREBASE
 // ============================================
 async function validateAuthWithFirebase() {
@@ -136,6 +167,40 @@ async function validateAuthWithFirebase() {
             const motivoBloqueo = codigoData.motivoBloqueo || 'Tu acceso ha sido bloqueado por el administrador.';
             showAuthError(`🚫 ACCESO BLOQUEADO: ${motivoBloqueo}`);
             return false;
+        }
+
+        // ── SEGUNDA CONTRASEÑA: verificar coherencia del nombre (doble capa) ──
+        // CAPA A: propietario explícito del admin
+        if (codigoData.propietario && codigoData.propietario.trim() !== '') {
+            const propietarioNorm = normalizarNombre(codigoData.propietario);
+            const userNameNorm    = normalizarNombre(userName || '');
+            if (propietarioNorm !== userNameNorm) {
+                localStorage.removeItem('eduspace_auth');
+                showAuthError('⚠️ La sesión guardada no es válida. Ingresa de nuevo con el nombre correcto.');
+                return false;
+            }
+        }
+        // CAPA B: candado automático desde el primer dispositivo registrado
+        else {
+            const dispositivosActuales = codigoData.dispositivos || {};
+            const dispositivosKeys     = Object.keys(dispositivosActuales);
+            let nombrePrimerDispositivo = '';
+            for (const key of dispositivosKeys) {
+                const devUsuario = (dispositivosActuales[key].usuario || '').trim();
+                if (devUsuario !== '') {
+                    nombrePrimerDispositivo = devUsuario;
+                    break;
+                }
+            }
+            if (nombrePrimerDispositivo !== '') {
+                const primerNorm   = normalizarNombre(nombrePrimerDispositivo);
+                const userNameNorm = normalizarNombre(userName || '');
+                if (primerNorm !== userNameNorm) {
+                    localStorage.removeItem('eduspace_auth');
+                    showAuthError('⚠️ La sesión guardada no corresponde al titular de este código.');
+                    return false;
+                }
+            }
         }
         
         const dispositivos = codigoData.dispositivos || {};
@@ -185,11 +250,11 @@ function contarDispositivosPorTipo(dispositivos) {
 }
 
 // ============================================
-// MANEJO DE AUTENTICACIÓN MEJORADO
+// MANEJO DE AUTENTICACIÓN CON SEGUNDA CONTRASEÑA
 // ============================================
 async function handleAuthSubmit() {
     const userName = document.getElementById('authUserName').value.trim();
-    const codigo = document.getElementById('authCode').value.trim();
+    const codigo   = document.getElementById('authCode').value.trim();
     const errorDiv = document.getElementById('authError');
     const submitBtn = document.getElementById('authSubmit');
     
@@ -212,23 +277,35 @@ async function handleAuthSubmit() {
     submitBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Validando...';
     
     try {
-        const codigoExiste = await codigoExisteEnFirebase(codigo);
-        
-        if (!codigoExiste) {
+        // ── UNA SOLA LLAMADA FIREBASE (verificar existencia + obtener datos) ─
+        // Motivo: en móvil con conexión inestable, hacer dos llamadas separadas
+        // podía causar que la segunda fallara y mostrara "código inválido"
+        // aunque el código fuera correcto.
+        let snapshot;
+        try {
+            snapshot = await database.ref(`codigos/${codigo}`).once('value');
+        } catch (fbError) {
+            console.error('Error Firebase:', fbError);
+            errorDiv.textContent = '⚠️ Error de conexión. Verifica tu internet e intenta nuevamente.';
+            errorDiv.style.display = 'block';
+            submitBtn.disabled = false;
+            submitBtn.innerHTML = '<i class="fa-solid fa-sign-in-alt"></i> Ingresar';
+            return;
+        }
+
+        if (!snapshot.exists()) {
             errorDiv.textContent = '❌ Código inválido. Verifica con el administrador.';
             errorDiv.style.display = 'block';
             submitBtn.disabled = false;
             submitBtn.innerHTML = '<i class="fa-solid fa-sign-in-alt"></i> Ingresar';
             return;
         }
-        
+
+        const codigoData       = snapshot.val();
         const deviceFingerprint = generateDeviceFingerprint();
-        const deviceType = getDeviceType();
-        
-        const codigoRef = database.ref(`codigos/${codigo}`);
-        const snapshot = await codigoRef.once('value');
-        const codigoData = snapshot.val();
-        
+        const deviceType        = getDeviceType();
+
+        // ── 1. Verificar bloqueo ──────────────────────────────────────────────
         if (codigoData.bloqueado === true) {
             const motivoBloqueo = codigoData.motivoBloqueo || 'Tu acceso ha sido bloqueado por el administrador.';
             errorDiv.textContent = `🚫 ACCESO BLOQUEADO: ${motivoBloqueo}`;
@@ -237,9 +314,73 @@ async function handleAuthSubmit() {
             submitBtn.innerHTML = '<i class="fa-solid fa-sign-in-alt"></i> Ingresar';
             return;
         }
+
+        // ── 2. VERIFICACIÓN DE NOMBRE (doble capa) ───────────────────────────
+        //
+        // CAPA A: El admin asignó explícitamente un propietario al código.
+        //         El nombre ingresado debe coincidir con ese propietario.
+        //
+        // CAPA B: El admin NO asignó propietario, pero ya existe al menos
+        //         un dispositivo registrado. El nombre de ese primer dispositivo
+        //         actúa como candado automático: nadie más puede ocupar el
+        //         segundo slot con un nombre diferente.
+        //
+        // Ambas capas usan normalización (sin tildes, sin importar mayúsculas).
+
+        const dispositivosActuales = codigoData.dispositivos || {};
+        const dispositivosKeys     = Object.keys(dispositivosActuales);
+
+        // -- CAPA A: propietario explícito del admin --
+        if (codigoData.propietario && codigoData.propietario.trim() !== '') {
+            const propietarioNorm = normalizarNombre(codigoData.propietario);
+            const userNameNorm    = normalizarNombre(userName);
+
+            if (propietarioNorm !== userNameNorm) {
+                errorDiv.innerHTML = `
+                    ❌ El nombre ingresado no coincide con el registrado para este código.<br>
+                    <small style="opacity:0.8;">Escríbelo exactamente como el administrador lo registró.
+                    Las tildes no son obligatorias pero las mayúsculas sí importan en las letras.</small>
+                `;
+                errorDiv.style.display = 'block';
+                submitBtn.disabled = false;
+                submitBtn.innerHTML = '<i class="fa-solid fa-sign-in-alt"></i> Ingresar';
+                return;
+            }
+        }
+        // -- CAPA B: candado automático desde el primer dispositivo registrado --
+        else if (dispositivosKeys.length > 0) {
+            // Buscar el nombre del primer dispositivo que tenga usuario guardado
+            let nombrePrimerDispositivo = '';
+            for (const key of dispositivosKeys) {
+                const devUsuario = (dispositivosActuales[key].usuario || '').trim();
+                if (devUsuario !== '') {
+                    nombrePrimerDispositivo = devUsuario;
+                    break;
+                }
+            }
+
+            // Si hay un nombre registrado, el nuevo ingreso debe coincidir
+            if (nombrePrimerDispositivo !== '') {
+                const primerNorm  = normalizarNombre(nombrePrimerDispositivo);
+                const userNameNorm = normalizarNombre(userName);
+
+                if (primerNorm !== userNameNorm) {
+                    errorDiv.innerHTML = `
+                        ❌ El nombre ingresado no coincide con el titular de este código.<br>
+                        <small style="opacity:0.8;">Este código ya está vinculado a otro usuario.
+                        Solo el titular original puede registrar el segundo dispositivo.</small>
+                    `;
+                    errorDiv.style.display = 'block';
+                    submitBtn.disabled = false;
+                    submitBtn.innerHTML = '<i class="fa-solid fa-sign-in-alt"></i> Ingresar';
+                    return;
+                }
+            }
+        }
         
         const dispositivos = codigoData.dispositivos || {};
         
+        // ── 3. Si este dispositivo ya está registrado, solo actualizar acceso ─
         const dispositivoExistente = Object.keys(dispositivos).find(
             key => dispositivos[key].fingerprint === deviceFingerprint
         );
@@ -271,6 +412,7 @@ async function handleAuthSubmit() {
             return;
         }
         
+        // ── 4. Dispositivo nuevo: verificar límites ───────────────────────────
         const { mobile, desktop } = contarDispositivosPorTipo(dispositivos);
         
         if (deviceType === 'mobile' && mobile >= 1) {
@@ -298,6 +440,7 @@ async function handleAuthSubmit() {
             return;
         }
         
+        // ── 5. Registrar nuevo dispositivo ────────────────────────────────────
         const dispositivoId = `device_${Date.now()}`;
         const updates = {};
         updates[`codigos/${codigo}/dispositivos/${dispositivoId}`] = {
@@ -944,7 +1087,6 @@ function updatePendingBadge() {
     const badgeSidebar = document.getElementById('pending-badge');
     const badgeFooter = document.getElementById('pending-badge-footer');
     
-    // Mostrar/ocultar círculo (sin número)
     if (pendingCount > 0) {
         if (badgeSidebar) badgeSidebar.style.display = 'block';
         if (badgeFooter) badgeFooter.style.display = 'block';
@@ -1379,7 +1521,6 @@ function toggleTrabajosFinalizados() {
     const btn = document.getElementById('btn-trabajos-finalizados');
     const btnIcon = btn.querySelector('i');
     
-    // Mostrar/ocultar títulos sticky
     const pendientesTitle = document.getElementById('trabajos-pendientes-title');
     const finalizadosTitle = document.getElementById('trabajos-finalizados-title');
     
@@ -1707,33 +1848,25 @@ window.onclick = function(event) {
 // SISTEMA DE REGISTRO DE ESTUDIANTES
 // ============================================
 
-// ============================================
-// SISTEMA DE REGISTRO DE ESTUDIANTES - V2 CORREGIDO
-// ============================================
-
-// Configuración de Cloudinary y Supabase
 const CLOUDINARY_CONFIG = {
     CLOUD_NAME: "dwzwa3gp0",
     UPLOAD_PRESET: "hfqqxu13"
 };
 
 const SUPABASE_CONFIG = {
-    URL: 'https://pauaqgfqsitnjsikrjns.supabase.co',  // ← CAMBIAR POR TU URL
-    KEY: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBhdWFxZ2Zxc2l0bmpzaWtyam5zIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzEwOTMxODYsImV4cCI6MjA4NjY2OTE4Nn0.Jz-rCRPQkgm9wXicGRoCP4xP-NotY-YEQXUyxgU7HeM'      // ← CAMBIAR POR TU KEY
+    URL: 'https://pauaqgfqsitnjsikrjns.supabase.co',
+    KEY: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBhdWFxZ2Zxc2l0bmpzaWtyam5zIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzEwOTMxODYsImV4cCI6MjA4NjY2OTE4Nn0.Jz-rCRPQkgm9wXicGRoCP4xP-NotY-YEQXUyxgU7HeM'
 };
 
-// Inicializar cliente de Supabase
 let supabaseClient = null;
 let estudiantesListener = null;
 let selectedImageFile = null;
 
-// Inicializar Supabase cuando el DOM esté listo
 function initSupabase() {
     try {
         if (typeof supabase !== 'undefined') {
             supabaseClient = supabase.createClient(SUPABASE_CONFIG.URL, SUPABASE_CONFIG.KEY);
             console.log('✅ Supabase inicializado correctamente');
-            console.log('📍 URL:', SUPABASE_CONFIG.URL);
             return true;
         } else {
             console.error('❌ Supabase no está cargado. Verifica el CDN.');
@@ -1745,8 +1878,6 @@ function initSupabase() {
     }
 }
 
-
-// Abrir modal de registro
 function openRegistroModal() {
     const modal = document.getElementById('registroModal');
     const terminosContainer = document.querySelector('.terminos-container');
@@ -1754,13 +1885,11 @@ function openRegistroModal() {
     
     modal.style.display = 'block';
     
-    // Reset completo del formulario
     document.getElementById('aceptoTerminos').checked = false;
     document.getElementById('nombreCompleto').value = '';
     selectedImageFile = null;
     resetImagePreview();
     
-    // Mostrar términos y ocultar formulario
     terminosContainer.style.display = 'block';
     terminosContainer.style.opacity = '1';
     terminosContainer.style.transform = 'translateY(0)';
@@ -1770,25 +1899,21 @@ function openRegistroModal() {
     formRegistro.style.transform = 'translateY(20px)';
 }
 
-// Cerrar modal de registro
 function closeRegistroModal() {
     const modal = document.getElementById('registroModal');
     modal.style.display = 'none';
 }
 
-// Vista previa de imagen
 function previewImage(event) {
     const file = event.target.files[0];
     
     if (!file) return;
     
-    // Validar tamaño (5MB máximo)
     if (file.size > 5 * 1024 * 1024) {
         alert('⚠️ La imagen es muy grande. El tamaño máximo es 5MB.');
         return;
     }
     
-    // Validar tipo
     if (!file.type.startsWith('image/')) {
         alert('⚠️ Por favor selecciona un archivo de imagen válido.');
         return;
@@ -1805,7 +1930,6 @@ function previewImage(event) {
     reader.readAsDataURL(file);
 }
 
-// Resetear vista previa
 function resetImagePreview() {
     document.getElementById('uploadPlaceholder').style.display = 'block';
     document.getElementById('imagePreview').style.display = 'none';
@@ -1813,9 +1937,7 @@ function resetImagePreview() {
     document.getElementById('fotoInput').value = '';
 }
 
-// Función para mostrar notificación toast (no bloqueante)
 function mostrarToast(mensaje, icono = 'fa-check-circle', duracion = 3000) {
-    // Crear elemento
     const toast = document.createElement('div');
     toast.className = 'toast-notification';
     toast.innerHTML = `
@@ -1823,21 +1945,17 @@ function mostrarToast(mensaje, icono = 'fa-check-circle', duracion = 3000) {
         <span>${mensaje}</span>
     `;
     
-    // Agregar al body
     document.body.appendChild(toast);
     
-    // Eliminar automáticamente después de la duración
     setTimeout(() => {
         toast.remove();
     }, duracion);
 }
 
-// Registrar estudiante (VERSIÓN MEJORADA CON ACTUALIZACIÓN INMEDIATA)
 async function registrarEstudiante() {
     const nombreCompleto = document.getElementById('nombreCompleto').value.trim();
     const btnRegistrar = document.getElementById('btnRegistrar');
     
-    // Validaciones
     if (!nombreCompleto) {
         alert('⚠️ Por favor ingresa tu nombre completo.');
         return;
@@ -1855,17 +1973,13 @@ async function registrarEstudiante() {
     
     if (!supabaseClient) {
         alert('❌ Error: No se pudo conectar con la base de datos. Recarga la página.');
-        console.error('Supabase no inicializado');
         return;
     }
     
-    // Deshabilitar botón
     btnRegistrar.disabled = true;
     btnRegistrar.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Subiendo foto...';
     
     try {
-        // 1. Subir imagen a Cloudinary
-        console.log('📤 Subiendo imagen a Cloudinary...');
         const formData = new FormData();
         formData.append('file', selectedImageFile);
         formData.append('upload_preset', CLOUDINARY_CONFIG.UPLOAD_PRESET);
@@ -1886,11 +2000,7 @@ async function registrarEstudiante() {
         const cloudinaryData = await uploadResponse.json();
         const fotoUrl = cloudinaryData.secure_url;
         
-        console.log('✅ Imagen subida a Cloudinary:', fotoUrl);
-        
-        // 2. Guardar en Supabase
         btnRegistrar.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Guardando datos...';
-        console.log('💾 Guardando en Supabase...');
         
         const { data, error } = await supabaseClient
             .from('estudiantes')
@@ -1903,48 +2013,31 @@ async function registrarEstudiante() {
             .select();
         
         if (error) {
-            console.error('❌ Error de Supabase:', error);
             throw new Error(`Error al guardar: ${error.message}`);
         }
         
-        console.log('✅ Estudiante registrado:', data);
-        
-        // 3. Cerrar modal
         closeRegistroModal();
-        
-        // 4. Mostrar notificación toast
         mostrarToast('🎉 ¡Registro exitoso! Bienvenido/a a CloudDesk');
-        
-        // 5. ⭐ ACTUALIZAR LA LISTA INMEDIATAMENTE (SIN ESPERAR REALTIME)
-        console.log('🔄 Actualizando lista de estudiantes...');
         await cargarEstudiantes();
         
     } catch (error) {
         console.error('❌ Error completo:', error);
         alert(`❌ Error: ${error.message}\n\nPor favor, intenta nuevamente.`);
     } finally {
-        // Rehabilitar botón
         btnRegistrar.disabled = false;
         btnRegistrar.innerHTML = '<i class="fa-solid fa-check-circle"></i> Registrarme Ahora';
     }
 }
-        
-      
 
-// Cargar estudiantes desde Supabase
 async function cargarEstudiantes() {
     const grid = document.getElementById('estudiantes-grid');
     const loading = document.getElementById('loading-estudiantes');
     
-    console.log('📥 Intentando cargar estudiantes...');
-    
     if (!supabaseClient) {
-        console.error('❌ Supabase no inicializado al cargar estudiantes');
         grid.innerHTML = `
             <p style="grid-column: 1/-1; text-align: center; color: var(--danger); padding: 2rem;">
                 <i class="fa-solid fa-exclamation-triangle" style="font-size: 2rem; margin-bottom: 1rem;"></i><br>
-                Error: No se pudo conectar con la base de datos.<br>
-                <small>Verifica tus credenciales de Supabase en script.js</small>
+                Error: No se pudo conectar con la base de datos.
             </p>
         `;
         return;
@@ -1953,18 +2046,12 @@ async function cargarEstudiantes() {
     try {
         if (loading) loading.style.display = 'block';
         
-        console.log('🔍 Consultando tabla estudiantes...');
         const { data, error } = await supabaseClient
             .from('estudiantes')
             .select('*')
             .order('created_at', { ascending: false });
         
-        if (error) {
-            console.error('❌ Error de Supabase al cargar:', error);
-            throw error;
-        }
-        
-        console.log(`✅ ${data.length} estudiantes cargados:`, data);
+        if (error) throw error;
         
         renderEstudiantesReales(data);
         
@@ -1972,9 +2059,7 @@ async function cargarEstudiantes() {
         console.error('❌ Error al cargar estudiantes:', error);
         grid.innerHTML = `
             <p style="grid-column: 1/-1; text-align: center; color: var(--danger); padding: 2rem;">
-                <i class="fa-solid fa-exclamation-triangle" style="font-size: 2rem; margin-bottom: 1rem;"></i><br>
-                Error al cargar estudiantes: ${error.message}<br>
-                <small>Verifica las políticas RLS en Supabase</small>
+                Error al cargar estudiantes: ${error.message}
             </p>
         `;
     } finally {
@@ -1982,7 +2067,6 @@ async function cargarEstudiantes() {
     }
 }
 
-// Renderizar estudiantes reales
 function renderEstudiantesReales(estudiantes) {
     const grid = document.getElementById('estudiantes-grid');
     const loading = document.getElementById('loading-estudiantes');
@@ -2008,40 +2092,29 @@ function renderEstudiantesReales(estudiantes) {
         estudianteCard.style.animation = 'fadeIn 0.5s ease';
         estudianteCard.style.animationDelay = `${index * 0.1}s`;
         
-        
         estudianteCard.innerHTML = `
-    <img src="${estudiante.foto_url}" 
-         alt="${estudiante.nombre_completo}" 
-         class="estudiante-avatar"
-         onerror="this.src='https://ui-avatars.com/api/?name=${encodeURIComponent(estudiante.nombre_completo)}&background=3b82f6&color=fff&size=200'">
-    <h3 class="estudiante-name">${estudiante.nombre_completo}</h3>
-    <p class="estudiante-date">
-        <i class="fa-solid fa-calendar-check"></i> 
-        ${new Date(estudiante.created_at).toLocaleDateString('es-ES')}
-    </p>
+            <img src="${estudiante.foto_url}" 
+                 alt="${estudiante.nombre_completo}" 
+                 class="estudiante-avatar"
+                 onerror="this.src='https://ui-avatars.com/api/?name=${encodeURIComponent(estudiante.nombre_completo)}&background=3b82f6&color=fff&size=200'">
+            <h3 class="estudiante-name">${estudiante.nombre_completo}</h3>
+            <p class="estudiante-date">
+                <i class="fa-solid fa-calendar-check"></i> 
+                ${new Date(estudiante.created_at).toLocaleDateString('es-ES')}
+            </p>
         `;
         
         grid.appendChild(estudianteCard);
     });
-    
-    console.log('✅ Estudiantes renderizados en pantalla');
 }
 
-// Inicializar listener de tiempo real
 function inicializarRealtimeEstudiantes() {
-    if (!supabaseClient) {
-        console.error('❌ No se puede inicializar Realtime: Supabase no está listo');
-        return;
-    }
+    if (!supabaseClient) return;
     
-    console.log('🔄 Iniciando listener de Realtime...');
-    
-    // Detener listener anterior si existe
     if (estudiantesListener) {
         supabaseClient.removeChannel(estudiantesListener);
     }
     
-    // Crear nuevo listener
     estudiantesListener = supabaseClient
         .channel('estudiantes-realtime')
         .on(
@@ -2052,41 +2125,26 @@ function inicializarRealtimeEstudiantes() {
                 table: 'estudiantes'
             },
             (payload) => {
-                console.log('🔥 Nuevo estudiante detectado en tiempo real:', payload.new);
                 cargarEstudiantes();
             }
         )
-        .subscribe((status) => {
-            console.log('📡 Estado de Realtime:', status);
-            if (status === 'SUBSCRIBED') {
-                console.log('✅ Realtime activado y escuchando cambios');
-            }
-        });
+        .subscribe();
 }
 
-// Modificar la función renderEstudiantes original
 function renderEstudiantes() {
-    console.log('🚀 Iniciando renderEstudiantes()...');
-    
     if (supabaseClient) {
-        console.log('✅ Supabase ya inicializado, cargando estudiantes...');
         cargarEstudiantes();
         inicializarRealtimeEstudiantes();
     } else {
-        console.log('⏳ Esperando inicialización de Supabase...');
         setTimeout(() => {
             if (supabaseClient) {
-                console.log('✅ Supabase inicializado (delayed), cargando estudiantes...');
                 cargarEstudiantes();
                 inicializarRealtimeEstudiantes();
             } else {
-                console.error('❌ Supabase no pudo inicializarse después de espera');
                 const grid = document.getElementById('estudiantes-grid');
                 grid.innerHTML = `
                     <p style="grid-column: 1/-1; text-align: center; color: var(--danger); padding: 2rem;">
-                        <i class="fa-solid fa-exclamation-triangle" style="font-size: 2rem; margin-bottom: 1rem;"></i><br>
-                        Error de conexión con Supabase.<br>
-                        <small>Verifica que el CDN esté cargado y las credenciales sean correctas.</small>
+                        Error de conexión con Supabase.
                     </p>
                 `;
             }
@@ -2094,65 +2152,51 @@ function renderEstudiantes() {
     }
 }
 
-// Event Listeners del DOM
 document.addEventListener('DOMContentLoaded', function() {
-    console.log('📄 DOM cargado, inicializando sistema de estudiantes...');
-    
-    // Inicializar Supabase
     const supabaseReady = initSupabase();
     
-    if (!supabaseReady) {
-        console.error('❌ Fallo crítico: Supabase no se pudo inicializar');
-    }
-    
-    // Manejar aceptación de términos
-    
-const checkbox = document.getElementById('aceptoTerminos');
-if (checkbox) {
-    checkbox.addEventListener('change', function() {
-        const formRegistro = document.getElementById('form-registro');
-        const terminosContainer = document.querySelector('.terminos-container');
-        
-        if (this.checked) {
-            // Ocultar términos con animación
-            terminosContainer.style.transition = 'opacity 0.3s ease, transform 0.3s ease';
-            terminosContainer.style.opacity = '0';
-            terminosContainer.style.transform = 'translateY(-20px)';
+    const checkbox = document.getElementById('aceptoTerminos');
+    if (checkbox) {
+        checkbox.addEventListener('change', function() {
+            const formRegistro = document.getElementById('form-registro');
+            const terminosContainer = document.querySelector('.terminos-container');
             
-            setTimeout(() => {
-                terminosContainer.style.display = 'none';
-                // Mostrar formulario con animación
-                formRegistro.style.display = 'block';
-                formRegistro.style.opacity = '0';
-                formRegistro.style.transform = 'translateY(20px)';
-                
-                setTimeout(() => {
-                    formRegistro.style.transition = 'opacity 0.3s ease, transform 0.3s ease';
-                    formRegistro.style.opacity = '1';
-                    formRegistro.style.transform = 'translateY(0)';
-                }, 10);
-            }, 300);
-        } else {
-            // Mostrar términos de nuevo
-            formRegistro.style.opacity = '0';
-            formRegistro.style.transform = 'translateY(20px)';
-            
-            setTimeout(() => {
-                formRegistro.style.display = 'none';
-                terminosContainer.style.display = 'block';
+            if (this.checked) {
+                terminosContainer.style.transition = 'opacity 0.3s ease, transform 0.3s ease';
                 terminosContainer.style.opacity = '0';
                 terminosContainer.style.transform = 'translateY(-20px)';
                 
                 setTimeout(() => {
-                    terminosContainer.style.opacity = '1';
-                    terminosContainer.style.transform = 'translateY(0)';
-                }, 10);
-            }, 300);
-        }
-    });
-}
+                    terminosContainer.style.display = 'none';
+                    formRegistro.style.display = 'block';
+                    formRegistro.style.opacity = '0';
+                    formRegistro.style.transform = 'translateY(20px)';
+                    
+                    setTimeout(() => {
+                        formRegistro.style.transition = 'opacity 0.3s ease, transform 0.3s ease';
+                        formRegistro.style.opacity = '1';
+                        formRegistro.style.transform = 'translateY(0)';
+                    }, 10);
+                }, 300);
+            } else {
+                formRegistro.style.opacity = '0';
+                formRegistro.style.transform = 'translateY(20px)';
+                
+                setTimeout(() => {
+                    formRegistro.style.display = 'none';
+                    terminosContainer.style.display = 'block';
+                    terminosContainer.style.opacity = '0';
+                    terminosContainer.style.transform = 'translateY(-20px)';
+                    
+                    setTimeout(() => {
+                        terminosContainer.style.opacity = '1';
+                        terminosContainer.style.transform = 'translateY(0)';
+                    }, 10);
+                }, 300);
+            }
+        });
+    }
     
-    // Hacer clic en el área de upload
     const uploadArea = document.getElementById('uploadArea');
     if (uploadArea) {
         uploadArea.addEventListener('click', function(e) {
@@ -2167,20 +2211,17 @@ if (checkbox) {
 // FUNCIONES DEL SIDEBAR
 // ============================================
 
-// Alternar sidebar (abrir/cerrar)
 function toggleSidebar() {
     const sidebar = document.getElementById('sidebar');
     const overlay = document.getElementById('sidebarOverlay');
     
     sidebar.classList.toggle('open');
     
-    // En móvil, mostrar overlay
     if (window.innerWidth <= 768) {
         overlay.classList.toggle('active');
     }
 }
 
-// Cerrar sidebar (especialmente para móvil)
 function closeSidebar() {
     const sidebar = document.getElementById('sidebar');
     const overlay = document.getElementById('sidebarOverlay');
@@ -2189,35 +2230,29 @@ function closeSidebar() {
     overlay.classList.remove('active');
 }
 
-// Cerrar sidebar al hacer clic en un botón (en móvil)
 function switchTab(tab) {
     currentTab = tab;
     showingFinalizados = false;
     
-    // Cerrar sidebar en móvil al seleccionar
     if (window.innerWidth <= 768) {
         closeSidebar();
     }
     
-    // Ocultar todas las secciones
     sectionRepositorio.style.display = 'none';
     sectionTrabajos.style.display = 'none';
     sectionRecursos.style.display = 'none';
     sectionDocentes.style.display = 'none';
     sectionEstudiantes.style.display = 'none';
     
-    // Remover clase active de todos los botones
     document.querySelectorAll('.sidebar-btn').forEach(btn => {
         btn.classList.remove('active');
     });
     
-    // Limpiar búsquedas
     const searchInputRepo = document.getElementById('searchInputRepositorio');
     const searchInputRec = document.getElementById('searchInputRecursos');
     if (searchInputRepo) searchInputRepo.value = '';
     if (searchInputRec) searchInputRec.value = '';
     
-    // Mostrar sección correspondiente y activar botón
     if (tab === 'repositorio') {
         sectionRepositorio.style.display = 'block';
         document.getElementById('tab-repositorio').classList.add('active');
