@@ -21,15 +21,8 @@ const auth = firebase.auth();
 // ============================================
 function getDeviceType() {
     const userAgent = navigator.userAgent.toLowerCase();
-    
-    if (/(tablet|ipad|playbook|silk)|(android(?!.*mobi))/i.test(userAgent)) {
-        return 'mobile';
-    }
-    
-    if (/mobile|iphone|ipod|blackberry|opera mini|iemobile|wpdesktop|android.*mobile/i.test(userAgent)) {
-        return 'mobile';
-    }
-    
+    if (/(tablet|ipad|playbook|silk)|(android(?!.*mobi))/i.test(userAgent)) return 'mobile';
+    if (/mobile|iphone|ipod|blackberry|opera mini|iemobile|wpdesktop|android.*mobile/i.test(userAgent)) return 'mobile';
     return 'desktop';
 }
 
@@ -57,10 +50,83 @@ function hideAuthModal() {
 }
 
 // ============================================
+// ALMACENAMIENTO TEMPORAL (solo en memoria RAM)
+// No toca Firebase ni localStorage hasta que todo esté validado.
+// Se pierde al recargar la página (eso es intencional).
+// ============================================
+let _tempValidacion = null;
+// Estructura: { userName, codigo, codigoData }
+
+// ============================================
+// PASO 1: Mostrar formulario nombre + código
+// (este es el primer paso que ve el usuario)
+// ============================================
+function mostrarPaso1() {
+    document.getElementById('auth-step-code').style.display = 'block';
+    document.getElementById('auth-step-google').style.display = 'none';
+
+    // Limpiar errores previos
+    const errCode   = document.getElementById('authError');
+    const errGoogle = document.getElementById('googleError');
+    if (errCode)   { errCode.style.display = 'none';   errCode.textContent = ''; }
+    if (errGoogle) { errGoogle.style.display = 'none'; errGoogle.textContent = ''; }
+
+    // Restaurar botón de continuar
+    const btn = document.getElementById('authSubmit');
+    if (btn) {
+        btn.disabled = false;
+        btn.innerHTML = '<i class="fa-solid fa-arrow-right"></i> Continuar';
+    }
+}
+
+// ============================================
+// PASO 2: Mostrar botón de Google
+// (solo se llega aquí después de validar nombre+código)
+// ============================================
+function mostrarPaso2Google() {
+    document.getElementById('auth-step-code').style.display = 'none';
+    document.getElementById('auth-step-google').style.display = 'block';
+
+    const errGoogle = document.getElementById('googleError');
+    if (errGoogle) { errGoogle.style.display = 'none'; errGoogle.textContent = ''; }
+
+    const btn = document.getElementById('googleSignInBtn');
+    if (btn) {
+        btn.disabled = false;
+        btn.innerHTML = googleBtnHTML();
+    }
+
+    // Mostrar qué código fue validado
+    if (_tempValidacion) {
+        const infoEl = document.getElementById('auth-codigo-validado');
+        if (infoEl) {
+            infoEl.textContent = `✅ Código "${_tempValidacion.codigo}" verificado. Ahora vincula tu cuenta de Google.`;
+        }
+    }
+}
+
+// ============================================
+// HTML DEL BOTÓN DE GOOGLE (reutilizable)
+// ============================================
+function googleBtnHTML() {
+    return `
+        <svg width="20" height="20" viewBox="0 0 48 48">
+            <path fill="#FFC107" d="M43.611 20.083H42V20H24v8h11.303c-1.649 4.657-6.08 8-11.303 8-6.627 0-12-5.373-12-12s5.373-12 12-12c3.059 0 5.842 1.154 7.961 3.039l5.657-5.657C34.046 6.053 29.268 4 24 4 12.955 4 4 12.955 4 24s8.955 20 20 20 20-8.955 20-20c0-1.341-.138-2.65-.389-3.917z"/>
+            <path fill="#FF3D00" d="m6.306 14.691 6.571 4.819C14.655 15.108 18.961 12 24 12c3.059 0 5.842 1.154 7.961 3.039l5.657-5.657C34.046 6.053 29.268 4 24 4 16.318 4 9.656 8.337 6.306 14.691z"/>
+            <path fill="#4CAF50" d="M24 44c5.166 0 9.86-1.977 13.409-5.192l-6.19-5.238A11.91 11.91 0 0 1 24 36c-5.202 0-9.619-3.317-11.283-7.946l-6.522 5.025C9.505 39.556 16.227 44 24 44z"/>
+            <path fill="#1976D2" d="M43.611 20.083H42V20H24v8h11.303a12.04 12.04 0 0 1-4.087 5.571l.003-.002 6.19 5.238C36.971 39.205 44 34 44 24c0-1.341-.138-2.65-.389-3.917z"/>
+        </svg>
+        Continuar con Google
+    `;
+}
+
+// ============================================
 // GOOGLE SIGN-IN
+// (solo se puede llegar aquí desde el Paso 2,
+//  que solo aparece si el código fue validado)
 // ============================================
 async function signInWithGoogle() {
-    const btn = document.getElementById('googleSignInBtn');
+    const btn      = document.getElementById('googleSignInBtn');
     const errorDiv = document.getElementById('googleError');
 
     btn.disabled = true;
@@ -71,7 +137,7 @@ async function signInWithGoogle() {
         const provider = new firebase.auth.GoogleAuthProvider();
         provider.setCustomParameters({ prompt: 'select_account' });
         await auth.signInWithPopup(provider);
-        // onAuthStateChanged se encarga del resto
+        // onAuthStateChanged detecta el login y llama a completarRegistro()
     } catch (error) {
         console.error('Error Google Sign-In:', error);
 
@@ -90,38 +156,6 @@ async function signInWithGoogle() {
     }
 }
 
-function googleBtnHTML() {
-    return `
-        <svg width="20" height="20" viewBox="0 0 48 48">
-            <path fill="#FFC107" d="M43.611 20.083H42V20H24v8h11.303c-1.649 4.657-6.08 8-11.303 8-6.627 0-12-5.373-12-12s5.373-12 12-12c3.059 0 5.842 1.154 7.961 3.039l5.657-5.657C34.046 6.053 29.268 4 24 4 12.955 4 4 12.955 4 24s8.955 20 20 20 20-8.955 20-20c0-1.341-.138-2.65-.389-3.917z"/>
-            <path fill="#FF3D00" d="m6.306 14.691 6.571 4.819C14.655 15.108 18.961 12 24 12c3.059 0 5.842 1.154 7.961 3.039l5.657-5.657C34.046 6.053 29.268 4 24 4 16.318 4 9.656 8.337 6.306 14.691z"/>
-            <path fill="#4CAF50" d="M24 44c5.166 0 9.86-1.977 13.409-5.192l-6.19-5.238A11.91 11.91 0 0 1 24 36c-5.202 0-9.619-3.317-11.283-7.946l-6.522 5.025C9.505 39.556 16.227 44 24 44z"/>
-            <path fill="#1976D2" d="M43.611 20.083H42V20H24v8h11.303a12.04 12.04 0 0 1-4.087 5.571l.003-.002 6.19 5.238C36.971 39.205 44 34 44 24c0-1.341-.138-2.65-.389-3.917z"/>
-        </svg>
-        Continuar con Google
-    `;
-}
-
-function mostrarPasoGoogle() {
-    document.getElementById('auth-step-google').style.display = 'block';
-    document.getElementById('auth-step-code').style.display = 'none';
-    const googleBtn = document.getElementById('googleSignInBtn');
-    if (googleBtn) {
-        googleBtn.disabled = false;
-        googleBtn.innerHTML = googleBtnHTML();
-    }
-}
-
-function mostrarPasoCodigo(googleUser) {
-    document.getElementById('auth-step-google').style.display = 'none';
-    document.getElementById('auth-step-code').style.display = 'block';
-
-    const userInfo = document.getElementById('auth-google-user');
-    if (userInfo) {
-        userInfo.textContent = `✅ Google: ${googleUser.email}`;
-    }
-}
-
 // ============================================
 // UTILIDAD: NORMALIZAR NOMBRE PARA COMPARACIÓN
 // ============================================
@@ -135,8 +169,297 @@ function normalizarNombre(nombre) {
 }
 
 // ============================================
-// VALIDACIÓN CON FIREBASE (usa Google UID)
+// PASO 1: VALIDAR NOMBRE + CÓDIGO
+// Solo lee Firebase, NO escribe nada.
+// Si es válido, guarda en _tempValidacion y avanza al Paso 2.
 // ============================================
+async function validarCodigo() {
+    const userName  = document.getElementById('authUserName').value.trim();
+    const codigo    = document.getElementById('authCode').value.trim();
+    const errorDiv  = document.getElementById('authError');
+    const submitBtn = document.getElementById('authSubmit');
+
+    errorDiv.style.display = 'none';
+    errorDiv.textContent = '';
+
+    if (!userName) {
+        errorDiv.textContent = 'Por favor, ingresa tu nombre.';
+        errorDiv.style.display = 'block';
+        return;
+    }
+
+    if (!codigo) {
+        errorDiv.textContent = 'Por favor, ingresa tu código.';
+        errorDiv.style.display = 'block';
+        return;
+    }
+
+    submitBtn.disabled = true;
+    submitBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Verificando...';
+
+    try {
+        // ── Solo lectura: verificar que el código existe y es válido ──
+        let snapshot;
+        try {
+            snapshot = await database.ref(`codigos/${codigo}`).once('value');
+        } catch (fbError) {
+            errorDiv.textContent = '⚠️ Error de conexión. Verifica tu internet e intenta nuevamente.';
+            errorDiv.style.display = 'block';
+            submitBtn.disabled = false;
+            submitBtn.innerHTML = '<i class="fa-solid fa-arrow-right"></i> Continuar';
+            return;
+        }
+
+        if (!snapshot.exists()) {
+            errorDiv.textContent = '❌ Código inválido. Verifica con el administrador.';
+            errorDiv.style.display = 'block';
+            submitBtn.disabled = false;
+            submitBtn.innerHTML = '<i class="fa-solid fa-arrow-right"></i> Continuar';
+            return;
+        }
+
+        const codigoData       = snapshot.val();
+        const dispositivosActuales = codigoData.dispositivos || {};
+        const dispositivosKeys     = Object.keys(dispositivosActuales);
+
+        // ── Verificar bloqueo ──
+        if (codigoData.bloqueado === true) {
+            const motivo = codigoData.motivoBloqueo || 'Tu acceso ha sido bloqueado por el administrador.';
+            errorDiv.textContent = `🚫 ACCESO BLOQUEADO: ${motivo}`;
+            errorDiv.style.display = 'block';
+            submitBtn.disabled = false;
+            submitBtn.innerHTML = '<i class="fa-solid fa-arrow-right"></i> Continuar';
+            return;
+        }
+
+        // ── Verificar nombre (Capa A: propietario explícito) ──
+        if (codigoData.propietario && codigoData.propietario.trim() !== '') {
+            const propietarioNorm = normalizarNombre(codigoData.propietario);
+            const userNameNorm    = normalizarNombre(userName);
+            if (propietarioNorm !== userNameNorm) {
+                errorDiv.innerHTML = `❌ El nombre ingresado no coincide con el registrado para este código.<br>
+                    <small style="opacity:0.8;">Escríbelo exactamente como el administrador lo registró.</small>`;
+                errorDiv.style.display = 'block';
+                submitBtn.disabled = false;
+                submitBtn.innerHTML = '<i class="fa-solid fa-arrow-right"></i> Continuar';
+                return;
+            }
+        }
+        // ── Verificar nombre (Capa B: candado automático del primer dispositivo) ──
+        else if (dispositivosKeys.length > 0) {
+            let nombrePrimerDispositivo = '';
+            for (const key of dispositivosKeys) {
+                const devUsuario = (dispositivosActuales[key].usuario || '').trim();
+                if (devUsuario !== '') { nombrePrimerDispositivo = devUsuario; break; }
+            }
+            if (nombrePrimerDispositivo !== '') {
+                const primerNorm   = normalizarNombre(nombrePrimerDispositivo);
+                const userNameNorm = normalizarNombre(userName);
+                if (primerNorm !== userNameNorm) {
+                    errorDiv.innerHTML = `❌ El nombre ingresado no coincide con el titular de este código.<br>
+                        <small style="opacity:0.8;">Este código ya está vinculado a otro usuario.</small>`;
+                    errorDiv.style.display = 'block';
+                    submitBtn.disabled = false;
+                    submitBtn.innerHTML = '<i class="fa-solid fa-arrow-right"></i> Continuar';
+                    return;
+                }
+            }
+        }
+
+        // ── Todo válido: guardar en memoria temporal (NO en Firebase todavía) ──
+        _tempValidacion = { userName, codigo, codigoData };
+
+        submitBtn.disabled = false;
+        submitBtn.innerHTML = '<i class="fa-solid fa-arrow-right"></i> Continuar';
+
+        // ── Si Google ya está autenticado (ej: usuario regresó tras limpiar caché) ──
+        // No hace falta mostrar el botón de Google, ir directo a registrar.
+        const user = auth.currentUser;
+        if (user) {
+            await completarRegistro(user);
+        } else {
+            // Primera vez: mostrar el botón de Google
+            mostrarPaso2Google();
+        }
+
+    } catch (error) {
+        console.error('Error en validarCodigo:', error);
+        errorDiv.textContent = '❌ Error de conexión. Por favor, intenta nuevamente.';
+        errorDiv.style.display = 'block';
+        submitBtn.disabled = false;
+        submitBtn.innerHTML = '<i class="fa-solid fa-arrow-right"></i> Continuar';
+    }
+}
+
+// ============================================
+// PASO FINAL: COMPLETAR REGISTRO EN FIREBASE
+// Se llama desde onAuthStateChanged cuando:
+//   a) El usuario acaba de hacer sign-in con Google (nueva cuenta), o
+//   b) El usuario ya tenía Google activo y acaba de validar el código en Paso 1.
+// Aquí sí se escribe en Firebase.
+// ============================================
+async function completarRegistro(user) {
+    if (!_tempValidacion) {
+        // No pasó por el Paso 1: cerrar sesión y mostrar formulario.
+        // Esto corta cualquier intento de entrar solo con Google.
+        console.warn('completarRegistro llamado sin _tempValidacion. Cerrando sesión.');
+        await auth.signOut();
+        showAuthModal();
+        mostrarPaso1();
+        return;
+    }
+
+    const { userName, codigo } = _tempValidacion;
+    const googleUid  = user.uid;
+    const deviceType = getDeviceType();
+
+    // Mostrar spinner en el botón de Google si está visible
+    const googleBtn = document.getElementById('googleSignInBtn');
+    if (googleBtn) {
+        googleBtn.disabled = true;
+        googleBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Registrando...';
+    }
+    const googleErr = document.getElementById('googleError');
+    if (googleErr) googleErr.style.display = 'none';
+
+    try {
+        // ── Re-leer datos frescos de Firebase (puede haber cambiado) ──
+        const snapshot = await database.ref(`codigos/${codigo}`).once('value');
+        const codigoData = snapshot.val();
+
+        if (!codigoData) {
+            await _cerrarSesionYMostrarError('❌ El código ya no existe en el sistema.');
+            return;
+        }
+
+        if (codigoData.bloqueado === true) {
+            const motivo = codigoData.motivoBloqueo || 'Tu acceso ha sido bloqueado por el administrador.';
+            await _cerrarSesionYMostrarError(`🚫 ACCESO BLOQUEADO: ${motivo}`);
+            return;
+        }
+
+        const dispositivosActuales = codigoData.dispositivos || {};
+        const dispositivosKeys     = Object.keys(dispositivosActuales);
+
+        // ── Si este Google UID ya está registrado bajo este código → solo actualizar ──
+        if (dispositivosActuales[googleUid]) {
+            const updates = {};
+            updates[`codigos/${codigo}/dispositivos/${googleUid}/usuario`]      = userName;
+            updates[`codigos/${codigo}/dispositivos/${googleUid}/ultimoAcceso`] = new Date().toISOString();
+            await database.ref().update(updates);
+
+            _guardarSesionLocal(userName, codigo, googleUid, deviceType);
+            _tempValidacion = null;
+            hideAuthModal();
+            if (codigo === '6578hy') showSpecialUserMessage();
+            iniciarListenerBloqueo();
+            return;
+        }
+
+        // ── Verificar que no haya OTRA cuenta de Google ya registrada ──
+        if (dispositivosKeys.length > 0) {
+            const otraCuenta = Object.values(dispositivosActuales).find(
+                dev => dev.googleUid && dev.googleUid !== googleUid
+            );
+            if (otraCuenta) {
+                await _cerrarSesionYMostrarError(
+                    '🚫 Este código ya está vinculado a otra cuenta de Google. ' +
+                    'Usa la misma cuenta de Google con la que te registraste originalmente.',
+                    true // volver al paso 1 para que ingrese el código de nuevo
+                );
+                return;
+            }
+        }
+
+        // ── Verificar límites de dispositivos ──
+        const { mobile, desktop } = contarDispositivosPorTipo(dispositivosActuales);
+
+        if (deviceType === 'mobile' && mobile >= 1) {
+            await _cerrarSesionYMostrarError(
+                '📱 Este código ya está en uso en 1 dispositivo móvil. Solo se permite 1 móvil por código.'
+            );
+            return;
+        }
+
+        if (deviceType === 'desktop' && desktop >= 1) {
+            await _cerrarSesionYMostrarError(
+                '💻 Este código ya está en uso en 1 computadora. Solo se permite 1 PC/laptop por código.'
+            );
+            return;
+        }
+
+        const totalDispositivos = dispositivosKeys.length;
+        if (totalDispositivos >= 2) {
+            await _cerrarSesionYMostrarError(
+                '⚠️ Este código ya alcanzó el límite de 2 dispositivos (1 móvil + 1 PC).'
+            );
+            return;
+        }
+
+        // ── Todo ok: escribir en Firebase ──
+        const updates = {};
+        updates[`codigos/${codigo}/dispositivos/${googleUid}`] = {
+            googleUid:     googleUid,
+            googleEmail:   user.email,
+            tipo:          deviceType,
+            usuario:       userName,
+            fechaRegistro: new Date().toISOString(),
+            ultimoAcceso:  new Date().toISOString()
+        };
+
+        const usosRestantes = Math.max(0, 2 - (totalDispositivos + 1));
+        updates[`codigos/${codigo}/usosRestantes`] = usosRestantes;
+        if (usosRestantes === 0) updates[`codigos/${codigo}/completado`] = true;
+
+        await database.ref().update(updates);
+
+        _guardarSesionLocal(userName, codigo, googleUid, deviceType);
+        _tempValidacion = null;
+        hideAuthModal();
+        if (codigo === '6578hy') showSpecialUserMessage();
+        iniciarListenerBloqueo();
+
+    } catch (error) {
+        console.error('Error en completarRegistro:', error);
+        if (googleBtn) {
+            googleBtn.disabled = false;
+            googleBtn.innerHTML = googleBtnHTML();
+        }
+        if (googleErr) {
+            googleErr.textContent = '❌ Error de conexión. Por favor, intenta nuevamente.';
+            googleErr.style.display = 'block';
+        }
+    }
+}
+
+// ── Helpers internos ──────────────────────────────────────────────────────────
+
+function _guardarSesionLocal(userName, codigo, googleUid, deviceType) {
+    localStorage.setItem('eduspace_auth', JSON.stringify({
+        userName, codigo, googleUid, deviceType, timestamp: Date.now()
+    }));
+}
+
+async function _cerrarSesionYMostrarError(mensaje, volverAPaso1 = false) {
+    // Cerrar sesión de Google (la cuenta no debe quedar registrada)
+    await auth.signOut().catch(e => console.error(e));
+    localStorage.removeItem('eduspace_auth');
+    _tempValidacion = null;
+
+    showAuthModal();
+
+    if (volverAPaso1) {
+        mostrarPaso1();
+        const errDiv = document.getElementById('authError');
+        if (errDiv) { errDiv.innerHTML = mensaje; errDiv.style.display = 'block'; }
+    } else {
+        mostrarPaso2Google();
+        const errDiv = document.getElementById('googleError');
+        if (errDiv) { errDiv.innerHTML = mensaje; errDiv.style.display = 'block'; }
+        // Después de 3s volver al Paso 1 para que intente de nuevo
+        setTimeout(() => mostrarPaso1(), 3500);
+    }
+}
 async function validateAuthWithFirebase(googleUid) {
     const authData = localStorage.getItem('eduspace_auth');
     if (!authData) return false;
@@ -481,90 +804,91 @@ async function handleAuthSubmit() {
 }
 
 function showAuthError(message) {
-    // Mostrar error en el paso que esté visible
-    const errorCodeDiv = document.getElementById('authError');
-    const errorGoogleDiv = document.getElementById('googleError');
-    
-    if (document.getElementById('auth-step-code') && 
-        document.getElementById('auth-step-code').style.display !== 'none') {
-        if (errorCodeDiv) {
-            errorCodeDiv.textContent = message;
-            errorCodeDiv.style.display = 'block';
-        }
+    const errCode   = document.getElementById('authError');
+    const errGoogle = document.getElementById('googleError');
+    const stepCode  = document.getElementById('auth-step-code');
+
+    if (stepCode && stepCode.style.display !== 'none') {
+        if (errCode) { errCode.innerHTML = message; errCode.style.display = 'block'; }
     } else {
-        if (errorGoogleDiv) {
-            errorGoogleDiv.textContent = message;
-            errorGoogleDiv.style.display = 'block';
-        }
+        if (errGoogle) { errGoogle.innerHTML = message; errGoogle.style.display = 'block'; }
     }
 }
 
 function showSpecialUserMessage() {
-    const specialMessage = document.getElementById('specialUserMessage');
-    if (specialMessage) specialMessage.style.display = 'flex';
+    const el = document.getElementById('specialUserMessage');
+    if (el) el.style.display = 'flex';
 }
 
 function hideSpecialUserMessage() {
-    const specialMessage = document.getElementById('specialUserMessage');
-    if (specialMessage) specialMessage.style.display = 'none';
+    const el = document.getElementById('specialUserMessage');
+    if (el) el.style.display = 'none';
 }
 
 // ============================================
-// INICIALIZACIÓN - Firebase Auth maneja la sesión
-// (Sobrevive al borrar caché porque usa IndexedDB)
+// INICIALIZACIÓN
 // ============================================
+let _appInicializada = false; // evita que onAuthStateChanged arranque la app dos veces
+
 document.addEventListener('DOMContentLoaded', async () => {
     showConnectionLoader();
 
-    // Configurar listeners del formulario de código
+    // Botón "Continuar" del Paso 1
     const submitBtn = document.getElementById('authSubmit');
-    if (submitBtn) {
-        submitBtn.addEventListener('click', handleAuthSubmit);
-    }
+    if (submitBtn) submitBtn.addEventListener('click', validarCodigo);
+
     document.getElementById('authUserName')?.addEventListener('keypress', (e) => {
-        if (e.key === 'Enter') handleAuthSubmit();
+        if (e.key === 'Enter') validarCodigo();
     });
     document.getElementById('authCode')?.addEventListener('keypress', (e) => {
-        if (e.key === 'Enter') handleAuthSubmit();
+        if (e.key === 'Enter') validarCodigo();
     });
 
-    // Firebase Auth detecta automáticamente si hay sesión activa
-    // aunque el usuario haya borrado el caché
+    // ── Firebase Auth detecta sesión automáticamente (IndexedDB, sobrevive al caché) ──
     auth.onAuthStateChanged(async (user) => {
+        hideConnectionLoader();
+
         if (user) {
-            // Tiene sesión de Google activa
-            const googleUid = user.uid;
-            const authData  = localStorage.getItem('eduspace_auth');
+            // Hay sesión de Google activa
+            const authData = localStorage.getItem('eduspace_auth');
 
             if (authData) {
-                // Ya registró código antes: validar que sigue vigente
-                const isAuthenticated = await validateAuthWithFirebase(googleUid);
-
-                hideConnectionLoader();
-
-                if (isAuthenticated) {
+                // ── Usuario que regresa: tiene código guardado → validar ──
+                const ok = await validateAuthWithFirebase(user.uid);
+                if (ok) {
                     hideAuthModal();
                     iniciarListenerBloqueo();
                 } else {
-                    // Código eliminado/bloqueado: pedir código de nuevo
+                    // Código bloqueado/eliminado: pedir nombre+código de nuevo
+                    // (no cerramos sesión de Google para no obligarlo a volver a hacer click)
                     showAuthModal();
-                    mostrarPasoCodigo(user);
+                    mostrarPaso1();
                 }
+            } else if (_tempValidacion) {
+                // ── Viene del Paso 2: acaba de hacer sign-in con Google ──
+                // El código ya fue validado en Paso 1, completar registro ahora.
+                await completarRegistro(user);
             } else {
-                // Google autenticado pero sin código registrado aún
-                hideConnectionLoader();
+                // ── Google activo pero sin código y sin validación previa ──
+                // Puede ser: alguien que intentó entrar solo con Google (mala intención),
+                // o un usuario legítimo que limpió TODO (caché + cookies + datos).
+                // En ambos casos: cerrar sesión de Google y pedir nombre+código primero.
+                await auth.signOut();
                 showAuthModal();
-                mostrarPasoCodigo(user);
+                mostrarPaso1();
             }
         } else {
-            // No hay sesión de Google: mostrar botón de Google
-            hideConnectionLoader();
+            // No hay sesión de Google
             showAuthModal();
-            mostrarPasoGoogle();
+            mostrarPaso1();
         }
 
-        updatePendingBadge();
-        switchTab('repositorio');
+        // Inicializar app solo una vez
+        if (!_appInicializada) {
+            _appInicializada = true;
+            updatePendingBadge();
+            switchTab('repositorio');
+        }
     });
 });
 
@@ -589,29 +913,30 @@ function iniciarListenerBloqueo() {
             const estaBloqueado = snapshot.val();
 
             if (estaBloqueado === true) {
-                database.ref(`codigos/${codigo}/motivoBloqueo`).once('value', (motivoSnapshot) => {
+                database.ref(`codigos/${codigo}/motivoBloqueo`).once('value', async (motivoSnapshot) => {
                     const motivo = motivoSnapshot.val() || 'Tu acceso ha sido bloqueado por el administrador.';
 
-                    showAuthModal();
-                    mostrarPasoGoogle();
+                    // Cerrar sesión de Google y limpiar datos
+                    await auth.signOut().catch(e => console.error(e));
+                    localStorage.removeItem('eduspace_auth');
+                    _tempValidacion = null;
 
-                    const errorDiv = document.getElementById('googleError');
+                    showAuthModal();
+                    mostrarPaso1();
+
+                    const errorDiv = document.getElementById('authError');
                     if (errorDiv) {
                         errorDiv.textContent = `🚫 ACCESO BLOQUEADO: ${motivo}`;
                         errorDiv.style.display = 'block';
                     }
 
-                    const googleBtn = document.getElementById('googleSignInBtn');
-                    if (googleBtn) {
-                        googleBtn.disabled = true;
-                        googleBtn.innerHTML = '<i class="fa-solid fa-ban"></i> Acceso Bloqueado';
+                    const submitBtn = document.getElementById('authSubmit');
+                    if (submitBtn) {
+                        submitBtn.disabled = true;
+                        submitBtn.innerHTML = '<i class="fa-solid fa-ban"></i> Acceso Bloqueado';
                     }
 
                     hideSpecialUserMessage();
-
-                    // Cerrar sesión de Google y limpiar datos locales
-                    auth.signOut().catch(e => console.error(e));
-                    localStorage.removeItem('eduspace_auth');
                 });
 
             } else if (estaBloqueado === false) {
@@ -623,16 +948,17 @@ function iniciarListenerBloqueo() {
                         if (isValid) {
                             hideAuthModal();
 
-                            const errorCodeDiv = document.getElementById('authError');
-                            if (errorCodeDiv) {
-                                errorCodeDiv.textContent = '';
-                                errorCodeDiv.style.display = 'none';
+                            const errCode = document.getElementById('authError');
+                            if (errCode) { errCode.textContent = ''; errCode.style.display = 'none'; }
+
+                            const submitBtn = document.getElementById('authSubmit');
+                            if (submitBtn) {
+                                submitBtn.disabled = false;
+                                submitBtn.innerHTML = '<i class="fa-solid fa-arrow-right"></i> Continuar';
                             }
 
                             const parsed2 = JSON.parse(authDataNow);
-                            if (parsed2.codigo === '6578hy') {
-                                showSpecialUserMessage();
-                            }
+                            if (parsed2.codigo === '6578hy') showSpecialUserMessage();
 
                             mostrarNotificacionDesbloqueo();
                         }
