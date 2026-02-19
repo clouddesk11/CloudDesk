@@ -58,6 +58,10 @@ function hideAuthModal() {
 // ============================================
 const _TV_KEY = '_cdsk_tv';
 
+// Flag que indica que signInWithGoogle está en proceso activo.
+// Evita que onAuthStateChanged interfiera (condición de carrera en móvil/laptop).
+let _registrandoAhora = false;
+
 function _getTempValidacion() {
     try {
         const raw = sessionStorage.getItem(_TV_KEY);
@@ -164,10 +168,13 @@ async function signInWithGoogle() {
         const provider = new firebase.auth.GoogleAuthProvider();
         provider.setCustomParameters({ prompt: 'select_account' });
 
-        // signInWithPopup devuelve el usuario directamente en su resultado.
-        // Llamamos completarRegistro() aquí mismo — sin esperar onAuthStateChanged.
-        // Esto elimina la condición de carrera que causaba que la laptop
-        // no pasara a la página automáticamente.
+        // Activar el flag ANTES del popup para que onAuthStateChanged
+        // no interfiera cuando dispare justo después del login de Google.
+        // Sin este flag, onAuthStateChanged vería authData=null y llamaría
+        // user.delete(), destruyendo el usuario antes de que completarRegistro
+        // pueda guardarlo. (Bug confirmado en móvil y laptop Chrome/Edge).
+        _registrandoAhora = true;
+
         const result = await auth.signInWithPopup(provider);
         await completarRegistro(result.user);
 
@@ -186,6 +193,9 @@ async function signInWithGoogle() {
 
         btn.disabled = false;
         btn.innerHTML = googleBtnHTML();
+    } finally {
+        // Siempre desactivar el flag, incluso si hubo un error.
+        _registrandoAhora = false;
     }
 }
 
@@ -462,6 +472,9 @@ async function completarRegistro(user) {
             googleErr.textContent = '❌ Error de conexión. Por favor, intenta nuevamente.';
             googleErr.style.display = 'block';
         }
+    } finally {
+        // Garantizar que el flag se desactive siempre, pase lo que pase.
+        _registrandoAhora = false;
     }
 }
 
@@ -919,17 +932,23 @@ document.addEventListener('DOMContentLoaded', async () => {
                 }
             } else {
                 // ── CASO B: Google activo pero sin código guardado ────────────
-                // Puede ocurrir si:
-                //   - signInWithGoogle() falló después del popup (error de red, etc.)
-                //     y onAuthStateChanged disparó antes de que pudiéramos limpiar.
-                //   - Alguien intentó manipular el flujo abriendo Google Auth a mano.
                 //
-                // En ambos casos: eliminar de Firebase Auth y pedir Paso 1.
-                // NOTA: Si signInWithGoogle() ya llamó completarRegistro() y está
-                // en progreso, este código NO se ejecuta porque authData ya fue
-                // guardado por _guardarSesionLocal() antes de que onAuthStateChanged
-                // dispare de nuevo. Es decir, este else solo aplica cuando el
-                // usuario tiene Google activo sin ningún registro previo válido.
+                // Si _registrandoAhora = true, significa que signInWithGoogle()
+                // lanzó el popup y está en medio de completarRegistro().
+                // onAuthStateChanged disparó por el login del popup antes de que
+                // completarRegistro() pudiera guardar authData.
+                // En ese caso NO hacer nada — completarRegistro() ya se encarga.
+                //
+                // Si _registrandoAhora = false, no hay registro en progreso:
+                // puede ser alguien que manipuló el flujo o un estado inconsistente.
+                // En ese caso sí eliminar y pedir Paso 1.
+                if (_registrandoAhora) {
+                    // Registro en progreso — ignorar este evento de onAuthStateChanged.
+                    // completarRegistro() terminará y guardará authData pronto.
+                    return;
+                }
+
+                // Sin registro en progreso → estado inconsistente. Limpiar.
                 try {
                     await user.delete();
                 } catch (e) {
