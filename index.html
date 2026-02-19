@@ -39,13 +39,36 @@
 <div id="authModal" class="auth-modal" style="display: none;">
     <div class="auth-modal-content">
 
-        <!-- PASO 1: Botón de Google -->
-        <div id="auth-step-google">
+        <!-- PASO 1: Nombre + Código (se muestra primero) -->
+        <div id="auth-step-code">
             <div class="auth-header">
                 <i class="fa-solid fa-graduation-cap auth-icon"></i>
                 <h2>Hola, bienvenido a EduSpace</h2>
-                <p style="color: var(--text-muted); margin-top: 0.5rem; font-size: 0.95rem;">
-                    Inicia sesión con tu cuenta de Google para continuar
+            </div>
+            <div class="auth-body">
+                <div class="auth-section">
+                    <p class="auth-text">Regístrate con tu nombre.</p>
+                    <input type="text" id="authUserName" class="auth-input" placeholder="Ingresa tu nombre completo" autocomplete="off">
+                </div>
+                <div class="auth-section">
+                    <p class="auth-text">Ingresa tu código de compra. Si aún no dispones de uno, solicítalo al administrador del sistema.</p>
+                    <input type="text" id="authCode" class="auth-input" placeholder="Ingresa tu código" autocomplete="off">
+                </div>
+                <div id="authError" class="auth-error" style="display: none;"></div>
+                <button id="authSubmit" class="auth-submit">
+                    <i class="fa-solid fa-arrow-right"></i> Continuar
+                </button>
+            </div>
+        </div>
+
+        <!-- PASO 2: Google (oculto hasta que el código sea válido) -->
+        <div id="auth-step-google" style="display: none;">
+            <div class="auth-header">
+                <i class="fa-solid fa-shield-halved auth-icon"></i>
+                <h2>Vincula tu cuenta de Google</h2>
+                <p id="auth-codigo-validado" style="color: #10b981; margin-top: 0.5rem; font-size: 0.9rem; font-weight: 500;"></p>
+                <p style="color: var(--text-muted); margin-top: 0.5rem; font-size: 0.85rem;">
+                    Tu cuenta de Google será la llave de acceso permanente. Usa siempre la misma.
                 </p>
             </div>
             <div class="auth-body">
@@ -59,29 +82,6 @@
                     Continuar con Google
                 </button>
                 <div id="googleError" class="auth-error" style="display: none;"></div>
-            </div>
-        </div>
-
-        <!-- PASO 2: Nombre + Código (solo primera vez) -->
-        <div id="auth-step-code" style="display: none;">
-            <div class="auth-header">
-                <i class="fa-solid fa-key auth-icon"></i>
-                <h2>Ingresa tu código</h2>
-                <p id="auth-google-user" style="color: var(--text-muted); margin-top: 0.5rem; font-size: 0.85rem;"></p>
-            </div>
-            <div class="auth-body">
-                <div class="auth-section">
-                    <p class="auth-text">Regístrate con tu nombre.</p>
-                    <input type="text" id="authUserName" class="auth-input" placeholder="Ingresa tu nombre completo" autocomplete="off">
-                </div>
-                <div class="auth-section">
-                    <p class="auth-text">Ingresa tu código de compra. Si aún no dispones de uno, solicítalo al administrador del sistema.</p>
-                    <input type="text" id="authCode" class="auth-input" placeholder="Ingresa tu código" autocomplete="off">
-                </div>
-                <div id="authError" class="auth-error" style="display: none;"></div>
-                <button id="authSubmit" class="auth-submit">
-                    <i class="fa-solid fa-sign-in-alt"></i> Ingresar
-                </button>
             </div>
         </div>
 
