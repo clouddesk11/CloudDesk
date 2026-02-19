@@ -3317,3 +3317,37 @@ footer {
 .assignments-container {
     margin-top: 0; /* Ya tiene el espacio del section */
 }
+
+/* ============================================
+   BOTÓN DE GOOGLE SIGN-IN
+   ============================================ */
+.google-signin-btn {
+    width: 100%;
+    padding: 1rem 1.5rem;
+    background: white;
+    color: #333;
+    border: 2px solid #e5e7eb;
+    border-radius: 10px;
+    font-size: 1rem;
+    font-weight: 600;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 12px;
+    transition: all 0.3s;
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+}
+
+.google-signin-btn:hover {
+    background: #f8f9fa;
+    border-color: #3b82f6;
+    box-shadow: 0 4px 15px rgba(0,0,0,0.15);
+    transform: translateY(-1px);
+}
+
+.google-signin-btn:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+    transform: none;
+}
