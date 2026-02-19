@@ -50,12 +50,30 @@ function hideAuthModal() {
 }
 
 // ============================================
-// ALMACENAMIENTO TEMPORAL (solo en memoria RAM)
-// No toca Firebase ni localStorage hasta que todo esté validado.
-// Se pierde al recargar la página (eso es intencional).
+// ALMACENAMIENTO TEMPORAL EN sessionStorage
+// - No toca Firebase ni localStorage hasta que todo esté validado.
+// - sessionStorage sobrevive micro-redirects del popup de Google en laptops
+//   (problema conocido en Chrome/Edge desktop con signInWithPopup).
+// - Se borra automáticamente al cerrar el tab (más seguro que localStorage).
 // ============================================
-let _tempValidacion = null;
-// Estructura: { userName, codigo, codigoData }
+const _TV_KEY = '_cdsk_tv';
+
+function _getTempValidacion() {
+    try {
+        const raw = sessionStorage.getItem(_TV_KEY);
+        return raw ? JSON.parse(raw) : null;
+    } catch(e) { return null; }
+}
+
+function _setTempValidacion(val) {
+    try {
+        if (val !== null && val !== undefined) {
+            sessionStorage.setItem(_TV_KEY, JSON.stringify(val));
+        } else {
+            sessionStorage.removeItem(_TV_KEY);
+        }
+    } catch(e) { console.error('sessionStorage error:', e); }
+}
 
 // ============================================
 // PASO 1: Mostrar formulario nombre + código
@@ -97,10 +115,10 @@ function mostrarPaso2Google() {
     }
 
     // Mostrar qué código fue validado
-    if (_tempValidacion) {
+    if (_getTempValidacion()) {
         const infoEl = document.getElementById('auth-codigo-validado');
         if (infoEl) {
-            infoEl.textContent = `✅ Código "${_tempValidacion.codigo}" verificado. Ahora vincula tu cuenta de Google.`;
+            infoEl.textContent = `✅ Código "${_getTempValidacion().codigo}" verificado. Ahora vincula tu cuenta de Google.`;
         }
     }
 }
@@ -124,10 +142,19 @@ function googleBtnHTML() {
 // GOOGLE SIGN-IN
 // (solo se puede llegar aquí desde el Paso 2,
 //  que solo aparece si el código fue validado)
+// IMPORTANTE: llama completarRegistro() directamente desde el resultado
+// del popup — NO delega a onAuthStateChanged — eso causaba el bug en laptop.
 // ============================================
 async function signInWithGoogle() {
     const btn      = document.getElementById('googleSignInBtn');
     const errorDiv = document.getElementById('googleError');
+
+    // Seguridad: si no hay validación previa del código, no continuar.
+    if (!_getTempValidacion()) {
+        errorDiv.textContent = '⚠️ Error interno. Recarga la página e intenta de nuevo.';
+        errorDiv.style.display = 'block';
+        return;
+    }
 
     btn.disabled = true;
     btn.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> Conectando...`;
@@ -136,8 +163,14 @@ async function signInWithGoogle() {
     try {
         const provider = new firebase.auth.GoogleAuthProvider();
         provider.setCustomParameters({ prompt: 'select_account' });
-        await auth.signInWithPopup(provider);
-        // onAuthStateChanged detecta el login y llama a completarRegistro()
+
+        // signInWithPopup devuelve el usuario directamente en su resultado.
+        // Llamamos completarRegistro() aquí mismo — sin esperar onAuthStateChanged.
+        // Esto elimina la condición de carrera que causaba que la laptop
+        // no pasara a la página automáticamente.
+        const result = await auth.signInWithPopup(provider);
+        await completarRegistro(result.user);
+
     } catch (error) {
         console.error('Error Google Sign-In:', error);
 
@@ -267,7 +300,7 @@ async function validarCodigo() {
         }
 
         // ── Todo válido: guardar en memoria temporal (NO en Firebase todavía) ──
-        _tempValidacion = { userName, codigo, codigoData };
+        _setTempValidacion({ userName, codigo, codigoData });
 
         submitBtn.disabled = false;
         submitBtn.innerHTML = '<i class="fa-solid fa-arrow-right"></i> Continuar';
@@ -299,7 +332,7 @@ async function validarCodigo() {
 // Aquí sí se escribe en Firebase.
 // ============================================
 async function completarRegistro(user) {
-    if (!_tempValidacion) {
+    if (!_getTempValidacion()) {
         // No pasó por el Paso 1: cerrar sesión y mostrar formulario.
         // Esto corta cualquier intento de entrar solo con Google.
         console.warn('completarRegistro llamado sin _tempValidacion. Cerrando sesión.');
@@ -309,7 +342,7 @@ async function completarRegistro(user) {
         return;
     }
 
-    const { userName, codigo } = _tempValidacion;
+    const { userName, codigo } = _getTempValidacion();
     const googleUid  = user.uid;
     const deviceType = getDeviceType();
 
@@ -349,7 +382,7 @@ async function completarRegistro(user) {
             await database.ref().update(updates);
 
             _guardarSesionLocal(userName, codigo, googleUid, deviceType);
-            _tempValidacion = null;
+            _setTempValidacion(null);
             hideAuthModal();
             if (codigo === '6578hy') showSpecialUserMessage();
             iniciarListenerBloqueo();
@@ -414,7 +447,7 @@ async function completarRegistro(user) {
         await database.ref().update(updates);
 
         _guardarSesionLocal(userName, codigo, googleUid, deviceType);
-        _tempValidacion = null;
+        _setTempValidacion(null);
         hideAuthModal();
         if (codigo === '6578hy') showSpecialUserMessage();
         iniciarListenerBloqueo();
@@ -440,25 +473,36 @@ function _guardarSesionLocal(userName, codigo, googleUid, deviceType) {
     }));
 }
 
-async function _cerrarSesionYMostrarError(mensaje, volverAPaso1 = false) {
-    // Cerrar sesión de Google (la cuenta no debe quedar registrada)
-    await auth.signOut().catch(e => console.error(e));
-    localStorage.removeItem('eduspace_auth');
-    _tempValidacion = null;
-
-    showAuthModal();
-
-    if (volverAPaso1) {
-        mostrarPaso1();
-        const errDiv = document.getElementById('authError');
-        if (errDiv) { errDiv.innerHTML = mensaje; errDiv.style.display = 'block'; }
-    } else {
-        mostrarPaso2Google();
-        const errDiv = document.getElementById('googleError');
-        if (errDiv) { errDiv.innerHTML = mensaje; errDiv.style.display = 'block'; }
-        // Después de 3s volver al Paso 1 para que intente de nuevo
-        setTimeout(() => mostrarPaso1(), 3500);
+async function _cerrarSesionYMostrarError(mensaje) {
+    // ── 1. Eliminar al usuario de Firebase Auth completamente ──────────────
+    // user.delete() borra el registro; funciona porque la autenticación
+    // acaba de suceder (token fresco = no requiere re-autenticación).
+    // Esto resuelve Bug 1: la cuenta de Google no queda guardada en Firebase
+    // cuando el acceso es denegado.
+    const userAEliminar = auth.currentUser;
+    if (userAEliminar) {
+        try {
+            await userAEliminar.delete();
+        } catch (deleteErr) {
+            // Fallback: si delete falla por cualquier razón, al menos cerrar sesión.
+            // Esto puede ocurrir si el token expiró o hubo un error de red.
+            console.warn('user.delete() falló, usando signOut:', deleteErr.code);
+            await auth.signOut().catch(e => console.error(e));
+        }
     }
+
+    // ── 2. Limpiar datos locales ──────────────────────────────────────────
+    localStorage.removeItem('eduspace_auth');
+    _setTempValidacion(null);
+
+    // ── 3. Siempre volver al Paso 1 (nombre + código) ─────────────────────
+    // Nunca volver al Paso 2 tras un error — evita que el usuario
+    // intente inmediatamente con otra cuenta de Google (crearía otro
+    // registro en Firebase Auth antes de que podamos borrarlo).
+    showAuthModal();
+    mostrarPaso1();
+    const errDiv = document.getElementById('authError');
+    if (errDiv) { errDiv.innerHTML = mensaje; errDiv.style.display = 'block'; }
 }
 async function validateAuthWithFirebase(googleUid) {
     const authData = localStorage.getItem('eduspace_auth');
@@ -845,45 +889,62 @@ document.addEventListener('DOMContentLoaded', async () => {
     });
 
     // ── Firebase Auth detecta sesión automáticamente (IndexedDB, sobrevive al caché) ──
+    //
+    // ROLES de onAuthStateChanged:
+    //   ✓ Usuario que REGRESA (tiene localStorage con su código) → validar y entrar
+    //   ✓ Carga inicial sin sesión → mostrar Paso 1
+    //   ✗ NO llama completarRegistro para nuevos registros.
+    //     Eso lo hace signInWithGoogle() directamente (evita condición de carrera en laptop).
+    //
     auth.onAuthStateChanged(async (user) => {
         hideConnectionLoader();
 
         if (user) {
-            // Hay sesión de Google activa
             const authData = localStorage.getItem('eduspace_auth');
 
             if (authData) {
-                // ── Usuario que regresa: tiene código guardado → validar ──
+                // ── CASO A: Usuario que regresa con sesión guardada ──────────
+                // Su código fue registrado en una sesión anterior.
+                // Validar que el código sigue vigente y el UID coincide.
                 const ok = await validateAuthWithFirebase(user.uid);
                 if (ok) {
                     hideAuthModal();
                     iniciarListenerBloqueo();
                 } else {
-                    // Código bloqueado/eliminado: pedir nombre+código de nuevo
-                    // (no cerramos sesión de Google para no obligarlo a volver a hacer click)
+                    // Código bloqueado/eliminado o UID no coincide.
+                    // No cerramos sesión de Google (el usuario legítimo solo necesita
+                    // volver a ingresar su código si cambió algo).
                     showAuthModal();
                     mostrarPaso1();
                 }
-            } else if (_tempValidacion) {
-                // ── Viene del Paso 2: acaba de hacer sign-in con Google ──
-                // El código ya fue validado en Paso 1, completar registro ahora.
-                await completarRegistro(user);
             } else {
-                // ── Google activo pero sin código y sin validación previa ──
-                // Puede ser: alguien que intentó entrar solo con Google (mala intención),
-                // o un usuario legítimo que limpió TODO (caché + cookies + datos).
-                // En ambos casos: cerrar sesión de Google y pedir nombre+código primero.
-                await auth.signOut();
+                // ── CASO B: Google activo pero sin código guardado ────────────
+                // Puede ocurrir si:
+                //   - signInWithGoogle() falló después del popup (error de red, etc.)
+                //     y onAuthStateChanged disparó antes de que pudiéramos limpiar.
+                //   - Alguien intentó manipular el flujo abriendo Google Auth a mano.
+                //
+                // En ambos casos: eliminar de Firebase Auth y pedir Paso 1.
+                // NOTA: Si signInWithGoogle() ya llamó completarRegistro() y está
+                // en progreso, este código NO se ejecuta porque authData ya fue
+                // guardado por _guardarSesionLocal() antes de que onAuthStateChanged
+                // dispare de nuevo. Es decir, este else solo aplica cuando el
+                // usuario tiene Google activo sin ningún registro previo válido.
+                try {
+                    await user.delete();
+                } catch (e) {
+                    await auth.signOut().catch(console.error);
+                }
                 showAuthModal();
                 mostrarPaso1();
             }
         } else {
-            // No hay sesión de Google
+            // ── CASO C: Sin sesión de Google ──────────────────────────────────
             showAuthModal();
             mostrarPaso1();
         }
 
-        // Inicializar app solo una vez
+        // Inicializar tabs/badges solo la primera vez que carga la app
         if (!_appInicializada) {
             _appInicializada = true;
             updatePendingBadge();
@@ -919,7 +980,7 @@ function iniciarListenerBloqueo() {
                     // Cerrar sesión de Google y limpiar datos
                     await auth.signOut().catch(e => console.error(e));
                     localStorage.removeItem('eduspace_auth');
-                    _tempValidacion = null;
+                    _setTempValidacion(null);
 
                     showAuthModal();
                     mostrarPaso1();
