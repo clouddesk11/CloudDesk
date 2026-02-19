@@ -379,7 +379,40 @@ async function handleAuthSubmit() {
             return;
         }
 
-        // ── 4. Dispositivo nuevo: verificar límites ──
+        // ── 4. Verificar que no haya OTRA cuenta de Google diferente ya registrada ──
+        // Regla: un código solo puede estar vinculado a UNA cuenta de Google.
+        // El móvil y la laptop deben usar la misma cuenta.
+        if (dispositivosKeys.length > 0) {
+            const cuentaGoogleExistente = Object.values(dispositivosActuales).find(
+                dev => dev.googleUid && dev.googleUid !== googleUid
+            );
+
+            if (cuentaGoogleExistente) {
+                // Hay otro Google UID registrado → bloquear completamente
+                errorDiv.innerHTML = `
+                    🚫 Este código ya está vinculado a otra cuenta de Google.<br>
+                    <small style="opacity:0.8;">
+                        Solo se permite una cuenta de Google por código.
+                        Inicia sesión con la cuenta de Google con la que te registraste originalmente.
+                    </small>
+                `;
+                errorDiv.style.display = 'block';
+                submitBtn.disabled = false;
+                submitBtn.innerHTML = '<i class="fa-solid fa-sign-in-alt"></i> Ingresar';
+
+                // Cerrar sesión de Google de la cuenta incorrecta
+                await auth.signOut();
+                localStorage.removeItem('eduspace_auth');
+
+                // Volver al paso de Google para que inicie con la cuenta correcta
+                setTimeout(() => {
+                    mostrarPasoGoogle();
+                }, 2500);
+                return;
+            }
+        }
+
+        // ── 5. Dispositivo nuevo: verificar límites ──
         const { mobile, desktop } = contarDispositivosPorTipo(dispositivosActuales);
 
         if (deviceType === 'mobile' && mobile >= 1) {
@@ -407,7 +440,7 @@ async function handleAuthSubmit() {
             return;
         }
 
-        // ── 5. Registrar nueva cuenta Google bajo este código ──
+        // ── 6. Registrar nueva cuenta Google bajo este código ──
         // Usamos el googleUid como clave del dispositivo (único y estable)
         const updates = {};
         updates[`codigos/${codigo}/dispositivos/${googleUid}`] = {
