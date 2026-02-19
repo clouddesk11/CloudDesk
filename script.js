@@ -14,59 +14,11 @@ const firebaseConfig = {
 // Inicializar Firebase
 firebase.initializeApp(firebaseConfig);
 const database = firebase.database();
+const auth = firebase.auth();
 
 // ============================================
-// SISTEMA DE FINGERPRINTING ROBUSTO
+// TIPO DE DISPOSITIVO
 // ============================================
-function generateDeviceFingerprint() {
-    // ── IMPORTANTE: El fingerprint DEBE ser estable entre sesiones ──
-    // Si usáramos Date.now(), cada intento de login generaría un ID
-    // diferente, rompiendo el reconocimiento de dispositivos.
-    // Solución: guardar el fingerprint en localStorage la primera vez
-    // y reutilizarlo siempre en el mismo dispositivo.
-
-    const STORAGE_KEY = '_cdsk_device_fp';
-    const stored = localStorage.getItem(STORAGE_KEY);
-    if (stored) return stored;
-
-    // Primera vez en este dispositivo: generar fingerprint desde
-    // características de hardware (sin Date.now para que sea estable)
-    const canvas = document.createElement('canvas');
-    const ctx = canvas.getContext('2d');
-    ctx.textBaseline = 'top';
-    ctx.font = '14px Arial';
-    ctx.fillText('fingerprint', 2, 2);
-    const canvasData = canvas.toDataURL();
-
-    const data = {
-        userAgent: navigator.userAgent,
-        screen: `${screen.width}x${screen.height}x${screen.colorDepth}`,
-        timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
-        language: navigator.language,
-        platform: navigator.platform,
-        cores: navigator.hardwareConcurrency || 0,
-        memory: navigator.deviceMemory || 0,
-        canvas: canvasData.substring(0, 50),
-        plugins: Array.from(navigator.plugins || []).map(p => p.name).join(','),
-        touchSupport: 'ontouchstart' in window,
-        // Añadimos un token aleatorio para que sea único por dispositivo
-        // incluso si dos dispositivos tienen hardware idéntico
-        token: Math.random().toString(36).slice(2) + Math.random().toString(36).slice(2)
-    };
-
-    const jsonString = JSON.stringify(data);
-    let hash = 0;
-    for (let i = 0; i < jsonString.length; i++) {
-        const char = jsonString.charCodeAt(i);
-        hash = ((hash << 5) - hash) + char;
-        hash = hash & hash;
-    }
-
-    const fp = Math.abs(hash).toString(36) + '_' + data.token;
-    localStorage.setItem(STORAGE_KEY, fp);
-    return fp;
-}
-
 function getDeviceType() {
     const userAgent = navigator.userAgent.toLowerCase();
     
@@ -86,82 +38,129 @@ function getDeviceType() {
 // ============================================
 function showConnectionLoader() {
     const loader = document.getElementById('connectionLoader');
-    if (loader) {
-        loader.style.display = 'flex';
-    }
+    if (loader) loader.style.display = 'flex';
 }
 
 function hideConnectionLoader() {
     const loader = document.getElementById('connectionLoader');
-    if (loader) {
-        loader.style.display = 'none';
-    }
+    if (loader) loader.style.display = 'none';
 }
 
 function showAuthModal() {
     const authModal = document.getElementById('authModal');
-    if (authModal) {
-        authModal.style.display = 'flex';
-    }
+    if (authModal) authModal.style.display = 'flex';
 }
 
 function hideAuthModal() {
     const authModal = document.getElementById('authModal');
-    if (authModal) {
-        authModal.style.display = 'none';
+    if (authModal) authModal.style.display = 'none';
+}
+
+// ============================================
+// GOOGLE SIGN-IN
+// ============================================
+async function signInWithGoogle() {
+    const btn = document.getElementById('googleSignInBtn');
+    const errorDiv = document.getElementById('googleError');
+
+    btn.disabled = true;
+    btn.innerHTML = `<i class="fa-solid fa-spinner fa-spin"></i> Conectando...`;
+    errorDiv.style.display = 'none';
+
+    try {
+        const provider = new firebase.auth.GoogleAuthProvider();
+        provider.setCustomParameters({ prompt: 'select_account' });
+        await auth.signInWithPopup(provider);
+        // onAuthStateChanged se encarga del resto
+    } catch (error) {
+        console.error('Error Google Sign-In:', error);
+
+        let mensaje = '❌ Error al iniciar sesión con Google. Intenta nuevamente.';
+        if (error.code === 'auth/popup-closed-by-user') {
+            mensaje = '⚠️ Cerraste la ventana de Google. Intenta nuevamente.';
+        } else if (error.code === 'auth/popup-blocked') {
+            mensaje = '⚠️ El navegador bloqueó la ventana emergente. Permite las ventanas emergentes e intenta de nuevo.';
+        }
+
+        errorDiv.textContent = mensaje;
+        errorDiv.style.display = 'block';
+
+        btn.disabled = false;
+        btn.innerHTML = googleBtnHTML();
     }
 }
 
-// ============================================  
-// VERIFICAR SI CÓDIGO EXISTE EN FIREBASE
-// ============================================
-async function codigoExisteEnFirebase(codigo) {
-    try {
-        const codigoRef = database.ref(`codigos/${codigo}`);
-        const snapshot = await codigoRef.once('value');
-        return snapshot.exists();
-    } catch (error) {
-        console.error('Error verificando código:', error);
-        return false;
+function googleBtnHTML() {
+    return `
+        <svg width="20" height="20" viewBox="0 0 48 48">
+            <path fill="#FFC107" d="M43.611 20.083H42V20H24v8h11.303c-1.649 4.657-6.08 8-11.303 8-6.627 0-12-5.373-12-12s5.373-12 12-12c3.059 0 5.842 1.154 7.961 3.039l5.657-5.657C34.046 6.053 29.268 4 24 4 12.955 4 4 12.955 4 24s8.955 20 20 20 20-8.955 20-20c0-1.341-.138-2.65-.389-3.917z"/>
+            <path fill="#FF3D00" d="m6.306 14.691 6.571 4.819C14.655 15.108 18.961 12 24 12c3.059 0 5.842 1.154 7.961 3.039l5.657-5.657C34.046 6.053 29.268 4 24 4 16.318 4 9.656 8.337 6.306 14.691z"/>
+            <path fill="#4CAF50" d="M24 44c5.166 0 9.86-1.977 13.409-5.192l-6.19-5.238A11.91 11.91 0 0 1 24 36c-5.202 0-9.619-3.317-11.283-7.946l-6.522 5.025C9.505 39.556 16.227 44 24 44z"/>
+            <path fill="#1976D2" d="M43.611 20.083H42V20H24v8h11.303a12.04 12.04 0 0 1-4.087 5.571l.003-.002 6.19 5.238C36.971 39.205 44 34 44 24c0-1.341-.138-2.65-.389-3.917z"/>
+        </svg>
+        Continuar con Google
+    `;
+}
+
+function mostrarPasoGoogle() {
+    document.getElementById('auth-step-google').style.display = 'block';
+    document.getElementById('auth-step-code').style.display = 'none';
+    const googleBtn = document.getElementById('googleSignInBtn');
+    if (googleBtn) {
+        googleBtn.disabled = false;
+        googleBtn.innerHTML = googleBtnHTML();
+    }
+}
+
+function mostrarPasoCodigo(googleUser) {
+    document.getElementById('auth-step-google').style.display = 'none';
+    document.getElementById('auth-step-code').style.display = 'block';
+
+    const userInfo = document.getElementById('auth-google-user');
+    if (userInfo) {
+        userInfo.textContent = `✅ Google: ${googleUser.email}`;
     }
 }
 
 // ============================================
 // UTILIDAD: NORMALIZAR NOMBRE PARA COMPARACIÓN
-// Elimina espacios extra, convierte a minúsculas y
-// normaliza tildes/caracteres especiales
 // ============================================
 function normalizarNombre(nombre) {
     return nombre
         .trim()
         .toLowerCase()
         .normalize("NFD")
-        .replace(/[\u0300-\u036f]/g, "")   // elimina tildes
-        .replace(/\s+/g, " ");              // colapsa espacios múltiples
+        .replace(/[\u0300-\u036f]/g, "")
+        .replace(/\s+/g, " ");
 }
 
 // ============================================
-// VALIDACIÓN CON FIREBASE
+// VALIDACIÓN CON FIREBASE (usa Google UID)
 // ============================================
-async function validateAuthWithFirebase() {
+async function validateAuthWithFirebase(googleUid) {
     const authData = localStorage.getItem('eduspace_auth');
-    
     if (!authData) return false;
-    
+
     try {
         const parsed = JSON.parse(authData);
-        const { codigo, deviceFingerprint, userName } = parsed;
-        
+        const { codigo, userName } = parsed;
+
+        // Verificar que el UID guardado coincide con el usuario actual de Google
+        if (parsed.googleUid !== googleUid) {
+            localStorage.removeItem('eduspace_auth');
+            return false;
+        }
+
         const codigoRef = database.ref(`codigos/${codigo}`);
         const snapshot = await codigoRef.once('value');
         const codigoData = snapshot.val();
-        
+
         if (!codigoData) {
             localStorage.removeItem('eduspace_auth');
             showAuthError('Código inválido o eliminado del sistema.');
             return false;
         }
-        
+
         if (codigoData.bloqueado === true) {
             localStorage.removeItem('eduspace_auth');
             const motivoBloqueo = codigoData.motivoBloqueo || 'Tu acceso ha sido bloqueado por el administrador.';
@@ -169,8 +168,7 @@ async function validateAuthWithFirebase() {
             return false;
         }
 
-        // ── SEGUNDA CONTRASEÑA: verificar coherencia del nombre (doble capa) ──
-        // CAPA A: propietario explícito del admin
+        // ── CAPA A: propietario explícito del admin ──
         if (codigoData.propietario && codigoData.propietario.trim() !== '') {
             const propietarioNorm = normalizarNombre(codigoData.propietario);
             const userNameNorm    = normalizarNombre(userName || '');
@@ -180,12 +178,11 @@ async function validateAuthWithFirebase() {
                 return false;
             }
         }
-        // CAPA B: candado automático desde el primer dispositivo registrado
+        // ── CAPA B: candado automático desde el primer dispositivo ──
         else {
             const dispositivosActuales = codigoData.dispositivos || {};
-            const dispositivosKeys     = Object.keys(dispositivosActuales);
             let nombrePrimerDispositivo = '';
-            for (const key of dispositivosKeys) {
+            for (const key of Object.keys(dispositivosActuales)) {
                 const devUsuario = (dispositivosActuales[key].usuario || '').trim();
                 if (devUsuario !== '') {
                     nombrePrimerDispositivo = devUsuario;
@@ -202,28 +199,24 @@ async function validateAuthWithFirebase() {
                 }
             }
         }
-        
+
+        // Verificar que este Google UID está registrado bajo este código
         const dispositivos = codigoData.dispositivos || {};
-        const dispositivoRegistrado = Object.keys(dispositivos).find(
-            key => dispositivos[key].fingerprint === deviceFingerprint
-        );
-        
-        if (!dispositivoRegistrado) {
+        if (!dispositivos[googleUid]) {
             localStorage.removeItem('eduspace_auth');
             showAuthError('Sesión inválida. Este dispositivo no está autorizado para este código.');
             return false;
         }
-        
-        const updates = {};
-        updates[`codigos/${codigo}/dispositivos/${dispositivoRegistrado}/ultimoAcceso`] = new Date().toISOString();
-        await database.ref().update(updates);
-        
+
+        // Actualizar último acceso
+        await database.ref(`codigos/${codigo}/dispositivos/${googleUid}/ultimoAcceso`).set(new Date().toISOString());
+
         if (codigo === '6578hy') {
             showSpecialUserMessage();
         }
-        
+
         return true;
-        
+
     } catch (e) {
         console.error('Error validando autenticación:', e);
         localStorage.removeItem('eduspace_auth');
@@ -237,7 +230,7 @@ async function validateAuthWithFirebase() {
 function contarDispositivosPorTipo(dispositivos) {
     let mobileCount = 0;
     let desktopCount = 0;
-    
+
     Object.values(dispositivos).forEach(device => {
         if (device.tipo === 'mobile') {
             mobileCount++;
@@ -245,42 +238,48 @@ function contarDispositivosPorTipo(dispositivos) {
             desktopCount++;
         }
     });
-    
+
     return { mobile: mobileCount, desktop: desktopCount };
 }
 
 // ============================================
-// MANEJO DE AUTENTICACIÓN CON SEGUNDA CONTRASEÑA
+// MANEJO DE REGISTRO CON CÓDIGO (Google ya autenticado)
 // ============================================
 async function handleAuthSubmit() {
-    const userName = document.getElementById('authUserName').value.trim();
-    const codigo   = document.getElementById('authCode').value.trim();
-    const errorDiv = document.getElementById('authError');
+    const userName  = document.getElementById('authUserName').value.trim();
+    const codigo    = document.getElementById('authCode').value.trim();
+    const errorDiv  = document.getElementById('authError');
     const submitBtn = document.getElementById('authSubmit');
-    
+
     errorDiv.style.display = 'none';
     errorDiv.textContent = '';
-    
+
     if (!userName) {
         errorDiv.textContent = 'Por favor, ingresa tu nombre.';
         errorDiv.style.display = 'block';
         return;
     }
-    
+
     if (!codigo) {
         errorDiv.textContent = 'Por favor, ingresa tu código.';
         errorDiv.style.display = 'block';
         return;
     }
-    
+
+    const user = auth.currentUser;
+    if (!user) {
+        errorDiv.textContent = '❌ Error de sesión. Por favor recarga la página.';
+        errorDiv.style.display = 'block';
+        return;
+    }
+
+    const googleUid  = user.uid;
+    const deviceType = getDeviceType();
+
     submitBtn.disabled = true;
     submitBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Validando...';
-    
+
     try {
-        // ── UNA SOLA LLAMADA FIREBASE (verificar existencia + obtener datos) ─
-        // Motivo: en móvil con conexión inestable, hacer dos llamadas separadas
-        // podía causar que la segunda fallara y mostrara "código inválido"
-        // aunque el código fuera correcto.
         let snapshot;
         try {
             snapshot = await database.ref(`codigos/${codigo}`).once('value');
@@ -301,11 +300,9 @@ async function handleAuthSubmit() {
             return;
         }
 
-        const codigoData       = snapshot.val();
-        const deviceFingerprint = generateDeviceFingerprint();
-        const deviceType        = getDeviceType();
+        const codigoData = snapshot.val();
 
-        // ── 1. Verificar bloqueo ──────────────────────────────────────────────
+        // ── 1. Verificar bloqueo ──
         if (codigoData.bloqueado === true) {
             const motivoBloqueo = codigoData.motivoBloqueo || 'Tu acceso ha sido bloqueado por el administrador.';
             errorDiv.textContent = `🚫 ACCESO BLOQUEADO: ${motivoBloqueo}`;
@@ -315,22 +312,10 @@ async function handleAuthSubmit() {
             return;
         }
 
-        // ── 2. VERIFICACIÓN DE NOMBRE (doble capa) ───────────────────────────
-        //
-        // CAPA A: El admin asignó explícitamente un propietario al código.
-        //         El nombre ingresado debe coincidir con ese propietario.
-        //
-        // CAPA B: El admin NO asignó propietario, pero ya existe al menos
-        //         un dispositivo registrado. El nombre de ese primer dispositivo
-        //         actúa como candado automático: nadie más puede ocupar el
-        //         segundo slot con un nombre diferente.
-        //
-        // Ambas capas usan normalización (sin tildes, sin importar mayúsculas).
-
         const dispositivosActuales = codigoData.dispositivos || {};
         const dispositivosKeys     = Object.keys(dispositivosActuales);
 
-        // -- CAPA A: propietario explícito del admin --
+        // ── 2. Verificación de nombre (Capa A: propietario explícito) ──
         if (codigoData.propietario && codigoData.propietario.trim() !== '') {
             const propietarioNorm = normalizarNombre(codigoData.propietario);
             const userNameNorm    = normalizarNombre(userName);
@@ -338,8 +323,7 @@ async function handleAuthSubmit() {
             if (propietarioNorm !== userNameNorm) {
                 errorDiv.innerHTML = `
                     ❌ El nombre ingresado no coincide con el registrado para este código.<br>
-                    <small style="opacity:0.8;">Escríbelo exactamente como el administrador lo registró.
-                    Las tildes no son obligatorias pero las mayúsculas sí importan en las letras.</small>
+                    <small style="opacity:0.8;">Escríbelo exactamente como el administrador lo registró.</small>
                 `;
                 errorDiv.style.display = 'block';
                 submitBtn.disabled = false;
@@ -347,9 +331,8 @@ async function handleAuthSubmit() {
                 return;
             }
         }
-        // -- CAPA B: candado automático desde el primer dispositivo registrado --
+        // ── 2. Verificación de nombre (Capa B: candado automático) ──
         else if (dispositivosKeys.length > 0) {
-            // Buscar el nombre del primer dispositivo que tenga usuario guardado
             let nombrePrimerDispositivo = '';
             for (const key of dispositivosKeys) {
                 const devUsuario = (dispositivosActuales[key].usuario || '').trim();
@@ -359,16 +342,14 @@ async function handleAuthSubmit() {
                 }
             }
 
-            // Si hay un nombre registrado, el nuevo ingreso debe coincidir
             if (nombrePrimerDispositivo !== '') {
-                const primerNorm  = normalizarNombre(nombrePrimerDispositivo);
+                const primerNorm   = normalizarNombre(nombrePrimerDispositivo);
                 const userNameNorm = normalizarNombre(userName);
 
                 if (primerNorm !== userNameNorm) {
                     errorDiv.innerHTML = `
                         ❌ El nombre ingresado no coincide con el titular de este código.<br>
-                        <small style="opacity:0.8;">Este código ya está vinculado a otro usuario.
-                        Solo el titular original puede registrar el segundo dispositivo.</small>
+                        <small style="opacity:0.8;">Este código ya está vinculado a otro usuario.</small>
                     `;
                     errorDiv.style.display = 'block';
                     submitBtn.disabled = false;
@@ -377,44 +358,30 @@ async function handleAuthSubmit() {
                 }
             }
         }
-        
-        const dispositivos = codigoData.dispositivos || {};
-        
-        // ── 3. Si este dispositivo ya está registrado, solo actualizar acceso ─
-        const dispositivoExistente = Object.keys(dispositivos).find(
-            key => dispositivos[key].fingerprint === deviceFingerprint
-        );
-        
-        if (dispositivoExistente) {
+
+        // ── 3. Si este Google UID ya está registrado bajo este código ──
+        if (dispositivosActuales[googleUid]) {
             const updates = {};
-            updates[`codigos/${codigo}/dispositivos/${dispositivoExistente}/usuario`] = userName;
-            updates[`codigos/${codigo}/dispositivos/${dispositivoExistente}/ultimoAcceso`] = new Date().toISOString();
+            updates[`codigos/${codigo}/dispositivos/${googleUid}/usuario`] = userName;
+            updates[`codigos/${codigo}/dispositivos/${googleUid}/ultimoAcceso`] = new Date().toISOString();
             await database.ref().update(updates);
-            
-            const authData = {
-                userName,
-                codigo,
-                deviceFingerprint,
-                deviceType,
-                timestamp: Date.now()
-            };
-            localStorage.setItem('eduspace_auth', JSON.stringify(authData));
-            
+
+            localStorage.setItem('eduspace_auth', JSON.stringify({
+                userName, codigo, googleUid, deviceType, timestamp: Date.now()
+            }));
+
             hideAuthModal();
-            if (codigo === '6578hy') {
-                showSpecialUserMessage();
-            }
-            
+            if (codigo === '6578hy') showSpecialUserMessage();
             iniciarListenerBloqueo();
-            
+
             submitBtn.disabled = false;
             submitBtn.innerHTML = '<i class="fa-solid fa-sign-in-alt"></i> Ingresar';
             return;
         }
-        
-        // ── 4. Dispositivo nuevo: verificar límites ───────────────────────────
-        const { mobile, desktop } = contarDispositivosPorTipo(dispositivos);
-        
+
+        // ── 4. Dispositivo nuevo: verificar límites ──
+        const { mobile, desktop } = contarDispositivosPorTipo(dispositivosActuales);
+
         if (deviceType === 'mobile' && mobile >= 1) {
             errorDiv.textContent = '📱 Este código ya está en uso en 1 dispositivo móvil. Solo se permite 1 móvil por código.';
             errorDiv.style.display = 'block';
@@ -422,7 +389,7 @@ async function handleAuthSubmit() {
             submitBtn.innerHTML = '<i class="fa-solid fa-sign-in-alt"></i> Ingresar';
             return;
         }
-        
+
         if (deviceType === 'desktop' && desktop >= 1) {
             errorDiv.textContent = '💻 Este código ya está en uso en 1 computadora. Solo se permite 1 PC/laptop por código.';
             errorDiv.style.display = 'block';
@@ -430,8 +397,8 @@ async function handleAuthSubmit() {
             submitBtn.innerHTML = '<i class="fa-solid fa-sign-in-alt"></i> Ingresar';
             return;
         }
-        
-        const totalDispositivos = Object.keys(dispositivos).length;
+
+        const totalDispositivos = dispositivosKeys.length;
         if (totalDispositivos >= 2) {
             errorDiv.textContent = '⚠️ Este código ya alcanzó el límite de 2 dispositivos (1 móvil + 1 PC).';
             errorDiv.style.display = 'block';
@@ -439,46 +406,38 @@ async function handleAuthSubmit() {
             submitBtn.innerHTML = '<i class="fa-solid fa-sign-in-alt"></i> Ingresar';
             return;
         }
-        
-        // ── 5. Registrar nuevo dispositivo ────────────────────────────────────
-        const dispositivoId = `device_${Date.now()}`;
+
+        // ── 5. Registrar nueva cuenta Google bajo este código ──
+        // Usamos el googleUid como clave del dispositivo (único y estable)
         const updates = {};
-        updates[`codigos/${codigo}/dispositivos/${dispositivoId}`] = {
-            fingerprint: deviceFingerprint,
-            tipo: deviceType,
-            usuario: userName,
+        updates[`codigos/${codigo}/dispositivos/${googleUid}`] = {
+            googleUid:     googleUid,
+            googleEmail:   user.email,
+            tipo:          deviceType,
+            usuario:       userName,
             fechaRegistro: new Date().toISOString(),
-            ultimoAcceso: new Date().toISOString()
+            ultimoAcceso:  new Date().toISOString()
         };
-        
+
         const usosRestantes = Math.max(0, 2 - (totalDispositivos + 1));
         updates[`codigos/${codigo}/usosRestantes`] = usosRestantes;
-        
         if (usosRestantes === 0) {
             updates[`codigos/${codigo}/completado`] = true;
         }
-        
+
         await database.ref().update(updates);
-        
-        const authData = {
-            userName,
-            codigo,
-            deviceFingerprint,
-            deviceType,
-            timestamp: Date.now()
-        };
-        localStorage.setItem('eduspace_auth', JSON.stringify(authData));
-        
+
+        localStorage.setItem('eduspace_auth', JSON.stringify({
+            userName, codigo, googleUid, deviceType, timestamp: Date.now()
+        }));
+
         hideAuthModal();
-        if (codigo === '6578hy') {
-            showSpecialUserMessage();
-        }
-        
+        if (codigo === '6578hy') showSpecialUserMessage();
         iniciarListenerBloqueo();
-        
+
         submitBtn.disabled = false;
         submitBtn.innerHTML = '<i class="fa-solid fa-sign-in-alt"></i> Ingresar';
-        
+
     } catch (error) {
         console.error('Error en autenticación:', error);
         errorDiv.textContent = '❌ Error de conexión. Por favor, intenta nuevamente.';
@@ -489,69 +448,91 @@ async function handleAuthSubmit() {
 }
 
 function showAuthError(message) {
-    const errorDiv = document.getElementById('authError');
-    if (errorDiv) {
-        errorDiv.textContent = message;
-        errorDiv.style.display = 'block';
+    // Mostrar error en el paso que esté visible
+    const errorCodeDiv = document.getElementById('authError');
+    const errorGoogleDiv = document.getElementById('googleError');
+    
+    if (document.getElementById('auth-step-code') && 
+        document.getElementById('auth-step-code').style.display !== 'none') {
+        if (errorCodeDiv) {
+            errorCodeDiv.textContent = message;
+            errorCodeDiv.style.display = 'block';
+        }
+    } else {
+        if (errorGoogleDiv) {
+            errorGoogleDiv.textContent = message;
+            errorGoogleDiv.style.display = 'block';
+        }
     }
 }
 
 function showSpecialUserMessage() {
     const specialMessage = document.getElementById('specialUserMessage');
-    if (specialMessage) {
-        specialMessage.style.display = 'flex';
-    }
+    if (specialMessage) specialMessage.style.display = 'flex';
 }
 
 function hideSpecialUserMessage() {
     const specialMessage = document.getElementById('specialUserMessage');
-    if (specialMessage) {
-        specialMessage.style.display = 'none';
-    }
+    if (specialMessage) specialMessage.style.display = 'none';
 }
 
 // ============================================
-// INICIALIZACIÓN CON ESTADO DE CONEXIÓN
+// INICIALIZACIÓN - Firebase Auth maneja la sesión
+// (Sobrevive al borrar caché porque usa IndexedDB)
 // ============================================
 document.addEventListener('DOMContentLoaded', async () => {
     showConnectionLoader();
-    
-    await new Promise(resolve => setTimeout(resolve, 300));
-    
-    try {
-        const isAuthenticated = await validateAuthWithFirebase();
-        
-        hideConnectionLoader();
-        
-        if (!isAuthenticated) {
-            showAuthModal();
-            
-            document.getElementById('authSubmit').addEventListener('click', handleAuthSubmit);
-            
-            document.getElementById('authUserName').addEventListener('keypress', (e) => {
-                if (e.key === 'Enter') {
-                    handleAuthSubmit();
+
+    // Configurar listeners del formulario de código
+    const submitBtn = document.getElementById('authSubmit');
+    if (submitBtn) {
+        submitBtn.addEventListener('click', handleAuthSubmit);
+    }
+    document.getElementById('authUserName')?.addEventListener('keypress', (e) => {
+        if (e.key === 'Enter') handleAuthSubmit();
+    });
+    document.getElementById('authCode')?.addEventListener('keypress', (e) => {
+        if (e.key === 'Enter') handleAuthSubmit();
+    });
+
+    // Firebase Auth detecta automáticamente si hay sesión activa
+    // aunque el usuario haya borrado el caché
+    auth.onAuthStateChanged(async (user) => {
+        if (user) {
+            // Tiene sesión de Google activa
+            const googleUid = user.uid;
+            const authData  = localStorage.getItem('eduspace_auth');
+
+            if (authData) {
+                // Ya registró código antes: validar que sigue vigente
+                const isAuthenticated = await validateAuthWithFirebase(googleUid);
+
+                hideConnectionLoader();
+
+                if (isAuthenticated) {
+                    hideAuthModal();
+                    iniciarListenerBloqueo();
+                } else {
+                    // Código eliminado/bloqueado: pedir código de nuevo
+                    showAuthModal();
+                    mostrarPasoCodigo(user);
                 }
-            });
-            
-            document.getElementById('authCode').addEventListener('keypress', (e) => {
-                if (e.key === 'Enter') {
-                    handleAuthSubmit();
-                }
-            });
+            } else {
+                // Google autenticado pero sin código registrado aún
+                hideConnectionLoader();
+                showAuthModal();
+                mostrarPasoCodigo(user);
+            }
         } else {
-            hideAuthModal();
-            iniciarListenerBloqueo();
+            // No hay sesión de Google: mostrar botón de Google
+            hideConnectionLoader();
+            showAuthModal();
+            mostrarPasoGoogle();
         }
-        
+
         updatePendingBadge();
         switchTab('repositorio');
-        
-    } catch (error) {
-        console.error('Error en inicialización:', error);
-        hideConnectionLoader();
-        showAuthModal();
-    }
+    });
 });
 
 // ============================================
@@ -561,63 +542,72 @@ let bloqueoListener = null;
 
 function iniciarListenerBloqueo() {
     const authData = localStorage.getItem('eduspace_auth');
-    
     if (!authData) return;
-    
+
     try {
         const parsed = JSON.parse(authData);
         const { codigo } = parsed;
-        
+
         if (bloqueoListener) {
             database.ref(`codigos/${codigo}/bloqueado`).off('value', bloqueoListener);
         }
-        
+
         bloqueoListener = database.ref(`codigos/${codigo}/bloqueado`).on('value', (snapshot) => {
             const estaBloqueado = snapshot.val();
-            
+
             if (estaBloqueado === true) {
                 database.ref(`codigos/${codigo}/motivoBloqueo`).once('value', (motivoSnapshot) => {
                     const motivo = motivoSnapshot.val() || 'Tu acceso ha sido bloqueado por el administrador.';
-                    
+
                     showAuthModal();
-                    
-                    const errorDiv = document.getElementById('authError');
-                    errorDiv.textContent = `🚫 ACCESO BLOQUEADO: ${motivo}`;
-                    errorDiv.style.display = 'block';
-                    
+                    mostrarPasoGoogle();
+
+                    const errorDiv = document.getElementById('googleError');
+                    if (errorDiv) {
+                        errorDiv.textContent = `🚫 ACCESO BLOQUEADO: ${motivo}`;
+                        errorDiv.style.display = 'block';
+                    }
+
+                    const googleBtn = document.getElementById('googleSignInBtn');
+                    if (googleBtn) {
+                        googleBtn.disabled = true;
+                        googleBtn.innerHTML = '<i class="fa-solid fa-ban"></i> Acceso Bloqueado';
+                    }
+
                     hideSpecialUserMessage();
-                    
-                    document.getElementById('authSubmit').disabled = true;
-                    document.getElementById('authSubmit').innerHTML = '<i class="fa-solid fa-ban"></i> Acceso Bloqueado';
+
+                    // Cerrar sesión de Google y limpiar datos locales
+                    auth.signOut().catch(e => console.error(e));
+                    localStorage.removeItem('eduspace_auth');
                 });
-                
+
             } else if (estaBloqueado === false) {
-                const authData = localStorage.getItem('eduspace_auth');
-                
-                if (authData) {
-                    validateAuthWithFirebase().then(isValid => {
+                const authDataNow = localStorage.getItem('eduspace_auth');
+                const user = auth.currentUser;
+
+                if (authDataNow && user) {
+                    validateAuthWithFirebase(user.uid).then(isValid => {
                         if (isValid) {
                             hideAuthModal();
-                            
-                            const errorDiv = document.getElementById('authError');
-                            errorDiv.textContent = '';
-                            errorDiv.style.display = 'none';
-                            
-                            document.getElementById('authSubmit').disabled = false;
-                            document.getElementById('authSubmit').innerHTML = '<i class="fa-solid fa-sign-in-alt"></i> Ingresar';
-                            
-                            const parsed = JSON.parse(authData);
-                            if (parsed.codigo === '6578hy') {
+
+                            const errorCodeDiv = document.getElementById('authError');
+                            if (errorCodeDiv) {
+                                errorCodeDiv.textContent = '';
+                                errorCodeDiv.style.display = 'none';
+                            }
+
+                            const parsed2 = JSON.parse(authDataNow);
+                            if (parsed2.codigo === '6578hy') {
                                 showSpecialUserMessage();
                             }
-                            
+
                             mostrarNotificacionDesbloqueo();
                         }
                     });
                 }
             }
         });
-        
+
     } catch (e) {
         console.error('Error iniciando listener de bloqueo:', e);
     }
@@ -645,9 +635,9 @@ function mostrarNotificacionDesbloqueo() {
         <i class="fa-solid fa-check-circle" style="font-size: 1.5rem;"></i>
         <span>Tu acceso ha sido restaurado</span>
     `;
-    
+
     document.body.appendChild(notif);
-    
+
     setTimeout(() => {
         notif.style.animation = 'slideOutRight 0.5s ease';
         setTimeout(() => notif.remove(), 500);
@@ -656,7 +646,7 @@ function mostrarNotificacionDesbloqueo() {
 
 window.addEventListener('beforeunload', () => {
     const authData = localStorage.getItem('eduspace_auth');
-    
+
     if (authData && bloqueoListener) {
         try {
             const parsed = JSON.parse(authData);
@@ -702,8 +692,6 @@ const teachersDB = {
         phone: "+51 987 654 321"
     }
 };
-
-
 
 const filesDB = [
     {
@@ -848,9 +836,8 @@ const assignmentsDB = [
     }
 ];
 
-
 // ============================================
-// NUEVA BASE DE DATOS DE RECURSOS MEJORADA
+// BASE DE DATOS DE RECURSOS
 // ============================================
 const recursosDB = {
     Materiales: {
@@ -932,7 +919,6 @@ const recursosDB = {
                 imageUrl: "https://res.cloudinary.com/dwzwa3gp0/image/upload/v1769784312/image_89_anqelh.jpg"
             }
         ]
-        
     },
     Historias: {
         Documentos: [
@@ -1067,9 +1053,9 @@ function getFinishedAssignments() {
 function toggleSearch(section) {
     const searchBar = document.getElementById(`searchBar${section.charAt(0).toUpperCase() + section.slice(1)}`);
     const searchInput = searchBar.querySelector('input');
-    
+
     searchBar.classList.toggle('active');
-    
+
     if (searchBar.classList.contains('active')) {
         setTimeout(() => searchInput.focus(), 300);
     } else {
@@ -1086,7 +1072,7 @@ function updatePendingBadge() {
     const pendingCount = getPendingAssignments().length;
     const badgeSidebar = document.getElementById('pending-badge');
     const badgeFooter = document.getElementById('pending-badge-footer');
-    
+
     if (pendingCount > 0) {
         if (badgeSidebar) badgeSidebar.style.display = 'block';
         if (badgeFooter) badgeFooter.style.display = 'block';
@@ -1106,40 +1092,38 @@ function normalizeText(text) {
 function calculateRelevance(item, searchTerms, searchableFields) {
     let score = 0;
     const normalizedFields = searchableFields.map(field => normalizeText(item[field] || ''));
-    
+
     searchTerms.forEach(term => {
         normalizedFields.forEach((field, index) => {
             if (field.includes(term)) {
                 if (field === term) {
                     score += 10;
-                }
-                else if (field.startsWith(term)) {
+                } else if (field.startsWith(term)) {
                     score += 5;
-                }
-                else {
+                } else {
                     score += 2;
                 }
-                
+
                 if (index === 0) {
                     score += 3;
                 }
             }
         });
     });
-    
+
     return score;
 }
 
 function searchFiles() {
     let searchTerm = document.getElementById('searchInputRepositorio').value.toLowerCase().trim();
-    
+
     if (searchTerm === '') {
         renderFiles(currentFilter);
         return;
     }
-    
+
     const searchTerms = normalizeText(searchTerm).split(/\s+/);
-    
+
     const filteredFiles = filesDB
         .filter(file => currentFilter === 'all' || file.area === currentFilter)
         .map(file => ({
@@ -1148,22 +1132,22 @@ function searchFiles() {
         }))
         .filter(file => file.relevance > 0)
         .sort((a, b) => b.relevance - a.relevance);
-    
+
     renderFilesArray(filteredFiles);
 }
 
 // ============================================
-// NUEVAS FUNCIONES PARA RECURSOS
+// FUNCIONES PARA RECURSOS
 // ============================================
 
 function filterRecursos(category) {
     currentRecursosCategory = category;
     currentRecursosType = 'Documentos';
-    
+
     const buttons = document.querySelectorAll('.recursos-filter-btn');
     buttons.forEach(btn => btn.classList.remove('active'));
     event.target.closest('.recursos-filter-btn').classList.add('active');
-    
+
     const subMenu = document.getElementById('recursosSubMenu');
     if (category === 'Libros') {
         subMenu.style.display = 'none';
@@ -1173,48 +1157,48 @@ function filterRecursos(category) {
         subButtons.forEach(btn => btn.classList.remove('active'));
         subButtons[0].classList.add('active');
     }
-    
+
     renderRecursosContent();
 }
 
 function toggleRecursosMenu(event, category) {
     event.stopPropagation();
-    
+
     const subMenu = document.getElementById('recursosSubMenu');
     const isVisible = subMenu.style.display === 'flex';
-    
+
     if (!isVisible) {
         currentRecursosCategory = category;
         currentRecursosType = 'Documentos';
-        
+
         const buttons = document.querySelectorAll('.recursos-filter-btn');
         buttons.forEach(btn => btn.classList.remove('active'));
         event.target.closest('.recursos-filter-btn').classList.add('active');
-        
+
         subMenu.style.display = 'flex';
         const subButtons = subMenu.querySelectorAll('.submenu-btn');
         subButtons.forEach(btn => btn.classList.remove('active'));
         subButtons[0].classList.add('active');
-        
+
         renderRecursosContent();
     }
 }
 
 function filterRecursosType(type) {
     currentRecursosType = type;
-    
+
     const subButtons = document.querySelectorAll('.submenu-btn');
     subButtons.forEach(btn => btn.classList.remove('active'));
     event.target.classList.add('active');
-    
+
     renderRecursosContent();
 }
 
 function renderRecursosContent() {
     recursosContainer.innerHTML = '';
-    
+
     let recursos = [];
-    
+
     if (currentRecursosCategory === 'Libros') {
         recursos = recursosDB.Libros;
     } else {
@@ -1223,12 +1207,12 @@ function renderRecursosContent() {
             recursos = categoryData[currentRecursosType];
         }
     }
-    
+
     if (recursos.length === 0) {
         recursosContainer.innerHTML = '<p style="grid-column: 1/-1; text-align: center; color: var(--text-muted); padding: 2rem;">No hay recursos disponibles en esta categoría.</p>';
         return;
     }
-    
+
     recursos.forEach(recurso => {
         if (recurso.type === 'Video') {
             renderVideoCard(recurso);
@@ -1243,11 +1227,11 @@ function renderRecursosContent() {
 function renderDocumentCard(recurso) {
     const card = document.createElement('div');
     card.classList.add('recurso-card');
-    
+
     let icon = 'fa-file-pdf';
     if (recurso.type === 'DOCX' || recurso.type === 'DOC') icon = 'fa-file-word';
     else if (recurso.type === 'PPTX' || recurso.type === 'PPT') icon = 'fa-file-powerpoint';
-    
+
     card.innerHTML = `
         <div class="recurso-cover">
             ${recurso.coverImage ? `<img src="${recurso.coverImage}" alt="${recurso.title}">` : `<i class="fa-solid ${icon}"></i>`}
@@ -1266,14 +1250,14 @@ function renderDocumentCard(recurso) {
             </div>
         </div>
     `;
-    
+
     recursosContainer.appendChild(card);
 }
 
 function renderVideoCard(recurso) {
     const card = document.createElement('div');
     card.classList.add('recurso-multimedia-card');
-    
+
     card.innerHTML = `
         <div class="recurso-multimedia-content">
             <iframe src="${recurso.videoUrl}" frameborder="0" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture" allowfullscreen></iframe>
@@ -1283,14 +1267,14 @@ function renderVideoCard(recurso) {
             <p>${recurso.description}</p>
         </div>
     `;
-    
+
     recursosContainer.appendChild(card);
 }
 
 function renderImageCard(recurso) {
     const card = document.createElement('div');
     card.classList.add('recurso-multimedia-card');
-    
+
     card.innerHTML = `
         <div class="recurso-multimedia-content">
             <img src="${recurso.imageUrl}" alt="${recurso.title}">
@@ -1300,21 +1284,21 @@ function renderImageCard(recurso) {
             <p>${recurso.description}</p>
         </div>
     `;
-    
+
     recursosContainer.appendChild(card);
 }
 
 function searchRecursos() {
     let searchTerm = document.getElementById('searchInputRecursos').value.toLowerCase().trim();
-    
+
     if (searchTerm === '') {
         renderRecursosContent();
         return;
     }
-    
+
     const searchTerms = normalizeText(searchTerm).split(/\s+/);
     let allRecursos = [];
-    
+
     Object.keys(recursosDB).forEach(category => {
         if (category === 'Libros') {
             allRecursos = allRecursos.concat(recursosDB[category].map(r => ({...r, category})));
@@ -1324,7 +1308,7 @@ function searchRecursos() {
             });
         }
     });
-    
+
     const filteredRecursos = allRecursos
         .map(recurso => ({
             ...recurso,
@@ -1332,14 +1316,14 @@ function searchRecursos() {
         }))
         .filter(recurso => recurso.relevance > 0)
         .sort((a, b) => b.relevance - a.relevance);
-    
+
     recursosContainer.innerHTML = '';
-    
+
     if (filteredRecursos.length === 0) {
         recursosContainer.innerHTML = '<p style="grid-column: 1/-1; text-align: center; color: var(--text-muted); padding: 2rem;">No se encontraron recursos.</p>';
         return;
     }
-    
+
     filteredRecursos.forEach(recurso => {
         if (recurso.type === 'Video') {
             renderVideoCard(recurso);
@@ -1357,28 +1341,28 @@ function renderFiles(filter = 'all') {
     const filteredFiles = filter === 'all'
         ? filesDB
         : filesDB.filter(file => file.area === filter);
-    
+
     renderFilesArray(filteredFiles);
 }
 
 function renderFilesArray(files) {
     filesGrid.innerHTML = '';
-    
+
     if (files.length === 0) {
         filesGrid.innerHTML = '<p style="grid-column: 1/-1; text-align: center; color: var(--text-muted);">No se encontraron archivos.</p>';
         return;
     }
-    
+
     files.forEach(file => {
         const teacher = teachersDB[file.teacher];
         const card = document.createElement('div');
         card.classList.add('file-card');
-        
+
         let iconClass = 'fa-file-pdf';
         if (file.type === 'DOCX' || file.type === 'DOC') iconClass = 'fa-file-word';
         else if (file.type === 'PPTX' || file.type === 'PPT') iconClass = 'fa-file-powerpoint';
         else if (file.type === 'XLSX' || file.type === 'XLS') iconClass = 'fa-file-excel';
-        
+
         card.innerHTML = `
             <div class="file-cover">
                 <i class="fa-solid ${iconClass} file-cover-icon"></i>
@@ -1431,9 +1415,9 @@ function viewFile(url) {
             </div>
         </div>
     `;
-    
+
     fileViewerModal.style.display = 'block';
-    
+
     let previewUrl = url;
     if (!previewUrl.includes('/preview')) {
         if (previewUrl.includes('/edit')) {
@@ -1442,7 +1426,7 @@ function viewFile(url) {
             previewUrl = previewUrl.replace('/view', '/preview');
         }
     }
-    
+
     setTimeout(() => {
         fileViewerContent.innerHTML = `
             <iframe 
@@ -1465,7 +1449,7 @@ function openFullscreen() {
             fullscreenCloseBtn.onclick = exitFullscreen;
             document.body.appendChild(fullscreenCloseBtn);
         }
-        
+
         if (iframe.requestFullscreen) {
             iframe.requestFullscreen().then(() => {
                 fullscreenCloseBtn.classList.add('active');
@@ -1477,7 +1461,7 @@ function openFullscreen() {
             iframe.msRequestFullscreen();
             fullscreenCloseBtn.classList.add('active');
         }
-        
+
         document.addEventListener('fullscreenchange', handleFullscreenChange);
         document.addEventListener('webkitfullscreenchange', handleFullscreenChange);
         document.addEventListener('msfullscreenchange', handleFullscreenChange);
@@ -1492,7 +1476,7 @@ function exitFullscreen() {
     } else if (document.msExitFullscreen) {
         document.msExitFullscreen();
     }
-    
+
     if (fullscreenCloseBtn) {
         fullscreenCloseBtn.classList.remove('active');
     }
@@ -1509,7 +1493,7 @@ function handleFullscreenChange() {
 function closeFileViewerModal() {
     fileViewerModal.style.display = 'none';
     fileViewerContent.innerHTML = '';
-    
+
     if (document.fullscreenElement || document.webkitFullscreenElement || document.msFullscreenElement) {
         exitFullscreen();
     }
@@ -1520,10 +1504,10 @@ function toggleTrabajosFinalizados() {
     const btnText = document.getElementById('btn-trabajos-text');
     const btn = document.getElementById('btn-trabajos-finalizados');
     const btnIcon = btn.querySelector('i');
-    
+
     const pendientesTitle = document.getElementById('trabajos-pendientes-title');
     const finalizadosTitle = document.getElementById('trabajos-finalizados-title');
-    
+
     if (showingFinalizados) {
         trabajosPendientesSection.style.display = 'none';
         trabajosFinalizadosSection.style.display = 'block';
@@ -1547,12 +1531,12 @@ function toggleTrabajosFinalizados() {
 function renderAssignments() {
     assignmentsContainer.innerHTML = '';
     const pendingAssignments = getPendingAssignments();
-    
+
     if (pendingAssignments.length === 0) {
         assignmentsContainer.innerHTML = '<p style="text-align: center; color: var(--text-muted); padding: 2rem;">No hay trabajos pendientes. ¡Excelente trabajo!</p>';
         return;
     }
-    
+
     pendingAssignments.forEach(work => {
         const teacher = teachersDB[work.teacher];
         let statusClass = '';
@@ -1561,7 +1545,7 @@ function renderAssignments() {
             case 'Entregado': statusClass = 'status-submitted'; break;
             case 'Atrasado': statusClass = 'status-late'; break;
         }
-        
+
         const card = document.createElement('div');
         card.classList.add('assignment-card');
         card.innerHTML = `
@@ -1601,15 +1585,15 @@ function renderAssignments() {
 function renderFinalizados() {
     finalizadosContainer.innerHTML = '';
     const finishedAssignments = getFinishedAssignments();
-    
+
     if (finishedAssignments.length === 0) {
         finalizadosContainer.innerHTML = '<p style="text-align: center; color: var(--text-muted); padding: 2rem;">No hay trabajos finalizados aún.</p>';
         return;
     }
-    
+
     finishedAssignments.forEach(work => {
         const teacher = teachersDB[work.teacher];
-        
+
         const card = document.createElement('div');
         card.classList.add('assignment-card');
         card.innerHTML = `
@@ -1650,15 +1634,15 @@ function renderFinalizados() {
 function openCompletedModal(assignmentId) {
     const assignment = assignmentsDB.find(a => a.id === assignmentId);
     if (!assignment) return;
-    
+
     currentAssignmentToComplete = assignmentId;
-    
+
     const teacher = teachersDB[assignment.teacher];
     const message = `Has finalizado el trabajo pendiente de <strong>${teacher.name}</strong> con los siguientes datos:<br><br>
         <strong>Trabajo:</strong> ${assignment.task}<br>
         <strong>Fecha límite:</strong> ${assignment.deadline}<br><br>
         Al finalizar, se eliminará de 'Trabajos Pendientes' y se moverá a 'Trabajos Finalizados'.`;
-    
+
     document.getElementById('completedMessage').innerHTML = message;
     completedModal.style.display = 'block';
 }
@@ -1680,16 +1664,16 @@ function confirmCompleted() {
 function renderDocentes() {
     const teachersArray = Object.values(teachersDB);
     docentesGrid.innerHTML = '';
-    
+
     if (teachersArray.length === 0) {
         docentesGrid.innerHTML = '<p style="grid-column: 1/-1; text-align: center; color: var(--text-muted);">No se encontraron docentes.</p>';
         return;
     }
-    
+
     teachersArray.forEach(teacher => {
         const docenteCard = document.createElement('div');
         docenteCard.classList.add('docente-card');
-        
+
         docenteCard.innerHTML = `
             <img src="${teacher.photo}" alt="${teacher.name}" class="docente-avatar-large">
             <h3 class="docente-name">${teacher.name}</h3>
@@ -1699,30 +1683,8 @@ function renderDocentes() {
                 <p><i class="fa-solid fa-phone"></i> ${teacher.phone}</p>
             </div>
         `;
-        
-        docentesGrid.appendChild(docenteCard);
-    });
-}
 
-function renderEstudiantes() {
-    estudiantesGrid.innerHTML = '';
-    
-    if (studentsDB.length === 0) {
-        estudiantesGrid.innerHTML = '<p style="grid-column: 1/-1; text-align: center; color: var(--text-muted);">No hay estudiantes registrados.</p>';
-        return;
-    }
-    
-    studentsDB.forEach(student => {
-        const estudianteCard = document.createElement('div');
-        estudianteCard.classList.add('estudiante-card');
-        
-        estudianteCard.innerHTML = `
-            <img src="${student.photo}" alt="${student.name}" class="estudiante-avatar">
-            <h3 class="estudiante-name">${student.name}</h3>
-            <p class="estudiante-code">${student.code}</p>
-        `;
-        
-        estudiantesGrid.appendChild(estudianteCard);
+        docentesGrid.appendChild(docenteCard);
     });
 }
 
@@ -1734,11 +1696,10 @@ function filterFiles(area) {
     document.getElementById('searchInputRepositorio').value = '';
 }
 
-
 function openProfileModal(teacherName) {
     const teacher = teachersDB[teacherName];
     if (!teacher) return;
-    
+
     modalProfileImage.src = teacher.photo;
     modalProfileImage.alt = teacher.name;
     modalProfileInfo.innerHTML = `
@@ -1747,7 +1708,7 @@ function openProfileModal(teacherName) {
         <p><i class="fa-solid fa-envelope"></i> ${teacher.email}</p>
         <p><i class="fa-solid fa-phone"></i> ${teacher.phone}</p>
     `;
-    
+
     profileModal.style.display = 'block';
 }
 
@@ -1759,16 +1720,14 @@ function openDetailsModal(assignmentId) {
     const assignment = assignmentsDB.find(a => a.id === assignmentId);
     if (!assignment) return;
 
-    const teacher = teachersDB[assignment.teacher];
-    
     document.getElementById('detailsTaskName').textContent = assignment.task;
     document.getElementById('detailsTeacher').textContent = assignment.teacher;
     document.getElementById('detailsDeadline').textContent = assignment.deadline;
-    
+
     let statusClass = '';
     const completed = getCompletedAssignments();
     const isCompleted = completed.includes(assignment.id);
-    
+
     if (isCompleted) {
         statusClass = 'status-submitted';
         document.getElementById('detailsStatus').innerHTML = `<span class="status-badge ${statusClass}">Finalizado</span>`;
@@ -1780,9 +1739,9 @@ function openDetailsModal(assignmentId) {
         }
         document.getElementById('detailsStatus').innerHTML = `<span class="status-badge ${statusClass}">${assignment.status}</span>`;
     }
-    
+
     document.getElementById('detailsDescription').textContent = assignment.description;
-    
+
     const requirementsList = document.getElementById('detailsRequirements');
     requirementsList.innerHTML = '';
     assignment.requirements.forEach(req => {
@@ -1790,20 +1749,20 @@ function openDetailsModal(assignmentId) {
         li.textContent = req;
         requirementsList.appendChild(li);
     });
-    
+
     const attachmentsList = document.getElementById('detailsAttachments');
     attachmentsList.innerHTML = '';
     if (assignment.attachments && assignment.attachments.length > 0) {
         assignment.attachments.forEach(att => {
             const attachDiv = document.createElement('div');
             attachDiv.classList.add('attachment-item');
-            
+
             let icon = 'fa-file-lines';
             if (att.type === 'PDF') icon = 'fa-file-pdf';
             else if (att.type === 'Word' || att.type === 'DOCX') icon = 'fa-file-word';
             else if (att.type === 'Excel') icon = 'fa-file-excel';
             else if (att.type === 'PowerPoint') icon = 'fa-file-powerpoint';
-            
+
             attachDiv.innerHTML = `
                 <div class="attachment-info">
                     <i class="fa-solid ${icon} attachment-icon"></i>
@@ -1821,7 +1780,7 @@ function openDetailsModal(assignmentId) {
     } else {
         attachmentsList.innerHTML = '<p style="color: var(--text-muted); font-style: italic;">No hay archivos adjuntos</p>';
     }
-    
+
     detailsModal.style.display = 'block';
 }
 
@@ -1882,18 +1841,18 @@ function openRegistroModal() {
     const modal = document.getElementById('registroModal');
     const terminosContainer = document.querySelector('.terminos-container');
     const formRegistro = document.getElementById('form-registro');
-    
+
     modal.style.display = 'block';
-    
+
     document.getElementById('aceptoTerminos').checked = false;
     document.getElementById('nombreCompleto').value = '';
     selectedImageFile = null;
     resetImagePreview();
-    
+
     terminosContainer.style.display = 'block';
     terminosContainer.style.opacity = '1';
     terminosContainer.style.transform = 'translateY(0)';
-    
+
     formRegistro.style.display = 'none';
     formRegistro.style.opacity = '0';
     formRegistro.style.transform = 'translateY(20px)';
@@ -1906,21 +1865,21 @@ function closeRegistroModal() {
 
 function previewImage(event) {
     const file = event.target.files[0];
-    
+
     if (!file) return;
-    
+
     if (file.size > 5 * 1024 * 1024) {
         alert('⚠️ La imagen es muy grande. El tamaño máximo es 5MB.');
         return;
     }
-    
+
     if (!file.type.startsWith('image/')) {
         alert('⚠️ Por favor selecciona un archivo de imagen válido.');
         return;
     }
-    
+
     selectedImageFile = file;
-    
+
     const reader = new FileReader();
     reader.onload = function(e) {
         document.getElementById('previewImg').src = e.target.result;
@@ -1944,9 +1903,9 @@ function mostrarToast(mensaje, icono = 'fa-check-circle', duracion = 3000) {
         <i class="fa-solid ${icono}"></i>
         <span>${mensaje}</span>
     `;
-    
+
     document.body.appendChild(toast);
-    
+
     setTimeout(() => {
         toast.remove();
     }, duracion);
@@ -1955,36 +1914,36 @@ function mostrarToast(mensaje, icono = 'fa-check-circle', duracion = 3000) {
 async function registrarEstudiante() {
     const nombreCompleto = document.getElementById('nombreCompleto').value.trim();
     const btnRegistrar = document.getElementById('btnRegistrar');
-    
+
     if (!nombreCompleto) {
         alert('⚠️ Por favor ingresa tu nombre completo.');
         return;
     }
-    
+
     if (nombreCompleto.length < 3) {
         alert('⚠️ El nombre debe tener al menos 3 caracteres.');
         return;
     }
-    
+
     if (!selectedImageFile) {
         alert('⚠️ Por favor selecciona una foto de perfil.');
         return;
     }
-    
+
     if (!supabaseClient) {
         alert('❌ Error: No se pudo conectar con la base de datos. Recarga la página.');
         return;
     }
-    
+
     btnRegistrar.disabled = true;
     btnRegistrar.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Subiendo foto...';
-    
+
     try {
         const formData = new FormData();
         formData.append('file', selectedImageFile);
         formData.append('upload_preset', CLOUDINARY_CONFIG.UPLOAD_PRESET);
         formData.append('folder', 'estudiantes_clouddesk');
-        
+
         const uploadResponse = await fetch(
             `https://api.cloudinary.com/v1_1/${CLOUDINARY_CONFIG.CLOUD_NAME}/image/upload`,
             {
@@ -1992,16 +1951,16 @@ async function registrarEstudiante() {
                 body: formData
             }
         );
-        
+
         if (!uploadResponse.ok) {
             throw new Error('Error al subir la imagen a Cloudinary');
         }
-        
+
         const cloudinaryData = await uploadResponse.json();
         const fotoUrl = cloudinaryData.secure_url;
-        
+
         btnRegistrar.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Guardando datos...';
-        
+
         const { data, error } = await supabaseClient
             .from('estudiantes')
             .insert([
@@ -2011,15 +1970,15 @@ async function registrarEstudiante() {
                 }
             ])
             .select();
-        
+
         if (error) {
             throw new Error(`Error al guardar: ${error.message}`);
         }
-        
+
         closeRegistroModal();
         mostrarToast('🎉 ¡Registro exitoso! Bienvenido/a a CloudDesk');
         await cargarEstudiantes();
-        
+
     } catch (error) {
         console.error('❌ Error completo:', error);
         alert(`❌ Error: ${error.message}\n\nPor favor, intenta nuevamente.`);
@@ -2032,7 +1991,7 @@ async function registrarEstudiante() {
 async function cargarEstudiantes() {
     const grid = document.getElementById('estudiantes-grid');
     const loading = document.getElementById('loading-estudiantes');
-    
+
     if (!supabaseClient) {
         grid.innerHTML = `
             <p style="grid-column: 1/-1; text-align: center; color: var(--danger); padding: 2rem;">
@@ -2042,19 +2001,19 @@ async function cargarEstudiantes() {
         `;
         return;
     }
-    
+
     try {
         if (loading) loading.style.display = 'block';
-        
+
         const { data, error } = await supabaseClient
             .from('estudiantes')
             .select('*')
             .order('created_at', { ascending: false });
-        
+
         if (error) throw error;
-        
+
         renderEstudiantesReales(data);
-        
+
     } catch (error) {
         console.error('❌ Error al cargar estudiantes:', error);
         grid.innerHTML = `
@@ -2070,9 +2029,9 @@ async function cargarEstudiantes() {
 function renderEstudiantesReales(estudiantes) {
     const grid = document.getElementById('estudiantes-grid');
     const loading = document.getElementById('loading-estudiantes');
-    
+
     if (loading) loading.style.display = 'none';
-    
+
     if (!estudiantes || estudiantes.length === 0) {
         grid.innerHTML = `
             <div style="grid-column: 1/-1; text-align: center; padding: 3rem; color: var(--text-muted);">
@@ -2083,15 +2042,15 @@ function renderEstudiantesReales(estudiantes) {
         `;
         return;
     }
-    
+
     grid.innerHTML = '';
-    
+
     estudiantes.forEach((estudiante, index) => {
         const estudianteCard = document.createElement('div');
         estudianteCard.classList.add('estudiante-card');
         estudianteCard.style.animation = 'fadeIn 0.5s ease';
         estudianteCard.style.animationDelay = `${index * 0.1}s`;
-        
+
         estudianteCard.innerHTML = `
             <img src="${estudiante.foto_url}" 
                  alt="${estudiante.nombre_completo}" 
@@ -2103,18 +2062,18 @@ function renderEstudiantesReales(estudiantes) {
                 ${new Date(estudiante.created_at).toLocaleDateString('es-ES')}
             </p>
         `;
-        
+
         grid.appendChild(estudianteCard);
     });
 }
 
 function inicializarRealtimeEstudiantes() {
     if (!supabaseClient) return;
-    
+
     if (estudiantesListener) {
         supabaseClient.removeChannel(estudiantesListener);
     }
-    
+
     estudiantesListener = supabaseClient
         .channel('estudiantes-realtime')
         .on(
@@ -2154,24 +2113,24 @@ function renderEstudiantes() {
 
 document.addEventListener('DOMContentLoaded', function() {
     const supabaseReady = initSupabase();
-    
+
     const checkbox = document.getElementById('aceptoTerminos');
     if (checkbox) {
         checkbox.addEventListener('change', function() {
             const formRegistro = document.getElementById('form-registro');
             const terminosContainer = document.querySelector('.terminos-container');
-            
+
             if (this.checked) {
                 terminosContainer.style.transition = 'opacity 0.3s ease, transform 0.3s ease';
                 terminosContainer.style.opacity = '0';
                 terminosContainer.style.transform = 'translateY(-20px)';
-                
+
                 setTimeout(() => {
                     terminosContainer.style.display = 'none';
                     formRegistro.style.display = 'block';
                     formRegistro.style.opacity = '0';
                     formRegistro.style.transform = 'translateY(20px)';
-                    
+
                     setTimeout(() => {
                         formRegistro.style.transition = 'opacity 0.3s ease, transform 0.3s ease';
                         formRegistro.style.opacity = '1';
@@ -2181,13 +2140,13 @@ document.addEventListener('DOMContentLoaded', function() {
             } else {
                 formRegistro.style.opacity = '0';
                 formRegistro.style.transform = 'translateY(20px)';
-                
+
                 setTimeout(() => {
                     formRegistro.style.display = 'none';
                     terminosContainer.style.display = 'block';
                     terminosContainer.style.opacity = '0';
                     terminosContainer.style.transform = 'translateY(-20px)';
-                    
+
                     setTimeout(() => {
                         terminosContainer.style.opacity = '1';
                         terminosContainer.style.transform = 'translateY(0)';
@@ -2196,7 +2155,7 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         });
     }
-    
+
     const uploadArea = document.getElementById('uploadArea');
     if (uploadArea) {
         uploadArea.addEventListener('click', function(e) {
@@ -2214,9 +2173,9 @@ document.addEventListener('DOMContentLoaded', function() {
 function toggleSidebar() {
     const sidebar = document.getElementById('sidebar');
     const overlay = document.getElementById('sidebarOverlay');
-    
+
     sidebar.classList.toggle('open');
-    
+
     if (window.innerWidth <= 768) {
         overlay.classList.toggle('active');
     }
@@ -2225,7 +2184,7 @@ function toggleSidebar() {
 function closeSidebar() {
     const sidebar = document.getElementById('sidebar');
     const overlay = document.getElementById('sidebarOverlay');
-    
+
     sidebar.classList.remove('open');
     overlay.classList.remove('active');
 }
@@ -2233,26 +2192,26 @@ function closeSidebar() {
 function switchTab(tab) {
     currentTab = tab;
     showingFinalizados = false;
-    
+
     if (window.innerWidth <= 768) {
         closeSidebar();
     }
-    
+
     sectionRepositorio.style.display = 'none';
     sectionTrabajos.style.display = 'none';
     sectionRecursos.style.display = 'none';
     sectionDocentes.style.display = 'none';
     sectionEstudiantes.style.display = 'none';
-    
+
     document.querySelectorAll('.sidebar-btn').forEach(btn => {
         btn.classList.remove('active');
     });
-    
+
     const searchInputRepo = document.getElementById('searchInputRepositorio');
     const searchInputRec = document.getElementById('searchInputRecursos');
     if (searchInputRepo) searchInputRepo.value = '';
     if (searchInputRec) searchInputRec.value = '';
-    
+
     if (tab === 'repositorio') {
         sectionRepositorio.style.display = 'block';
         document.getElementById('tab-repositorio').classList.add('active');
