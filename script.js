@@ -2263,6 +2263,7 @@ window.onclick = function(event) {
 // Variables de sesión del estudiante registrado en la comunidad
 let selectedEspecialidad = '';
 let selectedCiclo = '';
+let selectedImageDataUrl = ''; // guarda el preview en base64 para mostrarlo en confirmación
 
 const CLOUDINARY_CONFIG = {
     CLOUD_NAME: "dwzwa3gp0",
@@ -2305,19 +2306,21 @@ function openRegistroModal() {
     const modal = document.getElementById('registroModal');
     modal.style.display = 'block';
 
-    // Mostrar paso 0 (selección de especialidad/ciclo), ocultar el resto
-    const paso0 = document.getElementById('registro-paso0');
+    // Mostrar SOLO el paso 0 (especialidad + ciclo + foto), ocultar el resto
+    const paso0           = document.getElementById('registro-paso0');
     const terminosContainer = document.querySelector('.terminos-container');
-    const formRegistro = document.getElementById('form-registro');
+    const formRegistro    = document.getElementById('form-registro');
 
-    if (paso0) { paso0.style.display = 'block'; paso0.style.opacity = '1'; }
-    if (terminosContainer) { terminosContainer.style.display = 'none'; }
-    if (formRegistro) { formRegistro.style.display = 'none'; formRegistro.style.opacity = '0'; }
+    if (paso0)            { paso0.style.display = 'block'; paso0.style.opacity = '1'; paso0.style.transform = 'translateY(0)'; }
+    if (terminosContainer){ terminosContainer.style.display = 'none'; }
+    if (formRegistro)     { formRegistro.style.display = 'none'; formRegistro.style.opacity = '0'; }
 
+    // Resetear todo
     document.getElementById('aceptoTerminos').checked = false;
-    selectedEspecialidad = '';
-    selectedCiclo = '';
-    selectedImageFile = null;
+    selectedEspecialidad  = '';
+    selectedCiclo         = '';
+    selectedImageFile     = null;
+    selectedImageDataUrl  = '';
     resetImagePreview();
 }
 
@@ -2330,28 +2333,36 @@ function continuarATerminos() {
         alert('⚠️ Por favor selecciona tu especialidad y ciclo.');
         return;
     }
+    if (!selectedImageFile) {
+        alert('⚠️ Por favor selecciona una foto de perfil para continuar.');
+        return;
+    }
 
     selectedEspecialidad = esp;
     selectedCiclo        = ciclo;
 
-    // Ocultar paso 0 y mostrar términos
-    const paso0 = document.getElementById('registro-paso0');
+    // Transición: paso 0 → términos
+    const paso0           = document.getElementById('registro-paso0');
     const terminosContainer = document.querySelector('.terminos-container');
 
-    if (paso0) { paso0.style.opacity = '0'; paso0.style.transform = 'translateY(-20px)'; }
+    if (paso0) {
+        paso0.style.transition = 'opacity .3s ease, transform .3s ease';
+        paso0.style.opacity    = '0';
+        paso0.style.transform  = 'translateY(-20px)';
+    }
     setTimeout(() => {
         if (paso0) paso0.style.display = 'none';
         if (terminosContainer) {
-            terminosContainer.style.display = 'block';
-            terminosContainer.style.opacity = '0';
+            terminosContainer.style.display   = 'block';
+            terminosContainer.style.opacity   = '0';
             terminosContainer.style.transform = 'translateY(20px)';
             setTimeout(() => {
                 terminosContainer.style.transition = 'opacity .3s ease, transform .3s ease';
-                terminosContainer.style.opacity = '1';
-                terminosContainer.style.transform = 'translateY(0)';
+                terminosContainer.style.opacity    = '1';
+                terminosContainer.style.transform  = 'translateY(0)';
             }, 10);
         }
-    }, 300);
+    }, 320);
 }
 
 function closeRegistroModal() {
@@ -2361,14 +2372,12 @@ function closeRegistroModal() {
 
 function previewImage(event) {
     const file = event.target.files[0];
-
     if (!file) return;
 
     if (file.size > 5 * 1024 * 1024) {
         alert('⚠️ La imagen es muy grande. El tamaño máximo es 5MB.');
         return;
     }
-
     if (!file.type.startsWith('image/')) {
         alert('⚠️ Por favor selecciona un archivo de imagen válido.');
         return;
@@ -2378,18 +2387,25 @@ function previewImage(event) {
 
     const reader = new FileReader();
     reader.onload = function(e) {
-        document.getElementById('previewImg').src = e.target.result;
-        document.getElementById('uploadPlaceholder').style.display = 'none';
-        document.getElementById('imagePreview').style.display = 'block';
+        selectedImageDataUrl = e.target.result; // guardar para el paso de confirmación
+        document.getElementById('previewImgPaso0').src = e.target.result;
+        document.getElementById('uploadPlaceholderPaso0').style.display = 'none';
+        document.getElementById('imagePreviewPaso0').style.display     = 'block';
     };
     reader.readAsDataURL(file);
 }
 
 function resetImagePreview() {
-    document.getElementById('uploadPlaceholder').style.display = 'block';
-    document.getElementById('imagePreview').style.display = 'none';
-    document.getElementById('previewImg').src = '';
-    document.getElementById('fotoInput').value = '';
+    // IDs del paso 0
+    const ph   = document.getElementById('uploadPlaceholderPaso0');
+    const prev = document.getElementById('imagePreviewPaso0');
+    const img  = document.getElementById('previewImgPaso0');
+    const inp  = document.getElementById('fotoInputPaso0');
+    if (ph)   ph.style.display   = 'block';
+    if (prev) prev.style.display = 'none';
+    if (img)  img.src            = '';
+    if (inp)  inp.value          = '';
+    selectedImageDataUrl = '';
 }
 
 function mostrarToast(mensaje, icono = 'fa-check-circle', duracion = 3000) {
@@ -2619,45 +2635,52 @@ document.addEventListener('DOMContentLoaded', function() {
             const terminosContainer = document.querySelector('.terminos-container');
 
             if (this.checked) {
-                // Autorellenar nombre desde la sesión, especialidad y ciclo del paso 0
+                // ── Autorellenar todos los datos del paso 0 ──
                 const authData = JSON.parse(localStorage.getItem('eduspace_auth') || '{}');
                 const userName = authData.userName || '';
 
-                // Poner nombre (readonly)
+                // Nombre (readonly)
                 const inputNombre = document.getElementById('nombreCompleto');
-                if (inputNombre) { inputNombre.value = userName; inputNombre.readOnly = true; }
+                if (inputNombre) { inputNombre.value = userName; }
 
-                // Mostrar especialidad y ciclo como badges (no editables)
+                // Especialidad y ciclo
                 const dispEsp   = document.getElementById('displayEspecialidad');
                 const dispCiclo = document.getElementById('displayCiclo');
                 if (dispEsp)   dispEsp.textContent   = selectedEspecialidad;
                 if (dispCiclo) dispCiclo.textContent = `Ciclo ${selectedCiclo}`;
 
+                // Foto preview (la que ya se subió en el paso 0)
+                const fotoConfirm = document.getElementById('fotoConfirmacion');
+                if (fotoConfirm && selectedImageDataUrl) {
+                    fotoConfirm.src = selectedImageDataUrl;
+                }
+
                 terminosContainer.style.transition = 'opacity 0.3s ease, transform 0.3s ease';
-                terminosContainer.style.opacity = '0';
-                terminosContainer.style.transform = 'translateY(-20px)';
+                terminosContainer.style.opacity    = '0';
+                terminosContainer.style.transform  = 'translateY(-20px)';
 
                 setTimeout(() => {
                     terminosContainer.style.display = 'none';
-                    formRegistro.style.display = 'block';
-                    formRegistro.style.opacity = '0';
-                    formRegistro.style.transform = 'translateY(20px)';
+                    formRegistro.style.display      = 'block';
+                    formRegistro.style.opacity      = '0';
+                    formRegistro.style.transform    = 'translateY(20px)';
                     setTimeout(() => {
                         formRegistro.style.transition = 'opacity 0.3s ease, transform 0.3s ease';
-                        formRegistro.style.opacity = '1';
-                        formRegistro.style.transform = 'translateY(0)';
+                        formRegistro.style.opacity    = '1';
+                        formRegistro.style.transform  = 'translateY(0)';
                     }, 10);
                 }, 300);
+
             } else {
-                formRegistro.style.opacity = '0';
-                formRegistro.style.transform = 'translateY(20px)';
+                formRegistro.style.opacity    = '0';
+                formRegistro.style.transform  = 'translateY(20px)';
                 setTimeout(() => {
-                    formRegistro.style.display = 'none';
+                    formRegistro.style.display      = 'none';
                     terminosContainer.style.display = 'block';
                     terminosContainer.style.opacity = '0';
                     terminosContainer.style.transform = 'translateY(-20px)';
                     setTimeout(() => {
-                        terminosContainer.style.opacity = '1';
+                        terminosContainer.style.opacity   = '1';
                         terminosContainer.style.transform = 'translateY(0)';
                     }, 10);
                 }, 300);
@@ -2727,6 +2750,73 @@ function abrirPerfilEstudiante() {
     if (img) img.src = perfil.foto_url || '';
 
     modal.style.display = 'flex';
+}
+
+// Cambiar foto desde el sidebar (único lugar permitido)
+function cambiarFotoSidebar() {
+    const input = document.getElementById('sidebar-foto-file-input');
+    if (input) input.click();
+}
+
+async function procesarNuevaFotoPerfil(event) {
+    const file = event.target.files[0];
+    if (!file) return;
+
+    if (file.size > 5 * 1024 * 1024) { alert('⚠️ La imagen es muy grande. Máximo 5MB.'); return; }
+    if (!file.type.startsWith('image/')) { alert('⚠️ Selecciona un archivo de imagen válido.'); return; }
+
+    const perfil = JSON.parse(localStorage.getItem('eduspace_student_profile') || 'null');
+    if (!perfil) { alert('❌ No se encontró tu perfil.'); return; }
+
+    // Mostrar vista previa inmediata
+    const reader = new FileReader();
+    reader.onload = function(e) {
+        const imgModal   = document.getElementById('perfil-modal-foto');
+        const imgSidebar = document.getElementById('sidebar-profile-img');
+        if (imgModal)   imgModal.src   = e.target.result;
+        if (imgSidebar) imgSidebar.src = e.target.result;
+    };
+    reader.readAsDataURL(file);
+
+    // Botón de cambiar con estado de carga
+    const btnCambiar = document.getElementById('btn-cambiar-foto-sidebar');
+    if (btnCambiar) { btnCambiar.disabled = true; btnCambiar.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Subiendo...'; }
+
+    try {
+        // Subir a Cloudinary
+        const formData = new FormData();
+        formData.append('file', file);
+        formData.append('upload_preset', CLOUDINARY_CONFIG.UPLOAD_PRESET);
+        formData.append('folder', 'estudiantes_clouddesk');
+
+        const res = await fetch(`https://api.cloudinary.com/v1_1/${CLOUDINARY_CONFIG.CLOUD_NAME}/image/upload`, { method: 'POST', body: formData });
+        if (!res.ok) throw new Error('Error al subir la imagen');
+        const data = await res.json();
+        const nuevaUrl = data.secure_url;
+
+        // Actualizar en Supabase
+        if (supabaseClient) {
+            const { error } = await supabaseClient
+                .from('estudiantes')
+                .update({ foto_url: nuevaUrl })
+                .eq('nombre_completo', perfil.nombre);
+            if (error) console.warn('No se actualizó en Supabase:', error.message);
+        }
+
+        // Actualizar localStorage y sidebar
+        perfil.foto_url = nuevaUrl;
+        localStorage.setItem('eduspace_student_profile', JSON.stringify(perfil));
+        actualizarPerfilSidebar();
+        mostrarToast('✅ Foto actualizada correctamente');
+
+    } catch (err) {
+        console.error(err);
+        alert('❌ Error al actualizar la foto: ' + err.message);
+    } finally {
+        if (btnCambiar) { btnCambiar.disabled = false; btnCambiar.innerHTML = '<i class="fa-solid fa-camera"></i> Cambiar foto'; }
+        // Limpiar el input para que pueda seleccionar la misma foto después si quiere
+        event.target.value = '';
+    }
 }
 
 function cerrarPerfilEstudiante() {
