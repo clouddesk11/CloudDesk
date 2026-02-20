@@ -3777,3 +3777,76 @@ footer {
     cursor: not-allowed;
     transform: none;
 }
+
+/* ============================================
+   CAMBIOS CSS — AGREGAR/REEMPLAZAR EN styles.css
+   ============================================ */
+
+/* 1. Auth modal: hacerlo scrollable para el nuevo PASO 0 */
+.auth-modal-content {
+    background: linear-gradient(135deg, var(--card-bg) 0%, var(--bg-darker) 100%);
+    border-radius: 20px;
+    padding: 3rem;
+    max-width: 500px;
+    width: 90%;
+    box-shadow: 0 20px 60px rgba(59, 130, 246, 0.3);
+    border: 2px solid var(--primary-color);
+    animation: slideDown 0.4s ease;
+    /* NUEVO: evita que el contenido se salga en pantallas pequeñas */
+    overflow-y: auto;
+    max-height: 92vh;
+}
+
+/* 2. Upload area compacta dentro del auth modal */
+.auth-upload-area {
+    padding: 1rem !important;
+}
+
+.auth-upload-area .upload-placeholder i {
+    font-size: 2rem;
+    margin-bottom: 0.5rem;
+}
+
+.auth-upload-area .upload-placeholder p {
+    font-size: 0.88rem;
+    margin-bottom: 0.25rem;
+}
+
+.auth-upload-area .upload-placeholder span {
+    font-size: 0.78rem;
+}
+
+/* 3. Select dentro del auth modal (mismo estilo que auth-input) */
+.auth-body .paso0-select {
+    background-color: var(--card-bg);
+    border-color: var(--border-color);
+}
+
+.auth-body .paso0-select:focus {
+    border-color: var(--primary-color);
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+
+/* 4. Labels dentro del auth body (garantizar color correcto) */
+.auth-body .form-group label {
+    color: var(--text-light);
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 0.5rem;
+}
+
+/* 5. Reducir margin-bottom de form-group dentro del auth modal */
+.auth-body .form-group {
+    margin-bottom: 1rem;
+}
+
+/* 6. Preview de imagen circular en el auth modal */
+.auth-upload-area .image-preview img {
+    max-width: 90px;
+    max-height: 90px;
+    border-radius: 50%;
+    border: 3px solid var(--primary-color);
+    margin-bottom: 0.5rem;
+}
