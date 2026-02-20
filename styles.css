@@ -3352,6 +3352,7 @@ footer {
     transform: none;
 }
 
+
 /* ============================================
    PASO 0 DEL REGISTRO (Especialidad + Ciclo)
    ============================================ */
@@ -3664,4 +3665,115 @@ footer {
     color: var(--success);
     font-size: 0.85rem;
     font-weight: 600;
+}
+
+/* ============================================
+   PASO 0 - ROW DE CAMPOS (especialidad + ciclo lado a lado)
+   ============================================ */
+
+.paso0-campos-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1rem;
+    margin-bottom: 0.5rem;
+}
+
+.paso0-campo-half {
+    margin-bottom: 0 !important;
+}
+
+@media (max-width: 480px) {
+    .paso0-campos-row {
+        grid-template-columns: 1fr;
+    }
+}
+
+/* Foto seleccionada en paso 0: badge de ok */
+.paso0-foto-ok {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    color: var(--success);
+    font-size: 0.9rem;
+    font-weight: 600;
+    margin-top: 0.5rem;
+    flex-wrap: wrap;
+}
+
+/* ============================================
+   PASO 2 - CONFIRMACIÓN (sin edición)
+   ============================================ */
+
+.confirmacion-foto-wrap {
+    display: flex;
+    justify-content: center;
+    margin-bottom: 1.2rem;
+}
+
+.confirmacion-foto {
+    width: 90px;
+    height: 90px;
+    border-radius: 50%;
+    object-fit: cover;
+    border: 3px solid var(--primary-color);
+    box-shadow: 0 4px 16px rgba(59, 130, 246, 0.35);
+}
+
+.confirmacion-input {
+    background: rgba(59, 130, 246, 0.05) !important;
+    border-color: rgba(59, 130, 246, 0.3) !important;
+    cursor: default !important;
+    color: var(--text-light) !important;
+}
+
+.confirmacion-hint {
+    display: flex;
+    align-items: flex-start;
+    gap: 7px;
+    color: var(--text-muted);
+    font-size: 0.82rem;
+    margin-bottom: 1rem;
+    line-height: 1.5;
+    background: rgba(59, 130, 246, 0.06);
+    border-radius: 8px;
+    padding: 0.6rem 0.8rem;
+    border-left: 3px solid var(--primary-color);
+}
+
+.confirmacion-hint i {
+    color: var(--primary-color);
+    flex-shrink: 0;
+    margin-top: 2px;
+}
+
+/* ============================================
+   BOTÓN CAMBIAR FOTO EN MODAL PERFIL SIDEBAR
+   ============================================ */
+
+.btn-cambiar-foto-sidebar {
+    margin-top: 1rem;
+    padding: 0.6rem 1.4rem;
+    background: transparent;
+    border: 1.5px solid var(--primary-color);
+    border-radius: 8px;
+    color: var(--primary-color);
+    font-size: 0.88rem;
+    font-weight: 600;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 7px;
+    transition: all 0.3s;
+}
+
+.btn-cambiar-foto-sidebar:hover {
+    background: rgba(59, 130, 246, 0.1);
+    transform: translateY(-1px);
+}
+
+.btn-cambiar-foto-sidebar:disabled {
+    opacity: 0.6;
+    cursor: not-allowed;
+    transform: none;
 }
