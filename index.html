@@ -413,36 +413,70 @@
                 <div class="registro-form-container">
                     <h2><i class="fa-solid fa-user-graduate"></i> Únete a CloudDesk</h2>
 
-                    <!-- PASO 0: Selección de especialidad y ciclo -->
+                    <!-- ══ PASO 0: Especialidad + Ciclo + Foto (todo junto al inicio) ══ -->
                     <div id="registro-paso0" class="registro-paso0">
                         <p class="paso0-desc">
                             <i class="fa-solid fa-circle-info" style="color:var(--primary-color);"></i>
-                            Selecciona tu especialidad y ciclo para continuar con el registro.
+                            Completa tus datos y sube tu foto para continuar.
                         </p>
-                        <div class="form-group">
-                            <label for="selectEspecialidad">
-                                <i class="fa-solid fa-graduation-cap"></i> Especialidad
-                            </label>
-                            <select id="selectEspecialidad" class="paso0-select">
-                                <option value="" disabled selected>Elige tu especialidad</option>
-                                <option value="Comunicación">Comunicación</option>
-                            </select>
+
+                        <div class="paso0-campos-row">
+                            <div class="form-group paso0-campo-half">
+                                <label for="selectEspecialidad">
+                                    <i class="fa-solid fa-graduation-cap"></i> Especialidad
+                                </label>
+                                <select id="selectEspecialidad" class="paso0-select">
+                                    <option value="" disabled selected>Elige</option>
+                                    <option value="Comunicación">Comunicación</option>
+                                </select>
+                            </div>
+                            <div class="form-group paso0-campo-half">
+                                <label for="selectCiclo">
+                                    <i class="fa-solid fa-layer-group"></i> Ciclo
+                                </label>
+                                <select id="selectCiclo" class="paso0-select">
+                                    <option value="" disabled selected>Elige</option>
+                                    <option value="VII">VII</option>
+                                </select>
+                            </div>
                         </div>
+
+                        <!-- Foto aquí -->
                         <div class="form-group">
-                            <label for="selectCiclo">
-                                <i class="fa-solid fa-layer-group"></i> Ciclo
+                            <label>
+                                <i class="fa-solid fa-camera"></i> Foto de Perfil
                             </label>
-                            <select id="selectCiclo" class="paso0-select">
-                                <option value="" disabled selected>Elige tu ciclo</option>
-                                <option value="VII">VII</option>
-                            </select>
+                            <div class="upload-area" id="uploadAreaPaso0"
+                                 onclick="document.getElementById('fotoInputPaso0').click()">
+                                <input type="file"
+                                       id="fotoInputPaso0"
+                                       accept="image/*"
+                                       style="display:none;"
+                                       onchange="previewImage(event)">
+                                <div id="uploadPlaceholderPaso0" class="upload-placeholder">
+                                    <i class="fa-solid fa-cloud-upload-alt"></i>
+                                    <p>Haz clic para seleccionar una foto</p>
+                                    <span>JPG, PNG o GIF • Máx. 5MB</span>
+                                </div>
+                                <div id="imagePreviewPaso0" class="image-preview" style="display:none;">
+                                    <img id="previewImgPaso0" src="" alt="Vista previa">
+                                    <span class="paso0-foto-ok">
+                                        <i class="fa-solid fa-check-circle"></i> Foto seleccionada
+                                        <button type="button" class="btn-change-photo"
+                                                onclick="event.stopPropagation();document.getElementById('fotoInputPaso0').click()">
+                                            <i class="fa-solid fa-exchange-alt"></i> Cambiar
+                                        </button>
+                                    </span>
+                                </div>
+                            </div>
                         </div>
+
                         <button class="btn-paso0-continuar" onclick="continuarATerminos()">
                             <i class="fa-solid fa-arrow-right"></i> Continuar
                         </button>
                     </div>
 
-                    <!-- PASO 1: Términos y condiciones -->
+                    <!-- ══ PASO 1: Términos y condiciones ══ -->
                     <div class="terminos-container" style="display:none;">
                         <div class="terminos-scroll">
                             <h3>📋 Términos y Condiciones</h3>
@@ -457,7 +491,7 @@
                                 <li>✓ No compartiremos tus datos con terceros sin tu consentimiento explícito.</li>
                             </ul>
                             <p class="terminos-footer">
-                                <i class="fa-solid fa-shield-halved"></i> 
+                                <i class="fa-solid fa-shield-halved"></i>
                                 <strong>Política de Privacidad:</strong> Tus datos están protegidos bajo encriptación SSL/TLS.
                             </p>
                         </div>
@@ -468,51 +502,41 @@
                         </label>
                     </div>
 
-                    <!-- PASO 2: Formulario (datos autorellenados + foto) -->
-                    <div id="form-registro" class="form-registro" style="display: none;">
-                        <!-- Nombre (readonly, viene de la sesión) -->
+                    <!-- ══ PASO 2: Confirmación autorellenada (solo lectura) ══ -->
+                    <div id="form-registro" class="form-registro" style="display:none;">
+                        <!-- Foto (preview, no editable) -->
+                        <div class="confirmacion-foto-wrap">
+                            <img id="fotoConfirmacion" src="" alt="Tu foto"
+                                 class="confirmacion-foto"
+                                 onerror="this.src='https://ui-avatars.com/api/?name=?&background=3b82f6&color=fff&size=200'">
+                        </div>
+
+                        <!-- Nombre (autorellenado, readonly) -->
                         <div class="form-group">
                             <label>
                                 <i class="fa-solid fa-user"></i> Nombre Completo
                             </label>
                             <input type="text" id="nombreCompleto" maxlength="100" readonly
-                                   style="background:rgba(59,130,246,.05);border-color:rgba(59,130,246,.3);cursor:default;color:var(--text-light);"
+                                   class="confirmacion-input"
                                    placeholder="Autocompletado desde tu cuenta">
                         </div>
-                        <!-- Especialidad y Ciclo (display, no editables) -->
+
+                        <!-- Especialidad + Ciclo (badges) -->
                         <div class="form-group">
                             <label>
                                 <i class="fa-solid fa-graduation-cap"></i> Especialidad y Ciclo
                             </label>
                             <div class="form-autodata-row">
-                                <span class="form-autodata-badge" id="displayEspecialidad">—</span>
+                                <span class="form-autodata-badge"             id="displayEspecialidad">—</span>
                                 <span class="form-autodata-badge form-autodata-ciclo" id="displayCiclo">—</span>
                             </div>
                         </div>
-                        <!-- Foto (editable) -->
-                        <div class="form-group">
-                            <label>
-                                <i class="fa-solid fa-camera"></i> Foto de Perfil
-                            </label>
-                            <div class="upload-area" id="uploadArea">
-                                <input type="file" 
-                                       id="fotoInput" 
-                                       accept="image/*" 
-                                       style="display: none;"
-                                       onchange="previewImage(event)">
-                                <div id="uploadPlaceholder" class="upload-placeholder">
-                                    <i class="fa-solid fa-cloud-upload-alt"></i>
-                                    <p>Haz clic para seleccionar una foto</p>
-                                    <span>JPG, PNG o GIF • Máx. 5MB</span>
-                                </div>
-                                <div id="imagePreview" class="image-preview" style="display: none;">
-                                    <img id="previewImg" src="" alt="Vista previa">
-                                    <button type="button" class="btn-change-photo" onclick="document.getElementById('fotoInput').click()">
-                                        <i class="fa-solid fa-exchange-alt"></i> Cambiar foto
-                                    </button>
-                                </div>
-                            </div>
-                        </div>
+
+                        <p class="confirmacion-hint">
+                            <i class="fa-solid fa-circle-info"></i>
+                            Podrás cambiar tu foto desde tu perfil en el menú lateral.
+                        </p>
+
                         <button id="btnRegistrar" class="btn-registrar" onclick="registrarEstudiante()">
                             <i class="fa-solid fa-check-circle"></i> Unirme Ahora
                         </button>
@@ -534,9 +558,16 @@
             </div>
             <h3 class="modal-perfil-nombre" id="perfil-modal-nombre">—</h3>
             <div class="modal-perfil-badges">
-                <span class="modal-perfil-badge-esp" id="perfil-modal-especialidad">—</span>
+                <span class="modal-perfil-badge-esp"  id="perfil-modal-especialidad">—</span>
                 <span class="modal-perfil-badge-ciclo" id="perfil-modal-ciclo">—</span>
             </div>
+            <!-- Botón cambiar foto (único lugar) -->
+            <input type="file" id="sidebar-foto-file-input" accept="image/*" style="display:none;"
+                   onchange="procesarNuevaFotoPerfil(event)">
+            <button id="btn-cambiar-foto-sidebar" class="btn-cambiar-foto-sidebar"
+                    onclick="cambiarFotoSidebar()">
+                <i class="fa-solid fa-camera"></i> Cambiar foto
+            </button>
         </div>
     </div>
 
