@@ -51,15 +51,10 @@ function hideAuthModal() {
 
 // ============================================
 // ALMACENAMIENTO TEMPORAL EN sessionStorage
-// - No toca Firebase ni localStorage hasta que todo esté validado.
-// - sessionStorage sobrevive micro-redirects del popup de Google en laptops
-//   (problema conocido en Chrome/Edge desktop con signInWithPopup).
-// - Se borra automáticamente al cerrar el tab (más seguro que localStorage).
 // ============================================
 const _TV_KEY = '_cdsk_tv';
 
 // Flag que indica que signInWithGoogle está en proceso activo.
-// Evita que onAuthStateChanged interfiera (condición de carrera en móvil/laptop).
 let _registrandoAhora = false;
 
 function _getTempValidacion() {
@@ -81,17 +76,19 @@ function _setTempValidacion(val) {
 
 // ============================================
 // PASO 1: Mostrar formulario nombre + código
-// (este es el primer paso que ve el usuario)
 // ============================================
 function mostrarPaso1() {
     document.getElementById('auth-step-code').style.display = 'block';
+    document.getElementById('auth-step-registro').style.display = 'none'; // PASO 0 oculto
     document.getElementById('auth-step-google').style.display = 'none';
 
     // Limpiar errores previos
     const errCode   = document.getElementById('authError');
     const errGoogle = document.getElementById('googleError');
+    const errReg    = document.getElementById('authRegistroError');
     if (errCode)   { errCode.style.display = 'none';   errCode.textContent = ''; }
     if (errGoogle) { errGoogle.style.display = 'none'; errGoogle.textContent = ''; }
+    if (errReg)    { errReg.style.display = 'none';    errReg.textContent = ''; }
 
     // Restaurar botón de continuar
     const btn = document.getElementById('authSubmit');
@@ -102,11 +99,38 @@ function mostrarPaso1() {
 }
 
 // ============================================
-// PASO 2: Mostrar botón de Google
-// (solo se llega aquí después de validar nombre+código)
+// PASO 2 (NUEVO): Mostrar formulario de perfil
+// (Especialidad + Ciclo + Foto dentro del auth modal)
+// ============================================
+function mostrarPasoRegistro() {
+    document.getElementById('auth-step-code').style.display = 'none';
+    document.getElementById('auth-step-registro').style.display = 'block';
+    document.getElementById('auth-step-google').style.display = 'none';
+
+    // Limpiar error
+    const errReg = document.getElementById('authRegistroError');
+    if (errReg) { errReg.textContent = ''; errReg.style.display = 'none'; }
+
+    // Resetear campos del perfil
+    const esp = document.getElementById('selectEspecialidad');
+    const ciclo = document.getElementById('selectCiclo');
+    if (esp) esp.value = '';
+    if (ciclo) ciclo.value = '';
+
+    // Resetear imagen
+    resetImagePreview();
+    selectedImageFile = null;
+    selectedImageDataUrl = '';
+    selectedEspecialidad = '';
+    selectedCiclo = '';
+}
+
+// ============================================
+// PASO 3: Mostrar botón de Google
 // ============================================
 function mostrarPaso2Google() {
     document.getElementById('auth-step-code').style.display = 'none';
+    document.getElementById('auth-step-registro').style.display = 'none'; // ocultar PASO 0
     document.getElementById('auth-step-google').style.display = 'block';
 
     const errGoogle = document.getElementById('googleError');
@@ -143,11 +167,43 @@ function googleBtnHTML() {
 }
 
 // ============================================
+// PASO 2 (NUEVO): CONTINUAR DESDE AUTH (valida perfil y avanza a Google)
+// Reemplaza a continuarATerminos() para el contexto del auth modal
+// ============================================
+function continuarDesdeAuth() {
+    const esp   = document.getElementById('selectEspecialidad').value;
+    const ciclo = document.getElementById('selectCiclo').value;
+    const errEl = document.getElementById('authRegistroError');
+
+    // Limpiar error previo
+    if (errEl) { errEl.style.display = 'none'; errEl.textContent = ''; }
+
+    if (!esp || !ciclo) {
+        if (errEl) {
+            errEl.textContent = '⚠️ Por favor selecciona tu especialidad y ciclo.';
+            errEl.style.display = 'block';
+        }
+        return;
+    }
+
+    if (!selectedImageFile) {
+        if (errEl) {
+            errEl.textContent = '⚠️ Por favor selecciona una foto de perfil para continuar.';
+            errEl.style.display = 'block';
+        }
+        return;
+    }
+
+    // Guardar en variables globales
+    selectedEspecialidad = esp;
+    selectedCiclo        = ciclo;
+
+    // Avanzar al paso de Google sign-in
+    mostrarPaso2Google();
+}
+
+// ============================================
 // GOOGLE SIGN-IN
-// (solo se puede llegar aquí desde el Paso 2,
-//  que solo aparece si el código fue validado)
-// IMPORTANTE: llama completarRegistro() directamente desde el resultado
-// del popup — NO delega a onAuthStateChanged — eso causaba el bug en laptop.
 // ============================================
 async function signInWithGoogle() {
     const btn      = document.getElementById('googleSignInBtn');
@@ -168,11 +224,6 @@ async function signInWithGoogle() {
         const provider = new firebase.auth.GoogleAuthProvider();
         provider.setCustomParameters({ prompt: 'select_account' });
 
-        // Activar el flag ANTES del popup para que onAuthStateChanged
-        // no interfiera cuando dispare justo después del login de Google.
-        // Sin este flag, onAuthStateChanged vería authData=null y llamaría
-        // user.delete(), destruyendo el usuario antes de que completarRegistro
-        // pueda guardarlo. (Bug confirmado en móvil y laptop Chrome/Edge).
         _registrandoAhora = true;
 
         const result = await auth.signInWithPopup(provider);
@@ -194,7 +245,6 @@ async function signInWithGoogle() {
         btn.disabled = false;
         btn.innerHTML = googleBtnHTML();
     } finally {
-        // Siempre desactivar el flag, incluso si hubo un error.
         _registrandoAhora = false;
     }
 }
@@ -213,8 +263,6 @@ function normalizarNombre(nombre) {
 
 // ============================================
 // PASO 1: VALIDAR NOMBRE + CÓDIGO
-// Solo lee Firebase, NO escribe nada.
-// Si es válido, guarda en _tempValidacion y avanza al Paso 2.
 // ============================================
 async function validarCodigo() {
     const userName  = document.getElementById('authUserName').value.trim();
@@ -241,7 +289,6 @@ async function validarCodigo() {
     submitBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Verificando...';
 
     try {
-        // ── Solo lectura: verificar que el código existe y es válido ──
         let snapshot;
         try {
             snapshot = await database.ref(`codigos/${codigo}`).once('value');
@@ -261,11 +308,11 @@ async function validarCodigo() {
             return;
         }
 
-        const codigoData       = snapshot.val();
+        const codigoData           = snapshot.val();
         const dispositivosActuales = codigoData.dispositivos || {};
         const dispositivosKeys     = Object.keys(dispositivosActuales);
 
-        // ── Verificar bloqueo ──
+        // Verificar bloqueo
         if (codigoData.bloqueado === true) {
             const motivo = codigoData.motivoBloqueo || 'Tu acceso ha sido bloqueado por el administrador.';
             errorDiv.textContent = `🚫 ACCESO BLOQUEADO: ${motivo}`;
@@ -275,7 +322,7 @@ async function validarCodigo() {
             return;
         }
 
-        // ── Verificar nombre (Capa A: propietario explícito) ──
+        // Verificar nombre (Capa A: propietario explícito)
         if (codigoData.propietario && codigoData.propietario.trim() !== '') {
             const propietarioNorm = normalizarNombre(codigoData.propietario);
             const userNameNorm    = normalizarNombre(userName);
@@ -288,7 +335,7 @@ async function validarCodigo() {
                 return;
             }
         }
-        // ── Verificar nombre (Capa B: candado automático del primer dispositivo) ──
+        // Verificar nombre (Capa B: candado automático del primer dispositivo)
         else if (dispositivosKeys.length > 0) {
             let nombrePrimerDispositivo = '';
             for (const key of dispositivosKeys) {
@@ -309,20 +356,34 @@ async function validarCodigo() {
             }
         }
 
-        // ── Todo válido: guardar en memoria temporal (NO en Firebase todavía) ──
+        // Todo válido: guardar en memoria temporal
         _setTempValidacion({ userName, codigo, codigoData });
 
         submitBtn.disabled = false;
         submitBtn.innerHTML = '<i class="fa-solid fa-arrow-right"></i> Continuar';
 
-        // ── Si Google ya está autenticado (ej: usuario regresó tras limpiar caché) ──
-        // No hace falta mostrar el botón de Google, ir directo a registrar.
-        const user = auth.currentUser;
+        // Decidir qué paso mostrar a continuación
+        const user               = auth.currentUser;
+        const perfilExistente    = localStorage.getItem('eduspace_student_profile');
+
         if (user) {
-            await completarRegistro(user);
+            // Google ya autenticado
+            if (perfilExistente) {
+                // Ya tiene perfil completo: completar registro directamente
+                await completarRegistro(user);
+            } else {
+                // No tiene perfil: ir a recolectar datos (PASO 0 en auth modal)
+                mostrarPasoRegistro();
+            }
         } else {
-            // Primera vez: mostrar el botón de Google
-            mostrarPaso2Google();
+            // Google aún no autenticado
+            if (perfilExistente) {
+                // Ya tiene perfil (dispositivo conocido): saltar al Google sign-in
+                mostrarPaso2Google();
+            } else {
+                // Nuevo usuario: ir a recolectar datos de perfil (PASO 0 en auth modal)
+                mostrarPasoRegistro();
+            }
         }
 
     } catch (error) {
@@ -336,15 +397,10 @@ async function validarCodigo() {
 
 // ============================================
 // PASO FINAL: COMPLETAR REGISTRO EN FIREBASE
-// Se llama desde onAuthStateChanged cuando:
-//   a) El usuario acaba de hacer sign-in con Google (nueva cuenta), o
-//   b) El usuario ya tenía Google activo y acaba de validar el código en Paso 1.
-// Aquí sí se escribe en Firebase.
+// + GUARDAR PERFIL INMEDIATAMENTE EN SIDEBAR
 // ============================================
 async function completarRegistro(user) {
     if (!_getTempValidacion()) {
-        // No pasó por el Paso 1: cerrar sesión y mostrar formulario.
-        // Esto corta cualquier intento de entrar solo con Google.
         console.warn('completarRegistro llamado sin _tempValidacion. Cerrando sesión.');
         await auth.signOut();
         showAuthModal();
@@ -355,17 +411,9 @@ async function completarRegistro(user) {
     const { userName, codigo } = _getTempValidacion();
     const googleUid  = user.uid;
     const deviceType = getDeviceType();
+    const deviceKey  = `${googleUid}_${deviceType}`;
 
-    // ── Clave compuesta: googleUid + tipo de dispositivo ──────────────────
-    // RAZÓN: móvil y laptop comparten el MISMO googleUid (misma cuenta Google).
-    // Si usáramos solo googleUid como clave, el segundo dispositivo sobrescribiría
-    // al primero en Firebase. Con la clave compuesta cada dispositivo tiene
-    // su propia entrada:
-    //   dispositivos/abc123uid_mobile   ← entrada del móvil
-    //   dispositivos/abc123uid_desktop  ← entrada del laptop
-    const deviceKey = `${googleUid}_${deviceType}`;
-
-    // Mostrar spinner en el botón de Google si está visible
+    // Spinner en el botón de Google
     const googleBtn = document.getElementById('googleSignInBtn');
     if (googleBtn) {
         googleBtn.disabled = true;
@@ -375,8 +423,8 @@ async function completarRegistro(user) {
     if (googleErr) googleErr.style.display = 'none';
 
     try {
-        // ── Re-leer datos frescos de Firebase (puede haber cambiado) ──
-        const snapshot = await database.ref(`codigos/${codigo}`).once('value');
+        // Re-leer datos frescos de Firebase
+        const snapshot   = await database.ref(`codigos/${codigo}`).once('value');
         const codigoData = snapshot.val();
 
         if (!codigoData) {
@@ -393,7 +441,7 @@ async function completarRegistro(user) {
         const dispositivosActuales = codigoData.dispositivos || {};
         const dispositivosKeys     = Object.keys(dispositivosActuales);
 
-        // ── Si este dispositivo (mismo UID + mismo tipo) ya está registrado → solo actualizar ──
+        // Si este dispositivo ya está registrado → solo actualizar
         if (dispositivosActuales[deviceKey]) {
             const updates = {};
             updates[`codigos/${codigo}/dispositivos/${deviceKey}/usuario`]      = userName;
@@ -405,11 +453,13 @@ async function completarRegistro(user) {
             hideAuthModal();
             if (codigo === '6578hy') showSpecialUserMessage();
             iniciarListenerBloqueo();
+
+            // Actualizar sidebar con el perfil existente
+            actualizarPerfilSidebar();
             return;
         }
 
-        // ── Verificar que no haya OTRA cuenta de Google ya registrada ──
-        // Comparamos el googleUid del campo (no la clave) para detectar cuentas diferentes.
+        // Verificar que no haya OTRA cuenta de Google ya registrada
         if (dispositivosKeys.length > 0) {
             const otraCuenta = Object.values(dispositivosActuales).find(
                 dev => dev.googleUid && dev.googleUid !== googleUid
@@ -423,7 +473,7 @@ async function completarRegistro(user) {
             }
         }
 
-        // ── Verificar límites de dispositivos ──
+        // Verificar límites de dispositivos
         const { mobile, desktop } = contarDispositivosPorTipo(dispositivosActuales);
 
         if (deviceType === 'mobile' && mobile >= 1) {
@@ -448,7 +498,7 @@ async function completarRegistro(user) {
             return;
         }
 
-        // ── Todo ok: escribir en Firebase con la clave compuesta ──
+        // Todo ok: escribir en Firebase
         const updates = {};
         updates[`codigos/${codigo}/dispositivos/${deviceKey}`] = {
             googleUid:     googleUid,
@@ -471,6 +521,10 @@ async function completarRegistro(user) {
         if (codigo === '6578hy') showSpecialUserMessage();
         iniciarListenerBloqueo();
 
+        // ── NUEVO: Guardar perfil del estudiante inmediatamente en localStorage
+        //    y actualizar el sidebar SIN esperar a que haga clic en "Unirme"
+        await _guardarPerfilEstudianteDesdAuth(userName);
+
     } catch (error) {
         console.error('Error en completarRegistro:', error);
         if (googleBtn) {
@@ -482,8 +536,81 @@ async function completarRegistro(user) {
             googleErr.style.display = 'block';
         }
     } finally {
-        // Garantizar que el flag se desactive siempre, pase lo que pase.
         _registrandoAhora = false;
+    }
+}
+
+// ============================================
+// GUARDAR PERFIL DESDE AUTH (sube foto a Cloudinary + actualiza sidebar)
+// Se llama inmediatamente después de que Firebase confirma el registro.
+// ============================================
+async function _guardarPerfilEstudianteDesdAuth(userName) {
+    // Si ya existe un perfil guardado en este dispositivo, solo actualizar sidebar
+    const perfilExistente = localStorage.getItem('eduspace_student_profile');
+    if (perfilExistente) {
+        actualizarPerfilSidebar();
+        return;
+    }
+
+    // Si no hay imagen seleccionada (usuario sin PASO 0, flujo antiguo), salir
+    if (!selectedImageFile && !selectedImageDataUrl) {
+        actualizarPerfilSidebar();
+        return;
+    }
+
+    try {
+        let fotoUrl = selectedImageDataUrl; // fallback: dataURL
+
+        // Intentar subir a Cloudinary
+        if (selectedImageFile) {
+            const formData = new FormData();
+            formData.append('file', selectedImageFile);
+            formData.append('upload_preset', CLOUDINARY_CONFIG.UPLOAD_PRESET);
+            formData.append('folder', 'estudiantes_clouddesk');
+
+            const res = await fetch(
+                `https://api.cloudinary.com/v1_1/${CLOUDINARY_CONFIG.CLOUD_NAME}/image/upload`,
+                { method: 'POST', body: formData }
+            );
+
+            if (res.ok) {
+                const data = await res.json();
+                fotoUrl = data.secure_url;
+            } else {
+                console.warn('Cloudinary upload falló, usando dataURL como fallback.');
+            }
+        }
+
+        // Guardar perfil en localStorage con los datos del PASO 0
+        const perfil = {
+            nombre:             userName,
+            especialidad:       selectedEspecialidad,
+            ciclo:              selectedCiclo,
+            foto_url:           fotoUrl,
+            supabase_registered: false   // aún no se ha unido a la comunidad
+        };
+        localStorage.setItem('eduspace_student_profile', JSON.stringify(perfil));
+
+        // ── Actualizar sidebar INMEDIATAMENTE ──
+        actualizarPerfilSidebar();
+
+        console.log('✅ Perfil guardado y sidebar actualizado.');
+
+    } catch (err) {
+        console.error('Error en _guardarPerfilEstudianteDesdAuth:', err);
+
+        // Fallback: guardar con dataURL aunque sea grande
+        if (selectedImageDataUrl) {
+            const perfilFallback = {
+                nombre:             userName,
+                especialidad:       selectedEspecialidad,
+                ciclo:              selectedCiclo,
+                foto_url:           selectedImageDataUrl,
+                supabase_registered: false
+            };
+            localStorage.setItem('eduspace_student_profile', JSON.stringify(perfilFallback));
+            actualizarPerfilSidebar();
+        }
     }
 }
 
@@ -496,36 +623,25 @@ function _guardarSesionLocal(userName, codigo, googleUid, deviceType) {
 }
 
 async function _cerrarSesionYMostrarError(mensaje) {
-    // ── 1. Eliminar al usuario de Firebase Auth completamente ──────────────
-    // user.delete() borra el registro; funciona porque la autenticación
-    // acaba de suceder (token fresco = no requiere re-autenticación).
-    // Esto resuelve Bug 1: la cuenta de Google no queda guardada en Firebase
-    // cuando el acceso es denegado.
     const userAEliminar = auth.currentUser;
     if (userAEliminar) {
         try {
             await userAEliminar.delete();
         } catch (deleteErr) {
-            // Fallback: si delete falla por cualquier razón, al menos cerrar sesión.
-            // Esto puede ocurrir si el token expiró o hubo un error de red.
             console.warn('user.delete() falló, usando signOut:', deleteErr.code);
             await auth.signOut().catch(e => console.error(e));
         }
     }
 
-    // ── 2. Limpiar datos locales ──────────────────────────────────────────
     localStorage.removeItem('eduspace_auth');
     _setTempValidacion(null);
 
-    // ── 3. Siempre volver al Paso 1 (nombre + código) ─────────────────────
-    // Nunca volver al Paso 2 tras un error — evita que el usuario
-    // intente inmediatamente con otra cuenta de Google (crearía otro
-    // registro en Firebase Auth antes de que podamos borrarlo).
     showAuthModal();
     mostrarPaso1();
     const errDiv = document.getElementById('authError');
     if (errDiv) { errDiv.innerHTML = mensaje; errDiv.style.display = 'block'; }
 }
+
 async function validateAuthWithFirebase(googleUid) {
     const authData = localStorage.getItem('eduspace_auth');
     if (!authData) return false;
@@ -534,14 +650,13 @@ async function validateAuthWithFirebase(googleUid) {
         const parsed = JSON.parse(authData);
         const { codigo, userName } = parsed;
 
-        // Verificar que el UID guardado coincide con el usuario actual de Google
         if (parsed.googleUid !== googleUid) {
             localStorage.removeItem('eduspace_auth');
             return false;
         }
 
-        const codigoRef = database.ref(`codigos/${codigo}`);
-        const snapshot = await codigoRef.once('value');
+        const codigoRef  = database.ref(`codigos/${codigo}`);
+        const snapshot   = await codigoRef.once('value');
         const codigoData = snapshot.val();
 
         if (!codigoData) {
@@ -557,7 +672,7 @@ async function validateAuthWithFirebase(googleUid) {
             return false;
         }
 
-        // ── CAPA A: propietario explícito del admin ──
+        // Capa A: propietario explícito del admin
         if (codigoData.propietario && codigoData.propietario.trim() !== '') {
             const propietarioNorm = normalizarNombre(codigoData.propietario);
             const userNameNorm    = normalizarNombre(userName || '');
@@ -567,16 +682,13 @@ async function validateAuthWithFirebase(googleUid) {
                 return false;
             }
         }
-        // ── CAPA B: candado automático desde el primer dispositivo ──
+        // Capa B: candado automático desde el primer dispositivo
         else {
             const dispositivosActuales = codigoData.dispositivos || {};
             let nombrePrimerDispositivo = '';
             for (const key of Object.keys(dispositivosActuales)) {
                 const devUsuario = (dispositivosActuales[key].usuario || '').trim();
-                if (devUsuario !== '') {
-                    nombrePrimerDispositivo = devUsuario;
-                    break;
-                }
+                if (devUsuario !== '') { nombrePrimerDispositivo = devUsuario; break; }
             }
             if (nombrePrimerDispositivo !== '') {
                 const primerNorm   = normalizarNombre(nombrePrimerDispositivo);
@@ -589,8 +701,6 @@ async function validateAuthWithFirebase(googleUid) {
             }
         }
 
-        // Verificar que este dispositivo (clave compuesta) está registrado bajo este código
-        // La clave es googleUid_deviceType para distinguir móvil de laptop de la misma cuenta.
         const dispositivos = codigoData.dispositivos || {};
         const deviceType   = parsed.deviceType || getDeviceType();
         const deviceKey    = `${googleUid}_${deviceType}`;
@@ -602,7 +712,8 @@ async function validateAuthWithFirebase(googleUid) {
         }
 
         // Actualizar último acceso
-        await database.ref(`codigos/${codigo}/dispositivos/${deviceKey}/ultimoAcceso`).set(new Date().toISOString());
+        await database.ref(`codigos/${codigo}/dispositivos/${deviceKey}/ultimoAcceso`)
+            .set(new Date().toISOString());
 
         if (codigo === '6578hy') {
             showSpecialUserMessage();
@@ -621,256 +732,15 @@ async function validateAuthWithFirebase(googleUid) {
 // CONTAR DISPOSITIVOS POR TIPO
 // ============================================
 function contarDispositivosPorTipo(dispositivos) {
-    let mobileCount = 0;
+    let mobileCount  = 0;
     let desktopCount = 0;
 
     Object.values(dispositivos).forEach(device => {
-        if (device.tipo === 'mobile') {
-            mobileCount++;
-        } else if (device.tipo === 'desktop') {
-            desktopCount++;
-        }
+        if (device.tipo === 'mobile')  mobileCount++;
+        else if (device.tipo === 'desktop') desktopCount++;
     });
 
     return { mobile: mobileCount, desktop: desktopCount };
-}
-
-// ============================================
-// MANEJO DE REGISTRO CON CÓDIGO (Google ya autenticado)
-// ============================================
-async function handleAuthSubmit() {
-    const userName  = document.getElementById('authUserName').value.trim();
-    const codigo    = document.getElementById('authCode').value.trim();
-    const errorDiv  = document.getElementById('authError');
-    const submitBtn = document.getElementById('authSubmit');
-
-    errorDiv.style.display = 'none';
-    errorDiv.textContent = '';
-
-    if (!userName) {
-        errorDiv.textContent = 'Por favor, ingresa tu nombre.';
-        errorDiv.style.display = 'block';
-        return;
-    }
-
-    if (!codigo) {
-        errorDiv.textContent = 'Por favor, ingresa tu código.';
-        errorDiv.style.display = 'block';
-        return;
-    }
-
-    const user = auth.currentUser;
-    if (!user) {
-        errorDiv.textContent = '❌ Error de sesión. Por favor recarga la página.';
-        errorDiv.style.display = 'block';
-        return;
-    }
-
-    const googleUid  = user.uid;
-    const deviceType = getDeviceType();
-
-    submitBtn.disabled = true;
-    submitBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Validando...';
-
-    try {
-        let snapshot;
-        try {
-            snapshot = await database.ref(`codigos/${codigo}`).once('value');
-        } catch (fbError) {
-            console.error('Error Firebase:', fbError);
-            errorDiv.textContent = '⚠️ Error de conexión. Verifica tu internet e intenta nuevamente.';
-            errorDiv.style.display = 'block';
-            submitBtn.disabled = false;
-            submitBtn.innerHTML = '<i class="fa-solid fa-sign-in-alt"></i> Ingresar';
-            return;
-        }
-
-        if (!snapshot.exists()) {
-            errorDiv.textContent = '❌ Código inválido. Verifica con el administrador.';
-            errorDiv.style.display = 'block';
-            submitBtn.disabled = false;
-            submitBtn.innerHTML = '<i class="fa-solid fa-sign-in-alt"></i> Ingresar';
-            return;
-        }
-
-        const codigoData = snapshot.val();
-
-        // ── 1. Verificar bloqueo ──
-        if (codigoData.bloqueado === true) {
-            const motivoBloqueo = codigoData.motivoBloqueo || 'Tu acceso ha sido bloqueado por el administrador.';
-            errorDiv.textContent = `🚫 ACCESO BLOQUEADO: ${motivoBloqueo}`;
-            errorDiv.style.display = 'block';
-            submitBtn.disabled = false;
-            submitBtn.innerHTML = '<i class="fa-solid fa-sign-in-alt"></i> Ingresar';
-            return;
-        }
-
-        const dispositivosActuales = codigoData.dispositivos || {};
-        const dispositivosKeys     = Object.keys(dispositivosActuales);
-
-        // ── 2. Verificación de nombre (Capa A: propietario explícito) ──
-        if (codigoData.propietario && codigoData.propietario.trim() !== '') {
-            const propietarioNorm = normalizarNombre(codigoData.propietario);
-            const userNameNorm    = normalizarNombre(userName);
-
-            if (propietarioNorm !== userNameNorm) {
-                errorDiv.innerHTML = `
-                    ❌ El nombre ingresado no coincide con el registrado para este código.<br>
-                    <small style="opacity:0.8;">Escríbelo exactamente como el administrador lo registró.</small>
-                `;
-                errorDiv.style.display = 'block';
-                submitBtn.disabled = false;
-                submitBtn.innerHTML = '<i class="fa-solid fa-sign-in-alt"></i> Ingresar';
-                return;
-            }
-        }
-        // ── 2. Verificación de nombre (Capa B: candado automático) ──
-        else if (dispositivosKeys.length > 0) {
-            let nombrePrimerDispositivo = '';
-            for (const key of dispositivosKeys) {
-                const devUsuario = (dispositivosActuales[key].usuario || '').trim();
-                if (devUsuario !== '') {
-                    nombrePrimerDispositivo = devUsuario;
-                    break;
-                }
-            }
-
-            if (nombrePrimerDispositivo !== '') {
-                const primerNorm   = normalizarNombre(nombrePrimerDispositivo);
-                const userNameNorm = normalizarNombre(userName);
-
-                if (primerNorm !== userNameNorm) {
-                    errorDiv.innerHTML = `
-                        ❌ El nombre ingresado no coincide con el titular de este código.<br>
-                        <small style="opacity:0.8;">Este código ya está vinculado a otro usuario.</small>
-                    `;
-                    errorDiv.style.display = 'block';
-                    submitBtn.disabled = false;
-                    submitBtn.innerHTML = '<i class="fa-solid fa-sign-in-alt"></i> Ingresar';
-                    return;
-                }
-            }
-        }
-
-        // ── 3. Si este Google UID ya está registrado bajo este código ──
-        if (dispositivosActuales[googleUid]) {
-            const updates = {};
-            updates[`codigos/${codigo}/dispositivos/${googleUid}/usuario`] = userName;
-            updates[`codigos/${codigo}/dispositivos/${googleUid}/ultimoAcceso`] = new Date().toISOString();
-            await database.ref().update(updates);
-
-            localStorage.setItem('eduspace_auth', JSON.stringify({
-                userName, codigo, googleUid, deviceType, timestamp: Date.now()
-            }));
-
-            hideAuthModal();
-            if (codigo === '6578hy') showSpecialUserMessage();
-            iniciarListenerBloqueo();
-
-            submitBtn.disabled = false;
-            submitBtn.innerHTML = '<i class="fa-solid fa-sign-in-alt"></i> Ingresar';
-            return;
-        }
-
-        // ── 4. Verificar que no haya OTRA cuenta de Google diferente ya registrada ──
-        // Regla: un código solo puede estar vinculado a UNA cuenta de Google.
-        // El móvil y la laptop deben usar la misma cuenta.
-        if (dispositivosKeys.length > 0) {
-            const cuentaGoogleExistente = Object.values(dispositivosActuales).find(
-                dev => dev.googleUid && dev.googleUid !== googleUid
-            );
-
-            if (cuentaGoogleExistente) {
-                // Hay otro Google UID registrado → bloquear completamente
-                errorDiv.innerHTML = `
-                    🚫 Este código ya está vinculado a otra cuenta de Google.<br>
-                    <small style="opacity:0.8;">
-                        Solo se permite una cuenta de Google por código.
-                        Inicia sesión con la cuenta de Google con la que te registraste originalmente.
-                    </small>
-                `;
-                errorDiv.style.display = 'block';
-                submitBtn.disabled = false;
-                submitBtn.innerHTML = '<i class="fa-solid fa-sign-in-alt"></i> Ingresar';
-
-                // Cerrar sesión de Google de la cuenta incorrecta
-                await auth.signOut();
-                localStorage.removeItem('eduspace_auth');
-
-                // Volver al paso de Google para que inicie con la cuenta correcta
-                setTimeout(() => {
-                    mostrarPasoGoogle();
-                }, 2500);
-                return;
-            }
-        }
-
-        // ── 5. Dispositivo nuevo: verificar límites ──
-        const { mobile, desktop } = contarDispositivosPorTipo(dispositivosActuales);
-
-        if (deviceType === 'mobile' && mobile >= 1) {
-            errorDiv.textContent = '📱 Este código ya está en uso en 1 dispositivo móvil. Solo se permite 1 móvil por código.';
-            errorDiv.style.display = 'block';
-            submitBtn.disabled = false;
-            submitBtn.innerHTML = '<i class="fa-solid fa-sign-in-alt"></i> Ingresar';
-            return;
-        }
-
-        if (deviceType === 'desktop' && desktop >= 1) {
-            errorDiv.textContent = '💻 Este código ya está en uso en 1 computadora. Solo se permite 1 PC/laptop por código.';
-            errorDiv.style.display = 'block';
-            submitBtn.disabled = false;
-            submitBtn.innerHTML = '<i class="fa-solid fa-sign-in-alt"></i> Ingresar';
-            return;
-        }
-
-        const totalDispositivos = dispositivosKeys.length;
-        if (totalDispositivos >= 2) {
-            errorDiv.textContent = '⚠️ Este código ya alcanzó el límite de 2 dispositivos (1 móvil + 1 PC).';
-            errorDiv.style.display = 'block';
-            submitBtn.disabled = false;
-            submitBtn.innerHTML = '<i class="fa-solid fa-sign-in-alt"></i> Ingresar';
-            return;
-        }
-
-        // ── 6. Registrar nueva cuenta Google bajo este código ──
-        // Usamos el googleUid como clave del dispositivo (único y estable)
-        const updates = {};
-        updates[`codigos/${codigo}/dispositivos/${googleUid}`] = {
-            googleUid:     googleUid,
-            googleEmail:   user.email,
-            tipo:          deviceType,
-            usuario:       userName,
-            fechaRegistro: new Date().toISOString(),
-            ultimoAcceso:  new Date().toISOString()
-        };
-
-        const usosRestantes = Math.max(0, 2 - (totalDispositivos + 1));
-        updates[`codigos/${codigo}/usosRestantes`] = usosRestantes;
-        if (usosRestantes === 0) {
-            updates[`codigos/${codigo}/completado`] = true;
-        }
-
-        await database.ref().update(updates);
-
-        localStorage.setItem('eduspace_auth', JSON.stringify({
-            userName, codigo, googleUid, deviceType, timestamp: Date.now()
-        }));
-
-        hideAuthModal();
-        if (codigo === '6578hy') showSpecialUserMessage();
-        iniciarListenerBloqueo();
-
-        submitBtn.disabled = false;
-        submitBtn.innerHTML = '<i class="fa-solid fa-sign-in-alt"></i> Ingresar';
-
-    } catch (error) {
-        console.error('Error en autenticación:', error);
-        errorDiv.textContent = '❌ Error de conexión. Por favor, intenta nuevamente.';
-        errorDiv.style.display = 'block';
-        submitBtn.disabled = false;
-        submitBtn.innerHTML = '<i class="fa-solid fa-sign-in-alt"></i> Ingresar';
-    }
 }
 
 function showAuthError(message) {
@@ -896,9 +766,22 @@ function hideSpecialUserMessage() {
 }
 
 // ============================================
+// CERRAR SESIÓN Y REINGRESAR (para usuarios sin perfil)
+// ============================================
+async function cerrarSesionYReingresar() {
+    closeRegistroModal();
+    await auth.signOut().catch(console.error);
+    localStorage.removeItem('eduspace_auth');
+    localStorage.removeItem('eduspace_student_profile');
+    _setTempValidacion(null);
+    showAuthModal();
+    mostrarPaso1();
+}
+
+// ============================================
 // INICIALIZACIÓN
 // ============================================
-let _appInicializada = false; // evita que onAuthStateChanged arranque la app dos veces
+let _appInicializada = false;
 
 document.addEventListener('DOMContentLoaded', async () => {
     showConnectionLoader();
@@ -914,14 +797,6 @@ document.addEventListener('DOMContentLoaded', async () => {
         if (e.key === 'Enter') validarCodigo();
     });
 
-    // ── Firebase Auth detecta sesión automáticamente (IndexedDB, sobrevive al caché) ──
-    //
-    // ROLES de onAuthStateChanged:
-    //   ✓ Usuario que REGRESA (tiene localStorage con su código) → validar y entrar
-    //   ✓ Carga inicial sin sesión → mostrar Paso 1
-    //   ✗ NO llama completarRegistro para nuevos registros.
-    //     Eso lo hace signInWithGoogle() directamente (evita condición de carrera en laptop).
-    //
     auth.onAuthStateChanged(async (user) => {
         hideConnectionLoader();
 
@@ -929,39 +804,23 @@ document.addEventListener('DOMContentLoaded', async () => {
             const authData = localStorage.getItem('eduspace_auth');
 
             if (authData) {
-                // ── CASO A: Usuario que regresa con sesión guardada ──────────
-                // Su código fue registrado en una sesión anterior.
-                // Validar que el código sigue vigente y el UID coincide.
+                // Usuario que regresa con sesión guardada
                 const ok = await validateAuthWithFirebase(user.uid);
                 if (ok) {
                     hideAuthModal();
                     iniciarListenerBloqueo();
+                    actualizarPerfilSidebar(); // mostrar perfil si ya existe
                 } else {
-                    // Código bloqueado/eliminado o UID no coincide.
-                    // No cerramos sesión de Google (el usuario legítimo solo necesita
-                    // volver a ingresar su código si cambió algo).
                     showAuthModal();
                     mostrarPaso1();
                 }
             } else {
-                // ── CASO B: Google activo pero sin código guardado ────────────
-                //
-                // Si _registrandoAhora = true, significa que signInWithGoogle()
-                // lanzó el popup y está en medio de completarRegistro().
-                // onAuthStateChanged disparó por el login del popup antes de que
-                // completarRegistro() pudiera guardar authData.
-                // En ese caso NO hacer nada — completarRegistro() ya se encarga.
-                //
-                // Si _registrandoAhora = false, no hay registro en progreso:
-                // puede ser alguien que manipuló el flujo o un estado inconsistente.
-                // En ese caso sí eliminar y pedir Paso 1.
+                // Google activo pero sin código guardado
                 if (_registrandoAhora) {
-                    // Registro en progreso — ignorar este evento de onAuthStateChanged.
-                    // completarRegistro() terminará y guardará authData pronto.
+                    // Registro en progreso — ignorar este evento
                     return;
                 }
-
-                // Sin registro en progreso → estado inconsistente. Limpiar.
+                // Estado inconsistente: limpiar
                 try {
                     await user.delete();
                 } catch (e) {
@@ -971,19 +830,80 @@ document.addEventListener('DOMContentLoaded', async () => {
                 mostrarPaso1();
             }
         } else {
-            // ── CASO C: Sin sesión de Google ──────────────────────────────────
             showAuthModal();
             mostrarPaso1();
         }
 
-        // Inicializar tabs/badges solo la primera vez que carga la app
         if (!_appInicializada) {
             _appInicializada = true;
             updatePendingBadge();
-            actualizarPerfilSidebar(); // ← mostrar perfil de estudiante si ya se registró
+            actualizarPerfilSidebar();
             switchTab('repositorio');
         }
     });
+
+    // ── Listener del checkbox de términos (en registro modal) ──
+    const checkbox = document.getElementById('aceptoTerminos');
+    if (checkbox) {
+        checkbox.addEventListener('change', function() {
+            const formRegistro       = document.getElementById('form-registro');
+            const terminosContainer  = document.querySelector('.terminos-container');
+
+            if (this.checked) {
+                // Autorellenar datos DESDE el perfil guardado en localStorage
+                const perfil   = JSON.parse(localStorage.getItem('eduspace_student_profile') || '{}');
+                const authData = JSON.parse(localStorage.getItem('eduspace_auth') || '{}');
+
+                // Nombre: desde perfil o desde auth
+                const inputNombre = document.getElementById('nombreCompleto');
+                if (inputNombre) inputNombre.value = perfil.nombre || authData.userName || '';
+
+                // Especialidad y ciclo: desde perfil
+                const dispEsp   = document.getElementById('displayEspecialidad');
+                const dispCiclo = document.getElementById('displayCiclo');
+                if (dispEsp)   dispEsp.textContent   = perfil.especialidad || '—';
+                if (dispCiclo) dispCiclo.textContent = perfil.ciclo ? `Ciclo ${perfil.ciclo}` : '—';
+
+                // Foto: desde perfil
+                const fotoConfirm = document.getElementById('fotoConfirmacion');
+                if (fotoConfirm && perfil.foto_url) {
+                    fotoConfirm.src = perfil.foto_url;
+                }
+
+                // Transición: terminos → form-registro
+                terminosContainer.style.transition = 'opacity .3s ease, transform .3s ease';
+                terminosContainer.style.opacity    = '0';
+                terminosContainer.style.transform  = 'translateY(-20px)';
+
+                setTimeout(() => {
+                    terminosContainer.style.display = 'none';
+                    formRegistro.style.display      = 'block';
+                    formRegistro.style.opacity      = '0';
+                    formRegistro.style.transform    = 'translateY(20px)';
+                    setTimeout(() => {
+                        formRegistro.style.transition = 'opacity .3s ease, transform .3s ease';
+                        formRegistro.style.opacity    = '1';
+                        formRegistro.style.transform  = 'translateY(0)';
+                    }, 10);
+                }, 300);
+
+            } else {
+                // Volver a mostrar términos
+                formRegistro.style.opacity    = '0';
+                formRegistro.style.transform  = 'translateY(20px)';
+                setTimeout(() => {
+                    formRegistro.style.display       = 'none';
+                    terminosContainer.style.display  = 'block';
+                    terminosContainer.style.opacity  = '0';
+                    terminosContainer.style.transform = 'translateY(-20px)';
+                    setTimeout(() => {
+                        terminosContainer.style.opacity   = '1';
+                        terminosContainer.style.transform = 'translateY(0)';
+                    }, 10);
+                }, 300);
+            }
+        });
+    }
 });
 
 // ============================================
@@ -996,7 +916,7 @@ function iniciarListenerBloqueo() {
     if (!authData) return;
 
     try {
-        const parsed = JSON.parse(authData);
+        const parsed  = JSON.parse(authData);
         const { codigo } = parsed;
 
         if (bloqueoListener) {
@@ -1010,7 +930,6 @@ function iniciarListenerBloqueo() {
                 database.ref(`codigos/${codigo}/motivoBloqueo`).once('value', async (motivoSnapshot) => {
                     const motivo = motivoSnapshot.val() || 'Tu acceso ha sido bloqueado por el administrador.';
 
-                    // Cerrar sesión de Google y limpiar datos
                     await auth.signOut().catch(e => console.error(e));
                     localStorage.removeItem('eduspace_auth');
                     _setTempValidacion(null);
@@ -1035,7 +954,7 @@ function iniciarListenerBloqueo() {
 
             } else if (estaBloqueado === false) {
                 const authDataNow = localStorage.getItem('eduspace_auth');
-                const user = auth.currentUser;
+                const user        = auth.currentUser;
 
                 if (authDataNow && user) {
                     validateAuthWithFirebase(user.uid).then(isValid => {
@@ -1102,7 +1021,7 @@ window.addEventListener('beforeunload', () => {
 
     if (authData && bloqueoListener) {
         try {
-            const parsed = JSON.parse(authData);
+            const parsed  = JSON.parse(authData);
             const { codigo } = parsed;
             database.ref(`codigos/${codigo}/bloqueado`).off('value', bloqueoListener);
         } catch (e) {
@@ -1215,18 +1134,8 @@ const assignmentsDB = [
             "Conclusiones basadas en evidencia científica"
         ],
         attachments: [
-            {
-                name: "Guía del Informe.pdf",
-                size: "245 KB",
-                type: "PDF",
-                downloadUrl: "enlace de google drive"
-            },
-            {
-                name: "Datos del Experimento.xlsx",
-                size: "128 KB",
-                type: "Excel",
-                downloadUrl: "enlace desde google drive"
-            }
+            { name: "Guía del Informe.pdf",        size: "245 KB", type: "PDF",   downloadUrl: "enlace de google drive" },
+            { name: "Datos del Experimento.xlsx",  size: "128 KB", type: "Excel", downloadUrl: "enlace desde google drive" }
         ]
     },
     {
@@ -1244,18 +1153,8 @@ const assignmentsDB = [
             "Citas textuales debidamente referenciadas"
         ],
         attachments: [
-            {
-                name: "Rúbrica de Evaluación.pdf",
-                size: "156 KB",
-                type: "PDF",
-                downloadUrl: "enlace de google drive"
-            },
-            {
-                name: "Ejemplos de Análisis.docx",
-                size: "89 KB",
-                type: "Word",
-                downloadUrl: "enlace desde github"
-            }
+            { name: "Rúbrica de Evaluación.pdf",  size: "156 KB", type: "PDF",  downloadUrl: "enlace de google drive" },
+            { name: "Ejemplos de Análisis.docx",  size: "89 KB",  type: "Word", downloadUrl: "enlace desde github" }
         ]
     },
     {
@@ -1273,18 +1172,8 @@ const assignmentsDB = [
             "Presentación visual atractiva y organizada"
         ],
         attachments: [
-            {
-                name: "Plantilla Línea de Tiempo.pptx",
-                size: "512 KB",
-                type: "PowerPoint",
-                downloadUrl: "enlace de google drive"
-            },
-            {
-                name: "Lista de Eventos Sugeridos.pdf",
-                size: "198 KB",
-                type: "PDF",
-                downloadUrl: "enlace desde github"
-            }
+            { name: "Plantilla Línea de Tiempo.pptx",   size: "512 KB", type: "PowerPoint", downloadUrl: "enlace de google drive" },
+            { name: "Lista de Eventos Sugeridos.pdf",   size: "198 KB", type: "PDF",        downloadUrl: "enlace desde github" }
         ]
     }
 ];
@@ -1355,7 +1244,7 @@ const recursosDB = {
             }
         ],
         Videos: [
-          {
+            {
                 id: 'mat-vid-1',
                 title: "Introducción a la Comunicación Digital",
                 description: "Video tutorial sobre fundamentos de comunicación en medios digitales",
@@ -1364,7 +1253,7 @@ const recursosDB = {
             }
         ],
         Imágenes: [
-           {
+            {
                 id: 'mat-img-1',
                 title: "Infografía: Proceso Comunicativo",
                 description: "Representación visual del modelo de comunicación de Shannon y Weaver",
@@ -1440,45 +1329,45 @@ const recursosDB = {
     ]
 };
 
-// Variables globales
+// Variables globales de la app
 let currentRecursosCategory = 'Materiales';
-let currentRecursosType = 'Documentos';
+let currentRecursosType     = 'Documentos';
 
-const filesGrid = document.getElementById('files-grid');
-const assignmentsContainer = document.getElementById('assignments-container');
-const finalizadosContainer = document.getElementById('finalizados-container');
-const recursosContainer = document.getElementById('recursos-container');
-const docentesGrid = document.getElementById('docentes-grid');
-const estudiantesGrid = document.getElementById('estudiantes-grid');
+const filesGrid             = document.getElementById('files-grid');
+const assignmentsContainer  = document.getElementById('assignments-container');
+const finalizadosContainer  = document.getElementById('finalizados-container');
+const recursosContainer     = document.getElementById('recursos-container');
+const docentesGrid          = document.getElementById('docentes-grid');
+const estudiantesGrid       = document.getElementById('estudiantes-grid');
 
 const sectionRepositorio = document.getElementById('repositorio');
-const sectionTrabajos = document.getElementById('trabajos');
-const sectionRecursos = document.getElementById('recursos');
-const sectionDocentes = document.getElementById('docentes');
+const sectionTrabajos    = document.getElementById('trabajos');
+const sectionRecursos    = document.getElementById('recursos');
+const sectionDocentes    = document.getElementById('docentes');
 const sectionEstudiantes = document.getElementById('estudiantes');
 
-const trabajosPendientesSection = document.getElementById('trabajos-pendientes-section');
+const trabajosPendientesSection  = document.getElementById('trabajos-pendientes-section');
 const trabajosFinalizadosSection = document.getElementById('trabajos-finalizados-section');
 
 const tabRepositorio = document.getElementById('tab-repositorio');
-const tabTrabajos = document.getElementById('tab-trabajos');
-const tabRecursos = document.getElementById('tab-recursos');
-const tabDocentes = document.getElementById('tab-docentes');
+const tabTrabajos    = document.getElementById('tab-trabajos');
+const tabRecursos    = document.getElementById('tab-recursos');
+const tabDocentes    = document.getElementById('tab-docentes');
 const tabEstudiantes = document.getElementById('tab-estudiantes');
 
-const profileModal = document.getElementById('profileModal');
+const profileModal      = document.getElementById('profileModal');
 const modalProfileImage = document.getElementById('modalProfileImage');
-const modalProfileInfo = document.getElementById('modalProfileInfo');
-const detailsModal = document.getElementById('detailsModal');
-const fileViewerModal = document.getElementById('fileViewerModal');
+const modalProfileInfo  = document.getElementById('modalProfileInfo');
+const detailsModal      = document.getElementById('detailsModal');
+const fileViewerModal   = document.getElementById('fileViewerModal');
 const fileViewerContent = document.getElementById('fileViewerContent');
-const completedModal = document.getElementById('completedModal');
+const completedModal    = document.getElementById('completedModal');
 
-let currentFilter = 'all';
-let currentTab = 'repositorio';
+let currentFilter               = 'all';
+let currentTab                  = 'repositorio';
 let currentAssignmentToComplete = null;
-let showingFinalizados = false;
-let fullscreenCloseBtn = null;
+let showingFinalizados          = false;
+let fullscreenCloseBtn          = null;
 
 function getCompletedAssignments() {
     const completed = localStorage.getItem('completedAssignments');
@@ -1504,7 +1393,7 @@ function getFinishedAssignments() {
 }
 
 function toggleSearch(section) {
-    const searchBar = document.getElementById(`searchBar${section.charAt(0).toUpperCase() + section.slice(1)}`);
+    const searchBar   = document.getElementById(`searchBar${section.charAt(0).toUpperCase() + section.slice(1)}`);
     const searchInput = searchBar.querySelector('input');
 
     searchBar.classList.toggle('active');
@@ -1522,16 +1411,16 @@ function toggleSearch(section) {
 }
 
 function updatePendingBadge() {
-    const pendingCount = getPendingAssignments().length;
-    const badgeSidebar = document.getElementById('pending-badge');
-    const badgeFooter = document.getElementById('pending-badge-footer');
+    const pendingCount  = getPendingAssignments().length;
+    const badgeSidebar  = document.getElementById('pending-badge');
+    const badgeFooter   = document.getElementById('pending-badge-footer');
 
     if (pendingCount > 0) {
         if (badgeSidebar) badgeSidebar.style.display = 'block';
-        if (badgeFooter) badgeFooter.style.display = 'block';
+        if (badgeFooter)  badgeFooter.style.display  = 'block';
     } else {
         if (badgeSidebar) badgeSidebar.style.display = 'none';
-        if (badgeFooter) badgeFooter.style.display = 'none';
+        if (badgeFooter)  badgeFooter.style.display  = 'none';
     }
 }
 
@@ -1549,17 +1438,10 @@ function calculateRelevance(item, searchTerms, searchableFields) {
     searchTerms.forEach(term => {
         normalizedFields.forEach((field, index) => {
             if (field.includes(term)) {
-                if (field === term) {
-                    score += 10;
-                } else if (field.startsWith(term)) {
-                    score += 5;
-                } else {
-                    score += 2;
-                }
-
-                if (index === 0) {
-                    score += 3;
-                }
+                if (field === term)           score += 10;
+                else if (field.startsWith(term)) score += 5;
+                else                          score += 2;
+                if (index === 0)              score += 3;
             }
         });
     });
@@ -1575,8 +1457,7 @@ function searchFiles() {
         return;
     }
 
-    const searchTerms = normalizeText(searchTerm).split(/\s+/);
-
+    const searchTerms  = normalizeText(searchTerm).split(/\s+/);
     const filteredFiles = filesDB
         .filter(file => currentFilter === 'all' || file.area === currentFilter)
         .map(file => ({
@@ -1595,7 +1476,7 @@ function searchFiles() {
 
 function filterRecursos(category) {
     currentRecursosCategory = category;
-    currentRecursosType = 'Documentos';
+    currentRecursosType     = 'Documentos';
 
     const buttons = document.querySelectorAll('.recursos-filter-btn');
     buttons.forEach(btn => btn.classList.remove('active'));
@@ -1617,12 +1498,12 @@ function filterRecursos(category) {
 function toggleRecursosMenu(event, category) {
     event.stopPropagation();
 
-    const subMenu = document.getElementById('recursosSubMenu');
+    const subMenu   = document.getElementById('recursosSubMenu');
     const isVisible = subMenu.style.display === 'flex';
 
     if (!isVisible) {
         currentRecursosCategory = category;
-        currentRecursosType = 'Documentos';
+        currentRecursosType     = 'Documentos';
 
         const buttons = document.querySelectorAll('.recursos-filter-btn');
         buttons.forEach(btn => btn.classList.remove('active'));
@@ -1667,13 +1548,9 @@ function renderRecursosContent() {
     }
 
     recursos.forEach(recurso => {
-        if (recurso.type === 'Video') {
-            renderVideoCard(recurso);
-        } else if (recurso.type === 'Imagen') {
-            renderImageCard(recurso);
-        } else {
-            renderDocumentCard(recurso);
-        }
+        if (recurso.type === 'Video')       renderVideoCard(recurso);
+        else if (recurso.type === 'Imagen') renderImageCard(recurso);
+        else                                renderDocumentCard(recurso);
     });
 }
 
@@ -1682,7 +1559,7 @@ function renderDocumentCard(recurso) {
     card.classList.add('recurso-card');
 
     let icon = 'fa-file-pdf';
-    if (recurso.type === 'DOCX' || recurso.type === 'DOC') icon = 'fa-file-word';
+    if (recurso.type === 'DOCX' || recurso.type === 'DOC')   icon = 'fa-file-word';
     else if (recurso.type === 'PPTX' || recurso.type === 'PPT') icon = 'fa-file-powerpoint';
 
     card.innerHTML = `
@@ -1749,7 +1626,7 @@ function searchRecursos() {
         return;
     }
 
-    const searchTerms = normalizeText(searchTerm).split(/\s+/);
+    const searchTerms   = normalizeText(searchTerm).split(/\s+/);
     let allRecursos = [];
 
     Object.keys(recursosDB).forEach(category => {
@@ -1778,18 +1655,14 @@ function searchRecursos() {
     }
 
     filteredRecursos.forEach(recurso => {
-        if (recurso.type === 'Video') {
-            renderVideoCard(recurso);
-        } else if (recurso.type === 'Imagen') {
-            renderImageCard(recurso);
-        } else {
-            renderDocumentCard(recurso);
-        }
+        if (recurso.type === 'Video')       renderVideoCard(recurso);
+        else if (recurso.type === 'Imagen') renderImageCard(recurso);
+        else                                renderDocumentCard(recurso);
     });
 }
 
 function renderFiles(filter = 'all') {
-    currentFilter = filter;
+    currentFilter  = filter;
     filesGrid.innerHTML = '';
     const filteredFiles = filter === 'all'
         ? filesDB
@@ -1808,11 +1681,11 @@ function renderFilesArray(files) {
 
     files.forEach(file => {
         const teacher = teachersDB[file.teacher];
-        const card = document.createElement('div');
+        const card    = document.createElement('div');
         card.classList.add('file-card');
 
         let iconClass = 'fa-file-pdf';
-        if (file.type === 'DOCX' || file.type === 'DOC') iconClass = 'fa-file-word';
+        if (file.type === 'DOCX' || file.type === 'DOC')   iconClass = 'fa-file-word';
         else if (file.type === 'PPTX' || file.type === 'PPT') iconClass = 'fa-file-powerpoint';
         else if (file.type === 'XLSX' || file.type === 'XLS') iconClass = 'fa-file-excel';
 
@@ -1899,7 +1772,7 @@ function openFullscreen() {
             fullscreenCloseBtn = document.createElement('button');
             fullscreenCloseBtn.className = 'fullscreen-close-btn';
             fullscreenCloseBtn.innerHTML = '<i class="fa-solid fa-times"></i>';
-            fullscreenCloseBtn.onclick = exitFullscreen;
+            fullscreenCloseBtn.onclick   = exitFullscreen;
             document.body.appendChild(fullscreenCloseBtn);
         }
 
@@ -1922,30 +1795,22 @@ function openFullscreen() {
 }
 
 function exitFullscreen() {
-    if (document.exitFullscreen) {
-        document.exitFullscreen();
-    } else if (document.webkitExitFullscreen) {
-        document.webkitExitFullscreen();
-    } else if (document.msExitFullscreen) {
-        document.msExitFullscreen();
-    }
+    if (document.exitFullscreen)            document.exitFullscreen();
+    else if (document.webkitExitFullscreen) document.webkitExitFullscreen();
+    else if (document.msExitFullscreen)     document.msExitFullscreen();
 
-    if (fullscreenCloseBtn) {
-        fullscreenCloseBtn.classList.remove('active');
-    }
+    if (fullscreenCloseBtn) fullscreenCloseBtn.classList.remove('active');
 }
 
 function handleFullscreenChange() {
     if (!document.fullscreenElement && !document.webkitFullscreenElement && !document.msFullscreenElement) {
-        if (fullscreenCloseBtn) {
-            fullscreenCloseBtn.classList.remove('active');
-        }
+        if (fullscreenCloseBtn) fullscreenCloseBtn.classList.remove('active');
     }
 }
 
 function closeFileViewerModal() {
     fileViewerModal.style.display = 'none';
-    fileViewerContent.innerHTML = '';
+    fileViewerContent.innerHTML   = '';
 
     if (document.fullscreenElement || document.webkitFullscreenElement || document.msFullscreenElement) {
         exitFullscreen();
@@ -1954,29 +1819,29 @@ function closeFileViewerModal() {
 
 function toggleTrabajosFinalizados() {
     showingFinalizados = !showingFinalizados;
-    const btnText = document.getElementById('btn-trabajos-text');
-    const btn = document.getElementById('btn-trabajos-finalizados');
-    const btnIcon = btn.querySelector('i');
+    const btnText  = document.getElementById('btn-trabajos-text');
+    const btn      = document.getElementById('btn-trabajos-finalizados');
+    const btnIcon  = btn.querySelector('i');
 
-    const pendientesTitle = document.getElementById('trabajos-pendientes-title');
-    const finalizadosTitle = document.getElementById('trabajos-finalizados-title');
+    const pendientesTitle   = document.getElementById('trabajos-pendientes-title');
+    const finalizadosTitle  = document.getElementById('trabajos-finalizados-title');
 
     if (showingFinalizados) {
-        trabajosPendientesSection.style.display = 'none';
+        trabajosPendientesSection.style.display  = 'none';
         trabajosFinalizadosSection.style.display = 'block';
-        pendientesTitle.style.display = 'none';
+        pendientesTitle.style.display  = 'none';
         finalizadosTitle.style.display = 'block';
-        btnText.textContent = 'Ver trabajos pendientes';
-        btnIcon.className = 'fa-solid fa-clock';
+        btnText.textContent  = 'Ver trabajos pendientes';
+        btnIcon.className    = 'fa-solid fa-clock';
         btn.classList.add('showing-finalizados');
         renderFinalizados();
     } else {
-        trabajosPendientesSection.style.display = 'block';
+        trabajosPendientesSection.style.display  = 'block';
         trabajosFinalizadosSection.style.display = 'none';
-        pendientesTitle.style.display = 'block';
+        pendientesTitle.style.display  = 'block';
         finalizadosTitle.style.display = 'none';
-        btnText.textContent = 'Ver trabajos finalizados';
-        btnIcon.className = 'fa-solid fa-check-circle';
+        btnText.textContent  = 'Ver trabajos finalizados';
+        btnIcon.className    = 'fa-solid fa-check-circle';
         btn.classList.remove('showing-finalizados');
     }
 }
@@ -1991,12 +1856,12 @@ function renderAssignments() {
     }
 
     pendingAssignments.forEach(work => {
-        const teacher = teachersDB[work.teacher];
-        let statusClass = '';
+        const teacher     = teachersDB[work.teacher];
+        let statusClass   = '';
         switch(work.status) {
-            case 'Pendiente': statusClass = 'status-pending'; break;
-            case 'Entregado': statusClass = 'status-submitted'; break;
-            case 'Atrasado': statusClass = 'status-late'; break;
+            case 'Pendiente':  statusClass = 'status-pending';   break;
+            case 'Entregado':  statusClass = 'status-submitted'; break;
+            case 'Atrasado':   statusClass = 'status-late';      break;
         }
 
         const card = document.createElement('div');
@@ -2101,8 +1966,8 @@ function openCompletedModal(assignmentId) {
 }
 
 function closeCompletedModal() {
-    completedModal.style.display = 'none';
-    currentAssignmentToComplete = null;
+    completedModal.style.display    = 'none';
+    currentAssignmentToComplete     = null;
 }
 
 function confirmCompleted() {
@@ -2174,7 +2039,7 @@ function openDetailsModal(assignmentId) {
     if (!assignment) return;
 
     document.getElementById('detailsTaskName').textContent = assignment.task;
-    document.getElementById('detailsTeacher').textContent = assignment.teacher;
+    document.getElementById('detailsTeacher').textContent  = assignment.teacher;
     document.getElementById('detailsDeadline').textContent = assignment.deadline;
 
     let statusClass = '';
@@ -2186,9 +2051,9 @@ function openDetailsModal(assignmentId) {
         document.getElementById('detailsStatus').innerHTML = `<span class="status-badge ${statusClass}">Finalizado</span>`;
     } else {
         switch(assignment.status) {
-            case 'Pendiente': statusClass = 'status-pending'; break;
-            case 'Entregado': statusClass = 'status-submitted'; break;
-            case 'Atrasado': statusClass = 'status-late'; break;
+            case 'Pendiente':  statusClass = 'status-pending';   break;
+            case 'Entregado':  statusClass = 'status-submitted'; break;
+            case 'Atrasado':   statusClass = 'status-late';      break;
         }
         document.getElementById('detailsStatus').innerHTML = `<span class="status-badge ${statusClass}">${assignment.status}</span>`;
     }
@@ -2211,7 +2076,7 @@ function openDetailsModal(assignmentId) {
             attachDiv.classList.add('attachment-item');
 
             let icon = 'fa-file-lines';
-            if (att.type === 'PDF') icon = 'fa-file-pdf';
+            if (att.type === 'PDF')        icon = 'fa-file-pdf';
             else if (att.type === 'Word' || att.type === 'DOCX') icon = 'fa-file-word';
             else if (att.type === 'Excel') icon = 'fa-file-excel';
             else if (att.type === 'PowerPoint') icon = 'fa-file-powerpoint';
@@ -2242,31 +2107,24 @@ function closeDetailsModal() {
 }
 
 window.onclick = function(event) {
-    if (event.target === profileModal) {
-        closeProfileModal();
-    }
-    if (event.target === detailsModal) {
-        closeDetailsModal();
-    }
-    if (event.target === fileViewerModal) {
-        closeFileViewerModal();
-    }
-    if (event.target === completedModal) {
-        closeCompletedModal();
-    }
-}
+    if (event.target === profileModal)    closeProfileModal();
+    if (event.target === detailsModal)    closeDetailsModal();
+    if (event.target === fileViewerModal) closeFileViewerModal();
+    if (event.target === completedModal)  closeCompletedModal();
+};
 
 // ============================================
 // SISTEMA DE REGISTRO DE ESTUDIANTES
 // ============================================
 
-// Variables de sesión del estudiante registrado en la comunidad
+// Variables de sesión del perfil del estudiante
 let selectedEspecialidad = '';
-let selectedCiclo = '';
-let selectedImageDataUrl = ''; // guarda el preview en base64 para mostrarlo en confirmación
+let selectedCiclo        = '';
+let selectedImageDataUrl = '';
+let selectedImageFile    = null;
 
 const CLOUDINARY_CONFIG = {
-    CLOUD_NAME: "dwzwa3gp0",
+    CLOUD_NAME:    "dwzwa3gp0",
     UPLOAD_PRESET: "hfqqxu13"
 };
 
@@ -2275,9 +2133,8 @@ const SUPABASE_CONFIG = {
     KEY: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBhdWFxZ2Zxc2l0bmpzaWtyam5zIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzEwOTMxODYsImV4cCI6MjA4NjY2OTE4Nn0.Jz-rCRPQkgm9wXicGRoCP4xP-NotY-YEQXUyxgU7HeM'
 };
 
-let supabaseClient = null;
-let estudiantesListener = null;
-let selectedImageFile = null;
+let supabaseClient       = null;
+let estudiantesListener  = null;
 
 function initSupabase() {
     try {
@@ -2295,10 +2152,15 @@ function initSupabase() {
     }
 }
 
+// ============================================
+// ABRIR MODAL DE REGISTRO (ahora sin PASO 0)
+// El perfil ya fue completado durante la auth
+// ============================================
 function openRegistroModal() {
-    // Si ya está registrado, abrir su perfil directamente
     const studentProfile = JSON.parse(localStorage.getItem('eduspace_student_profile') || 'null');
-    if (studentProfile) {
+
+    // Caso 1: Ya registrado en la comunidad → mostrar perfil
+    if (studentProfile && studentProfile.supabase_registered) {
         abrirPerfilEstudiante();
         return;
     }
@@ -2306,63 +2168,31 @@ function openRegistroModal() {
     const modal = document.getElementById('registroModal');
     modal.style.display = 'block';
 
-    // Mostrar SOLO el paso 0 (especialidad + ciclo + foto), ocultar el resto
-    const paso0           = document.getElementById('registro-paso0');
+    const sinPerfilDiv      = document.getElementById('registro-sin-perfil');
     const terminosContainer = document.querySelector('.terminos-container');
-    const formRegistro    = document.getElementById('form-registro');
+    const formRegistro      = document.getElementById('form-registro');
 
-    if (paso0)            { paso0.style.display = 'block'; paso0.style.opacity = '1'; paso0.style.transform = 'translateY(0)'; }
-    if (terminosContainer){ terminosContainer.style.display = 'none'; }
-    if (formRegistro)     { formRegistro.style.display = 'none'; formRegistro.style.opacity = '0'; }
-
-    // Resetear todo
-    document.getElementById('aceptoTerminos').checked = false;
-    selectedEspecialidad  = '';
-    selectedCiclo         = '';
-    selectedImageFile     = null;
-    selectedImageDataUrl  = '';
-    resetImagePreview();
-}
-
-// Paso 0 → Paso 1 (términos)
-function continuarATerminos() {
-    const esp   = document.getElementById('selectEspecialidad').value;
-    const ciclo = document.getElementById('selectCiclo').value;
-
-    if (!esp || !ciclo) {
-        alert('⚠️ Por favor selecciona tu especialidad y ciclo.');
-        return;
-    }
-    if (!selectedImageFile) {
-        alert('⚠️ Por favor selecciona una foto de perfil para continuar.');
-        return;
-    }
-
-    selectedEspecialidad = esp;
-    selectedCiclo        = ciclo;
-
-    // Transición: paso 0 → términos
-    const paso0           = document.getElementById('registro-paso0');
-    const terminosContainer = document.querySelector('.terminos-container');
-
-    if (paso0) {
-        paso0.style.transition = 'opacity .3s ease, transform .3s ease';
-        paso0.style.opacity    = '0';
-        paso0.style.transform  = 'translateY(-20px)';
-    }
-    setTimeout(() => {
-        if (paso0) paso0.style.display = 'none';
+    // Caso 2: Tiene perfil (del auth) pero aún no se unió a la comunidad → mostrar términos
+    if (studentProfile && !studentProfile.supabase_registered) {
+        if (sinPerfilDiv)      sinPerfilDiv.style.display      = 'none';
         if (terminosContainer) {
-            terminosContainer.style.display   = 'block';
-            terminosContainer.style.opacity   = '0';
-            terminosContainer.style.transform = 'translateY(20px)';
-            setTimeout(() => {
-                terminosContainer.style.transition = 'opacity .3s ease, transform .3s ease';
-                terminosContainer.style.opacity    = '1';
-                terminosContainer.style.transform  = 'translateY(0)';
-            }, 10);
+            terminosContainer.style.display    = 'block';
+            terminosContainer.style.opacity    = '1';
+            terminosContainer.style.transform  = 'translateY(0)';
+            terminosContainer.style.transition = '';
         }
-    }, 320);
+        if (formRegistro) {
+            formRegistro.style.display = 'none';
+            formRegistro.style.opacity = '0';
+        }
+        document.getElementById('aceptoTerminos').checked = false;
+        return;
+    }
+
+    // Caso 3: Sin perfil (usuario antiguo o edge case) → mostrar mensaje de re-auth
+    if (sinPerfilDiv)      sinPerfilDiv.style.display      = 'block';
+    if (terminosContainer) terminosContainer.style.display = 'none';
+    if (formRegistro)      formRegistro.style.display      = 'none';
 }
 
 function closeRegistroModal() {
@@ -2370,6 +2200,7 @@ function closeRegistroModal() {
     modal.style.display = 'none';
 }
 
+// ── Preview de imagen desde el auth modal ──
 function previewImage(event) {
     const file = event.target.files[0];
     if (!file) return;
@@ -2387,16 +2218,15 @@ function previewImage(event) {
 
     const reader = new FileReader();
     reader.onload = function(e) {
-        selectedImageDataUrl = e.target.result; // guardar para el paso de confirmación
+        selectedImageDataUrl = e.target.result;
         document.getElementById('previewImgPaso0').src = e.target.result;
         document.getElementById('uploadPlaceholderPaso0').style.display = 'none';
-        document.getElementById('imagePreviewPaso0').style.display     = 'block';
+        document.getElementById('imagePreviewPaso0').style.display      = 'block';
     };
     reader.readAsDataURL(file);
 }
 
 function resetImagePreview() {
-    // IDs del paso 0
     const ph   = document.getElementById('uploadPlaceholderPaso0');
     const prev = document.getElementById('imagePreviewPaso0');
     const img  = document.getElementById('previewImgPaso0');
@@ -2417,88 +2247,99 @@ function mostrarToast(mensaje, icono = 'fa-check-circle', duracion = 3000) {
     `;
 
     document.body.appendChild(toast);
-
-    setTimeout(() => {
-        toast.remove();
-    }, duracion);
+    setTimeout(() => toast.remove(), duracion);
 }
 
+// ============================================
+// REGISTRAR ESTUDIANTE EN SUPABASE
+// Ya NO sube foto (ya está en Cloudinary desde el auth)
+// Usa directamente la foto_url del perfil guardado
+// ============================================
 async function registrarEstudiante() {
     const nombreCompleto = document.getElementById('nombreCompleto').value.trim();
     const btnRegistrar   = document.getElementById('btnRegistrar');
+
+    // Leer perfil desde localStorage (ya fue guardado durante el auth)
+    const perfil = JSON.parse(localStorage.getItem('eduspace_student_profile') || 'null');
+
+    if (!perfil || !perfil.foto_url) {
+        alert('❌ No se encontró tu perfil. Cierra sesión e inicia nuevamente para completarlo.');
+        return;
+    }
 
     if (!nombreCompleto || nombreCompleto.length < 3) {
         alert('⚠️ El nombre es muy corto o está vacío.');
         return;
     }
-    if (!selectedEspecialidad || !selectedCiclo) {
-        alert('⚠️ Error: falta especialidad o ciclo. Vuelve al inicio del registro.');
-        return;
-    }
-    if (!selectedImageFile) {
-        alert('⚠️ Por favor selecciona una foto de perfil.');
-        return;
-    }
+
     if (!supabaseClient) {
         alert('❌ Error: No se pudo conectar con la base de datos. Recarga la página.');
         return;
     }
 
     btnRegistrar.disabled = true;
-    btnRegistrar.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Subiendo foto...';
+    btnRegistrar.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Guardando en la comunidad...';
 
     try {
-        // 1. Subir foto a Cloudinary
-        const formData = new FormData();
-        formData.append('file', selectedImageFile);
-        formData.append('upload_preset', CLOUDINARY_CONFIG.UPLOAD_PRESET);
-        formData.append('folder', 'estudiantes_clouddesk');
+        let fotoUrl = perfil.foto_url;
 
-        const uploadResponse = await fetch(
-            `https://api.cloudinary.com/v1_1/${CLOUDINARY_CONFIG.CLOUD_NAME}/image/upload`,
-            { method: 'POST', body: formData }
-        );
-        if (!uploadResponse.ok) throw new Error('Error al subir la imagen a Cloudinary');
+        // Si la foto es un dataURL (falló el upload inicial), intentar subir ahora
+        if (fotoUrl.startsWith('data:') && selectedImageFile) {
+            btnRegistrar.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Subiendo foto...';
+            const formData = new FormData();
+            formData.append('file', selectedImageFile);
+            formData.append('upload_preset', CLOUDINARY_CONFIG.UPLOAD_PRESET);
+            formData.append('folder', 'estudiantes_clouddesk');
 
-        const cloudinaryData = await uploadResponse.json();
-        const fotoUrl = cloudinaryData.secure_url;
+            const uploadRes = await fetch(
+                `https://api.cloudinary.com/v1_1/${CLOUDINARY_CONFIG.CLOUD_NAME}/image/upload`,
+                { method: 'POST', body: formData }
+            );
+            if (uploadRes.ok) {
+                const cloudData = await uploadRes.json();
+                fotoUrl = cloudData.secure_url;
+                // Actualizar perfil local con URL real
+                perfil.foto_url = fotoUrl;
+            }
+        }
 
-        btnRegistrar.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Guardando datos...';
+        btnRegistrar.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Guardando...';
 
-        // 2. Guardar en Supabase con especialidad y ciclo
+        // Guardar en Supabase
         const { data, error } = await supabaseClient
             .from('estudiantes')
             .insert([{
                 nombre_completo: nombreCompleto,
                 foto_url:        fotoUrl,
-                especialidad:    selectedEspecialidad,
-                ciclo:           selectedCiclo
+                especialidad:    perfil.especialidad,
+                ciclo:           perfil.ciclo
             }])
             .select();
 
         if (error) throw new Error(`Error al guardar: ${error.message}`);
 
-        // 3. Guardar perfil en localStorage para el sidebar
-        const perfil = { nombre: nombreCompleto, especialidad: selectedEspecialidad, ciclo: selectedCiclo, foto_url: fotoUrl };
+        // Marcar como registrado en la comunidad
+        perfil.supabase_registered = true;
+        perfil.foto_url            = fotoUrl;
         localStorage.setItem('eduspace_student_profile', JSON.stringify(perfil));
 
-        // 4. Actualizar sidebar y UI
+        // Actualizar sidebar
         actualizarPerfilSidebar();
         closeRegistroModal();
-        mostrarToast('🎉 ¡Registro exitoso! Bienvenido/a a CloudDesk');
+        mostrarToast('🎉 ¡Registro exitoso! Bienvenido/a a la comunidad CloudDesk');
         await cargarEstudiantes();
 
     } catch (error) {
         console.error('❌ Error completo:', error);
         alert(`❌ Error: ${error.message}\n\nPor favor, intenta nuevamente.`);
     } finally {
-        btnRegistrar.disabled = false;
+        btnRegistrar.disabled  = false;
         btnRegistrar.innerHTML = '<i class="fa-solid fa-check-circle"></i> Unirme Ahora';
     }
 }
 
 async function cargarEstudiantes() {
-    const grid = document.getElementById('estudiantes-grid');
+    const grid    = document.getElementById('estudiantes-grid');
     const loading = document.getElementById('loading-estudiantes');
 
     if (!supabaseClient) {
@@ -2536,7 +2377,7 @@ async function cargarEstudiantes() {
 }
 
 function renderEstudiantesReales(estudiantes) {
-    const grid = document.getElementById('estudiantes-grid');
+    const grid    = document.getElementById('estudiantes-grid');
     const loading = document.getElementById('loading-estudiantes');
 
     if (loading) loading.style.display = 'none';
@@ -2557,7 +2398,7 @@ function renderEstudiantesReales(estudiantes) {
     estudiantes.forEach((estudiante, index) => {
         const estudianteCard = document.createElement('div');
         estudianteCard.classList.add('estudiante-card');
-        estudianteCard.style.animation = 'fadeIn 0.5s ease';
+        estudianteCard.style.animation      = 'fadeIn 0.5s ease';
         estudianteCard.style.animationDelay = `${index * 0.1}s`;
 
         const espBadge = (estudiante.especialidad)
@@ -2590,17 +2431,8 @@ function inicializarRealtimeEstudiantes() {
 
     estudiantesListener = supabaseClient
         .channel('estudiantes-realtime')
-        .on(
-            'postgres_changes',
-            {
-                event: 'INSERT',
-                schema: 'public',
-                table: 'estudiantes'
-            },
-            (payload) => {
-                cargarEstudiantes();
-            }
-        )
+        .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'estudiantes' },
+            (payload) => { cargarEstudiantes(); })
         .subscribe();
 }
 
@@ -2626,84 +2458,15 @@ function renderEstudiantes() {
 }
 
 document.addEventListener('DOMContentLoaded', function() {
-    const supabaseReady = initSupabase();
-
-    const checkbox = document.getElementById('aceptoTerminos');
-    if (checkbox) {
-        checkbox.addEventListener('change', function() {
-            const formRegistro      = document.getElementById('form-registro');
-            const terminosContainer = document.querySelector('.terminos-container');
-
-            if (this.checked) {
-                // ── Autorellenar todos los datos del paso 0 ──
-                const authData = JSON.parse(localStorage.getItem('eduspace_auth') || '{}');
-                const userName = authData.userName || '';
-
-                // Nombre (readonly)
-                const inputNombre = document.getElementById('nombreCompleto');
-                if (inputNombre) { inputNombre.value = userName; }
-
-                // Especialidad y ciclo
-                const dispEsp   = document.getElementById('displayEspecialidad');
-                const dispCiclo = document.getElementById('displayCiclo');
-                if (dispEsp)   dispEsp.textContent   = selectedEspecialidad;
-                if (dispCiclo) dispCiclo.textContent = `Ciclo ${selectedCiclo}`;
-
-                // Foto preview (la que ya se subió en el paso 0)
-                const fotoConfirm = document.getElementById('fotoConfirmacion');
-                if (fotoConfirm && selectedImageDataUrl) {
-                    fotoConfirm.src = selectedImageDataUrl;
-                }
-
-                terminosContainer.style.transition = 'opacity 0.3s ease, transform 0.3s ease';
-                terminosContainer.style.opacity    = '0';
-                terminosContainer.style.transform  = 'translateY(-20px)';
-
-                setTimeout(() => {
-                    terminosContainer.style.display = 'none';
-                    formRegistro.style.display      = 'block';
-                    formRegistro.style.opacity      = '0';
-                    formRegistro.style.transform    = 'translateY(20px)';
-                    setTimeout(() => {
-                        formRegistro.style.transition = 'opacity 0.3s ease, transform 0.3s ease';
-                        formRegistro.style.opacity    = '1';
-                        formRegistro.style.transform  = 'translateY(0)';
-                    }, 10);
-                }, 300);
-
-            } else {
-                formRegistro.style.opacity    = '0';
-                formRegistro.style.transform  = 'translateY(20px)';
-                setTimeout(() => {
-                    formRegistro.style.display      = 'none';
-                    terminosContainer.style.display = 'block';
-                    terminosContainer.style.opacity = '0';
-                    terminosContainer.style.transform = 'translateY(-20px)';
-                    setTimeout(() => {
-                        terminosContainer.style.opacity   = '1';
-                        terminosContainer.style.transform = 'translateY(0)';
-                    }, 10);
-                }, 300);
-            }
-        });
-    }
-
-    const uploadArea = document.getElementById('uploadArea');
-    if (uploadArea) {
-        uploadArea.addEventListener('click', function(e) {
-            if (!e.target.closest('.btn-change-photo')) {
-                document.getElementById('fotoInput').click();
-            }
-        });
-    }
+    initSupabase();
 });
 
 // ============================================
 // PERFIL DEL ESTUDIANTE EN EL SIDEBAR
+// Se actualiza inmediatamente al terminar el auth
 // ============================================
-
 function actualizarPerfilSidebar() {
-    const perfil = JSON.parse(localStorage.getItem('eduspace_student_profile') || 'null');
+    const perfil  = JSON.parse(localStorage.getItem('eduspace_student_profile') || 'null');
     const wrapper = document.getElementById('sidebar-profile-wrapper');
     if (!wrapper) return;
 
@@ -2718,7 +2481,7 @@ function actualizarPerfilSidebar() {
     const img     = document.getElementById('sidebar-profile-img');
     const initial = document.getElementById('sidebar-profile-initial');
     if (perfil.foto_url && img) {
-        img.src = perfil.foto_url;
+        img.src           = perfil.foto_url;
         img.style.display = 'block';
         if (initial) initial.style.display = 'none';
     } else if (initial) {
@@ -2742,9 +2505,9 @@ function abrirPerfilEstudiante() {
         return;
     }
 
-    document.getElementById('perfil-modal-nombre').textContent       = perfil.nombre;
-    document.getElementById('perfil-modal-especialidad').textContent = perfil.especialidad || '—';
-    document.getElementById('perfil-modal-ciclo').textContent        = perfil.ciclo ? `Ciclo ${perfil.ciclo}` : '—';
+    document.getElementById('perfil-modal-nombre').textContent        = perfil.nombre;
+    document.getElementById('perfil-modal-especialidad').textContent  = perfil.especialidad || '—';
+    document.getElementById('perfil-modal-ciclo').textContent         = perfil.ciclo ? `Ciclo ${perfil.ciclo}` : '—';
 
     const img = document.getElementById('perfil-modal-foto');
     if (img) img.src = perfil.foto_url || '';
@@ -2752,7 +2515,7 @@ function abrirPerfilEstudiante() {
     modal.style.display = 'flex';
 }
 
-// Cambiar foto desde el sidebar (único lugar permitido)
+// Cambiar foto desde el sidebar (ÚNICO lugar permitido)
 function cambiarFotoSidebar() {
     const input = document.getElementById('sidebar-foto-file-input');
     if (input) input.click();
@@ -2778,7 +2541,6 @@ async function procesarNuevaFotoPerfil(event) {
     };
     reader.readAsDataURL(file);
 
-    // Botón de cambiar con estado de carga
     const btnCambiar = document.getElementById('btn-cambiar-foto-sidebar');
     if (btnCambiar) { btnCambiar.disabled = true; btnCambiar.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Subiendo...'; }
 
@@ -2789,13 +2551,16 @@ async function procesarNuevaFotoPerfil(event) {
         formData.append('upload_preset', CLOUDINARY_CONFIG.UPLOAD_PRESET);
         formData.append('folder', 'estudiantes_clouddesk');
 
-        const res = await fetch(`https://api.cloudinary.com/v1_1/${CLOUDINARY_CONFIG.CLOUD_NAME}/image/upload`, { method: 'POST', body: formData });
+        const res = await fetch(
+            `https://api.cloudinary.com/v1_1/${CLOUDINARY_CONFIG.CLOUD_NAME}/image/upload`,
+            { method: 'POST', body: formData }
+        );
         if (!res.ok) throw new Error('Error al subir la imagen');
-        const data = await res.json();
+        const data    = await res.json();
         const nuevaUrl = data.secure_url;
 
-        // Actualizar en Supabase
-        if (supabaseClient) {
+        // Actualizar en Supabase si está registrado
+        if (supabaseClient && perfil.supabase_registered) {
             const { error } = await supabaseClient
                 .from('estudiantes')
                 .update({ foto_url: nuevaUrl })
@@ -2814,7 +2579,6 @@ async function procesarNuevaFotoPerfil(event) {
         alert('❌ Error al actualizar la foto: ' + err.message);
     } finally {
         if (btnCambiar) { btnCambiar.disabled = false; btnCambiar.innerHTML = '<i class="fa-solid fa-camera"></i> Cambiar foto'; }
-        // Limpiar el input para que pueda seleccionar la misma foto después si quiere
         event.target.value = '';
     }
 }
@@ -2848,17 +2612,17 @@ function closeSidebar() {
 }
 
 function switchTab(tab) {
-    currentTab = tab;
-    showingFinalizados = false;
+    currentTab          = tab;
+    showingFinalizados  = false;
 
     if (window.innerWidth <= 768) {
         closeSidebar();
     }
 
     sectionRepositorio.style.display = 'none';
-    sectionTrabajos.style.display = 'none';
-    sectionRecursos.style.display = 'none';
-    sectionDocentes.style.display = 'none';
+    sectionTrabajos.style.display    = 'none';
+    sectionRecursos.style.display    = 'none';
+    sectionDocentes.style.display    = 'none';
     sectionEstudiantes.style.display = 'none';
 
     document.querySelectorAll('.sidebar-btn').forEach(btn => {
@@ -2866,9 +2630,9 @@ function switchTab(tab) {
     });
 
     const searchInputRepo = document.getElementById('searchInputRepositorio');
-    const searchInputRec = document.getElementById('searchInputRecursos');
+    const searchInputRec  = document.getElementById('searchInputRecursos');
     if (searchInputRepo) searchInputRepo.value = '';
-    if (searchInputRec) searchInputRec.value = '';
+    if (searchInputRec)  searchInputRec.value  = '';
 
     if (tab === 'repositorio') {
         sectionRepositorio.style.display = 'block';
@@ -2877,14 +2641,14 @@ function switchTab(tab) {
     } else if (tab === 'trabajos') {
         sectionTrabajos.style.display = 'block';
         document.getElementById('tab-trabajos').classList.add('active');
-        trabajosPendientesSection.style.display = 'block';
+        trabajosPendientesSection.style.display  = 'block';
         trabajosFinalizadosSection.style.display = 'none';
         const btn = document.getElementById('btn-trabajos-finalizados');
         if (btn) {
-            const btnIcon = btn.querySelector('i');
+            const btnIcon     = btn.querySelector('i');
             const btnTextSpan = document.getElementById('btn-trabajos-text');
             if (btnTextSpan) btnTextSpan.textContent = 'Ver trabajos finalizados';
-            if (btnIcon) btnIcon.className = 'fa-solid fa-check-circle';
+            if (btnIcon)     btnIcon.className        = 'fa-solid fa-check-circle';
             btn.classList.remove('showing-finalizados');
         }
         renderAssignments();
