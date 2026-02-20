@@ -980,6 +980,7 @@ document.addEventListener('DOMContentLoaded', async () => {
         if (!_appInicializada) {
             _appInicializada = true;
             updatePendingBadge();
+            actualizarPerfilSidebar(); // ← mostrar perfil de estudiante si ya se registró
             switchTab('repositorio');
         }
     });
@@ -2259,6 +2260,10 @@ window.onclick = function(event) {
 // SISTEMA DE REGISTRO DE ESTUDIANTES
 // ============================================
 
+// Variables de sesión del estudiante registrado en la comunidad
+let selectedEspecialidad = '';
+let selectedCiclo = '';
+
 const CLOUDINARY_CONFIG = {
     CLOUD_NAME: "dwzwa3gp0",
     UPLOAD_PRESET: "hfqqxu13"
@@ -2290,24 +2295,63 @@ function initSupabase() {
 }
 
 function openRegistroModal() {
+    // Si ya está registrado, abrir su perfil directamente
+    const studentProfile = JSON.parse(localStorage.getItem('eduspace_student_profile') || 'null');
+    if (studentProfile) {
+        abrirPerfilEstudiante();
+        return;
+    }
+
     const modal = document.getElementById('registroModal');
+    modal.style.display = 'block';
+
+    // Mostrar paso 0 (selección de especialidad/ciclo), ocultar el resto
+    const paso0 = document.getElementById('registro-paso0');
     const terminosContainer = document.querySelector('.terminos-container');
     const formRegistro = document.getElementById('form-registro');
 
-    modal.style.display = 'block';
+    if (paso0) { paso0.style.display = 'block'; paso0.style.opacity = '1'; }
+    if (terminosContainer) { terminosContainer.style.display = 'none'; }
+    if (formRegistro) { formRegistro.style.display = 'none'; formRegistro.style.opacity = '0'; }
 
     document.getElementById('aceptoTerminos').checked = false;
-    document.getElementById('nombreCompleto').value = '';
+    selectedEspecialidad = '';
+    selectedCiclo = '';
     selectedImageFile = null;
     resetImagePreview();
+}
 
-    terminosContainer.style.display = 'block';
-    terminosContainer.style.opacity = '1';
-    terminosContainer.style.transform = 'translateY(0)';
+// Paso 0 → Paso 1 (términos)
+function continuarATerminos() {
+    const esp   = document.getElementById('selectEspecialidad').value;
+    const ciclo = document.getElementById('selectCiclo').value;
 
-    formRegistro.style.display = 'none';
-    formRegistro.style.opacity = '0';
-    formRegistro.style.transform = 'translateY(20px)';
+    if (!esp || !ciclo) {
+        alert('⚠️ Por favor selecciona tu especialidad y ciclo.');
+        return;
+    }
+
+    selectedEspecialidad = esp;
+    selectedCiclo        = ciclo;
+
+    // Ocultar paso 0 y mostrar términos
+    const paso0 = document.getElementById('registro-paso0');
+    const terminosContainer = document.querySelector('.terminos-container');
+
+    if (paso0) { paso0.style.opacity = '0'; paso0.style.transform = 'translateY(-20px)'; }
+    setTimeout(() => {
+        if (paso0) paso0.style.display = 'none';
+        if (terminosContainer) {
+            terminosContainer.style.display = 'block';
+            terminosContainer.style.opacity = '0';
+            terminosContainer.style.transform = 'translateY(20px)';
+            setTimeout(() => {
+                terminosContainer.style.transition = 'opacity .3s ease, transform .3s ease';
+                terminosContainer.style.opacity = '1';
+                terminosContainer.style.transform = 'translateY(0)';
+            }, 10);
+        }
+    }, 300);
 }
 
 function closeRegistroModal() {
@@ -2365,23 +2409,20 @@ function mostrarToast(mensaje, icono = 'fa-check-circle', duracion = 3000) {
 
 async function registrarEstudiante() {
     const nombreCompleto = document.getElementById('nombreCompleto').value.trim();
-    const btnRegistrar = document.getElementById('btnRegistrar');
+    const btnRegistrar   = document.getElementById('btnRegistrar');
 
-    if (!nombreCompleto) {
-        alert('⚠️ Por favor ingresa tu nombre completo.');
+    if (!nombreCompleto || nombreCompleto.length < 3) {
+        alert('⚠️ El nombre es muy corto o está vacío.');
         return;
     }
-
-    if (nombreCompleto.length < 3) {
-        alert('⚠️ El nombre debe tener al menos 3 caracteres.');
+    if (!selectedEspecialidad || !selectedCiclo) {
+        alert('⚠️ Error: falta especialidad o ciclo. Vuelve al inicio del registro.');
         return;
     }
-
     if (!selectedImageFile) {
         alert('⚠️ Por favor selecciona una foto de perfil.');
         return;
     }
-
     if (!supabaseClient) {
         alert('❌ Error: No se pudo conectar con la base de datos. Recarga la página.');
         return;
@@ -2391,6 +2432,7 @@ async function registrarEstudiante() {
     btnRegistrar.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Subiendo foto...';
 
     try {
+        // 1. Subir foto a Cloudinary
         const formData = new FormData();
         formData.append('file', selectedImageFile);
         formData.append('upload_preset', CLOUDINARY_CONFIG.UPLOAD_PRESET);
@@ -2398,35 +2440,34 @@ async function registrarEstudiante() {
 
         const uploadResponse = await fetch(
             `https://api.cloudinary.com/v1_1/${CLOUDINARY_CONFIG.CLOUD_NAME}/image/upload`,
-            {
-                method: 'POST',
-                body: formData
-            }
+            { method: 'POST', body: formData }
         );
-
-        if (!uploadResponse.ok) {
-            throw new Error('Error al subir la imagen a Cloudinary');
-        }
+        if (!uploadResponse.ok) throw new Error('Error al subir la imagen a Cloudinary');
 
         const cloudinaryData = await uploadResponse.json();
         const fotoUrl = cloudinaryData.secure_url;
 
         btnRegistrar.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Guardando datos...';
 
+        // 2. Guardar en Supabase con especialidad y ciclo
         const { data, error } = await supabaseClient
             .from('estudiantes')
-            .insert([
-                {
-                    nombre_completo: nombreCompleto,
-                    foto_url: fotoUrl
-                }
-            ])
+            .insert([{
+                nombre_completo: nombreCompleto,
+                foto_url:        fotoUrl,
+                especialidad:    selectedEspecialidad,
+                ciclo:           selectedCiclo
+            }])
             .select();
 
-        if (error) {
-            throw new Error(`Error al guardar: ${error.message}`);
-        }
+        if (error) throw new Error(`Error al guardar: ${error.message}`);
 
+        // 3. Guardar perfil en localStorage para el sidebar
+        const perfil = { nombre: nombreCompleto, especialidad: selectedEspecialidad, ciclo: selectedCiclo, foto_url: fotoUrl };
+        localStorage.setItem('eduspace_student_profile', JSON.stringify(perfil));
+
+        // 4. Actualizar sidebar y UI
+        actualizarPerfilSidebar();
         closeRegistroModal();
         mostrarToast('🎉 ¡Registro exitoso! Bienvenido/a a CloudDesk');
         await cargarEstudiantes();
@@ -2436,7 +2477,7 @@ async function registrarEstudiante() {
         alert(`❌ Error: ${error.message}\n\nPor favor, intenta nuevamente.`);
     } finally {
         btnRegistrar.disabled = false;
-        btnRegistrar.innerHTML = '<i class="fa-solid fa-check-circle"></i> Registrarme Ahora';
+        btnRegistrar.innerHTML = '<i class="fa-solid fa-check-circle"></i> Unirme Ahora';
     }
 }
 
@@ -2503,12 +2544,17 @@ function renderEstudiantesReales(estudiantes) {
         estudianteCard.style.animation = 'fadeIn 0.5s ease';
         estudianteCard.style.animationDelay = `${index * 0.1}s`;
 
+        const espBadge = (estudiante.especialidad)
+            ? `<p class="estudiante-especialidad"><i class="fa-solid fa-graduation-cap"></i> ${estudiante.especialidad} &nbsp;·&nbsp; Ciclo ${estudiante.ciclo || ''}</p>`
+            : '';
+
         estudianteCard.innerHTML = `
             <img src="${estudiante.foto_url}" 
                  alt="${estudiante.nombre_completo}" 
                  class="estudiante-avatar"
                  onerror="this.src='https://ui-avatars.com/api/?name=${encodeURIComponent(estudiante.nombre_completo)}&background=3b82f6&color=fff&size=200'">
             <h3 class="estudiante-name">${estudiante.nombre_completo}</h3>
+            ${espBadge}
             <p class="estudiante-date">
                 <i class="fa-solid fa-calendar-check"></i> 
                 ${new Date(estudiante.created_at).toLocaleDateString('es-ES')}
@@ -2569,10 +2615,24 @@ document.addEventListener('DOMContentLoaded', function() {
     const checkbox = document.getElementById('aceptoTerminos');
     if (checkbox) {
         checkbox.addEventListener('change', function() {
-            const formRegistro = document.getElementById('form-registro');
+            const formRegistro      = document.getElementById('form-registro');
             const terminosContainer = document.querySelector('.terminos-container');
 
             if (this.checked) {
+                // Autorellenar nombre desde la sesión, especialidad y ciclo del paso 0
+                const authData = JSON.parse(localStorage.getItem('eduspace_auth') || '{}');
+                const userName = authData.userName || '';
+
+                // Poner nombre (readonly)
+                const inputNombre = document.getElementById('nombreCompleto');
+                if (inputNombre) { inputNombre.value = userName; inputNombre.readOnly = true; }
+
+                // Mostrar especialidad y ciclo como badges (no editables)
+                const dispEsp   = document.getElementById('displayEspecialidad');
+                const dispCiclo = document.getElementById('displayCiclo');
+                if (dispEsp)   dispEsp.textContent   = selectedEspecialidad;
+                if (dispCiclo) dispCiclo.textContent = `Ciclo ${selectedCiclo}`;
+
                 terminosContainer.style.transition = 'opacity 0.3s ease, transform 0.3s ease';
                 terminosContainer.style.opacity = '0';
                 terminosContainer.style.transform = 'translateY(-20px)';
@@ -2582,7 +2642,6 @@ document.addEventListener('DOMContentLoaded', function() {
                     formRegistro.style.display = 'block';
                     formRegistro.style.opacity = '0';
                     formRegistro.style.transform = 'translateY(20px)';
-
                     setTimeout(() => {
                         formRegistro.style.transition = 'opacity 0.3s ease, transform 0.3s ease';
                         formRegistro.style.opacity = '1';
@@ -2592,13 +2651,11 @@ document.addEventListener('DOMContentLoaded', function() {
             } else {
                 formRegistro.style.opacity = '0';
                 formRegistro.style.transform = 'translateY(20px)';
-
                 setTimeout(() => {
                     formRegistro.style.display = 'none';
                     terminosContainer.style.display = 'block';
                     terminosContainer.style.opacity = '0';
                     terminosContainer.style.transform = 'translateY(-20px)';
-
                     setTimeout(() => {
                         terminosContainer.style.opacity = '1';
                         terminosContainer.style.transform = 'translateY(0)';
@@ -2617,6 +2674,65 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 });
+
+// ============================================
+// PERFIL DEL ESTUDIANTE EN EL SIDEBAR
+// ============================================
+
+function actualizarPerfilSidebar() {
+    const perfil = JSON.parse(localStorage.getItem('eduspace_student_profile') || 'null');
+    const wrapper = document.getElementById('sidebar-profile-wrapper');
+    if (!wrapper) return;
+
+    if (!perfil) {
+        wrapper.style.display = 'none';
+        return;
+    }
+
+    wrapper.style.display = 'flex';
+
+    // Avatar
+    const img     = document.getElementById('sidebar-profile-img');
+    const initial = document.getElementById('sidebar-profile-initial');
+    if (perfil.foto_url && img) {
+        img.src = perfil.foto_url;
+        img.style.display = 'block';
+        if (initial) initial.style.display = 'none';
+    } else if (initial) {
+        initial.textContent = (perfil.nombre || '?')[0].toUpperCase();
+        initial.style.display = 'flex';
+        if (img) img.style.display = 'none';
+    }
+
+    // Nombre
+    const nameEl = document.getElementById('sidebar-profile-name');
+    if (nameEl) nameEl.textContent = perfil.nombre;
+}
+
+function abrirPerfilEstudiante() {
+    const perfil = JSON.parse(localStorage.getItem('eduspace_student_profile') || 'null');
+    const modal  = document.getElementById('modal-perfil-estudiante');
+    if (!modal) return;
+
+    if (!perfil) {
+        openRegistroModal();
+        return;
+    }
+
+    document.getElementById('perfil-modal-nombre').textContent       = perfil.nombre;
+    document.getElementById('perfil-modal-especialidad').textContent = perfil.especialidad || '—';
+    document.getElementById('perfil-modal-ciclo').textContent        = perfil.ciclo ? `Ciclo ${perfil.ciclo}` : '—';
+
+    const img = document.getElementById('perfil-modal-foto');
+    if (img) img.src = perfil.foto_url || '';
+
+    modal.style.display = 'flex';
+}
+
+function cerrarPerfilEstudiante() {
+    const modal = document.getElementById('modal-perfil-estudiante');
+    if (modal) modal.style.display = 'none';
+}
 
 // ============================================
 // FUNCIONES DEL SIDEBAR
