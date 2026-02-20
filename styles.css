@@ -9,7 +9,7 @@
     --card-hover: #252525;
     --text-light: #e5e7eb;
     --text-muted: #9ca3af;
-    --border-color: #2a2a2a;
+    --border-color: #2a2a2a69;
     --success: #10b981;
     --warning: #f59e0b;
     --danger: #ef4444;
@@ -3350,4 +3350,318 @@ footer {
     opacity: 0.6;
     cursor: not-allowed;
     transform: none;
+}
+
+/* ============================================
+   PASO 0 DEL REGISTRO (Especialidad + Ciclo)
+   ============================================ */
+
+.registro-paso0 {
+    animation: fadeIn 0.4s ease;
+    padding: 0.5rem 0;
+}
+
+.paso0-desc {
+    color: var(--text-muted);
+    font-size: 0.92rem;
+    margin-bottom: 1.5rem;
+    line-height: 1.6;
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+}
+
+.paso0-select {
+    width: 100%;
+    padding: 0.9rem 1rem;
+    background-color: rgba(255, 255, 255, 0.05);
+    border: 2px solid var(--border-color);
+    border-radius: 10px;
+    color: var(--text-light);
+    font-size: 1rem;
+    cursor: pointer;
+    transition: all 0.3s;
+    outline: none;
+    appearance: none;
+    -webkit-appearance: none;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' fill='%239ca3af' viewBox='0 0 16 16'%3E%3Cpath d='M7.247 11.14 2.451 5.658C1.885 5.013 2.345 4 3.204 4h9.592a1 1 0 0 1 .753 1.659l-4.796 5.48a1 1 0 0 1-1.506 0z'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 1rem center;
+}
+
+.paso0-select:focus {
+    border-color: var(--primary-color);
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+}
+
+.paso0-select option {
+    background-color: var(--card-bg);
+    color: var(--text-light);
+}
+
+.btn-paso0-continuar {
+    width: 100%;
+    padding: 1.1rem;
+    background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
+    color: white;
+    border: none;
+    border-radius: 10px;
+    font-size: 1rem;
+    font-weight: 600;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 10px;
+    margin-top: 1.5rem;
+    transition: all 0.3s;
+    box-shadow: 0 4px 15px rgba(59, 130, 246, 0.4);
+}
+
+.btn-paso0-continuar:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(59, 130, 246, 0.6);
+}
+
+/* ============================================
+   BADGES DE DATOS AUTORELLENADOS EN FORMULARIO
+   ============================================ */
+
+.form-autodata-row {
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+    margin-top: 0.3rem;
+}
+
+.form-autodata-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
+    padding: 0.5rem 1rem;
+    background: rgba(59, 130, 246, 0.12);
+    border: 1px solid rgba(59, 130, 246, 0.35);
+    border-radius: 20px;
+    color: var(--accent-color);
+    font-size: 0.88rem;
+    font-weight: 600;
+    letter-spacing: 0.3px;
+}
+
+.form-autodata-ciclo {
+    background: rgba(16, 185, 129, 0.1);
+    border-color: rgba(16, 185, 129, 0.35);
+    color: var(--success);
+}
+
+/* ============================================
+   ESPECIALIDAD EN TARJETAS DE ESTUDIANTES
+   ============================================ */
+
+.estudiante-especialidad {
+    font-size: 0.78rem;
+    color: var(--accent-color);
+    margin-top: 0.3rem;
+    margin-bottom: 0.2rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 5px;
+    background: rgba(59, 130, 246, 0.08);
+    border-radius: 10px;
+    padding: 3px 8px;
+}
+
+/* ============================================
+   PERFIL DEL ESTUDIANTE EN EL SIDEBAR
+   ============================================ */
+
+.sidebar-profile-wrapper {
+    margin-top: auto;
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    padding-bottom: 0.5rem;
+}
+
+.sidebar-profile-divider {
+    width: 80%;
+    height: 1px;
+    background: var(--border-color);
+    margin: 0.8rem auto 0.8rem;
+    opacity: 0.6;
+}
+
+.sidebar-profile {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    width: 100%;
+    padding: 0.5rem 1rem;
+    cursor: pointer;
+    border-radius: 8px;
+    transition: background 0.25s ease;
+    justify-content: center; /* centrado cuando sidebar está cerrado */
+}
+
+.sidebar.open .sidebar-profile {
+    justify-content: flex-start; /* alineado a izquierda cuando abierto */
+}
+
+.sidebar-profile:hover {
+    background: rgba(59, 130, 246, 0.1);
+}
+
+.sidebar-profile-avatar {
+    width: 34px;
+    height: 34px;
+    min-width: 34px;
+    border-radius: 50%;
+    background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    overflow: hidden;
+    border: 2px solid var(--primary-color);
+    font-size: 0.9rem;
+    font-weight: 700;
+    color: white;
+    flex-shrink: 0;
+}
+
+.sidebar-profile-avatar img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+}
+
+.sidebar-profile-name {
+    font-size: 0.8rem;
+    font-weight: 600;
+    color: var(--text-light);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    max-width: 140px;
+    opacity: 0;
+    transform: translateX(-8px);
+    transition: all 0.3s ease 0.1s;
+}
+
+.sidebar.open .sidebar-profile-name {
+    opacity: 1;
+    transform: translateX(0);
+}
+
+/* En móvil siempre visible */
+@media (max-width: 768px) {
+    .sidebar-profile-name {
+        opacity: 1;
+        transform: translateX(0);
+    }
+    .sidebar-profile {
+        justify-content: flex-start;
+    }
+}
+
+/* ============================================
+   MODAL DE PERFIL DEL ESTUDIANTE (desde sidebar)
+   ============================================ */
+
+.modal-perfil-overlay {
+    position: fixed;
+    top: 0; left: 0;
+    width: 100%; height: 100%;
+    background: rgba(0, 0, 0, 0.85);
+    z-index: 10001;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    animation: fadeIn 0.25s ease;
+}
+
+.modal-perfil-box {
+    background: linear-gradient(135deg, var(--card-bg) 0%, var(--bg-darker) 100%);
+    border: 2px solid var(--primary-color);
+    border-radius: 20px;
+    padding: 2.5rem 2rem 2rem;
+    max-width: 340px;
+    width: 90%;
+    text-align: center;
+    position: relative;
+    box-shadow: 0 20px 60px rgba(59, 130, 246, 0.25);
+    animation: slideDown 0.3s ease;
+}
+
+.modal-perfil-close {
+    position: absolute;
+    top: 14px;
+    right: 16px;
+    background: transparent;
+    border: none;
+    color: var(--text-muted);
+    font-size: 1.2rem;
+    cursor: pointer;
+    transition: color 0.2s;
+    padding: 4px;
+}
+
+.modal-perfil-close:hover {
+    color: var(--danger);
+}
+
+.modal-perfil-foto-wrap {
+    display: flex;
+    justify-content: center;
+    margin-bottom: 1.2rem;
+}
+
+.modal-perfil-foto {
+    width: 100px;
+    height: 100px;
+    border-radius: 50%;
+    object-fit: cover;
+    border: 3px solid var(--primary-color);
+    box-shadow: 0 4px 16px rgba(59, 130, 246, 0.35);
+}
+
+.modal-perfil-nombre {
+    font-size: 1.2rem;
+    font-weight: 700;
+    color: var(--text-light);
+    margin-bottom: 1rem;
+}
+
+.modal-perfil-badges {
+    display: flex;
+    justify-content: center;
+    gap: 10px;
+    flex-wrap: wrap;
+}
+
+.modal-perfil-badge-esp {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 0.4rem 1rem;
+    background: rgba(59, 130, 246, 0.15);
+    border: 1px solid rgba(59, 130, 246, 0.4);
+    border-radius: 20px;
+    color: var(--accent-color);
+    font-size: 0.85rem;
+    font-weight: 600;
+}
+
+.modal-perfil-badge-ciclo {
+    display: inline-flex;
+    align-items: center;
+    gap: 5px;
+    padding: 0.4rem 1rem;
+    background: rgba(16, 185, 129, 0.12);
+    border: 1px solid rgba(16, 185, 129, 0.4);
+    border-radius: 20px;
+    color: var(--success);
+    font-size: 0.85rem;
+    font-weight: 600;
 }
