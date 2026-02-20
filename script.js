@@ -356,6 +356,15 @@ async function completarRegistro(user) {
     const googleUid  = user.uid;
     const deviceType = getDeviceType();
 
+    // ── Clave compuesta: googleUid + tipo de dispositivo ──────────────────
+    // RAZÓN: móvil y laptop comparten el MISMO googleUid (misma cuenta Google).
+    // Si usáramos solo googleUid como clave, el segundo dispositivo sobrescribiría
+    // al primero en Firebase. Con la clave compuesta cada dispositivo tiene
+    // su propia entrada:
+    //   dispositivos/abc123uid_mobile   ← entrada del móvil
+    //   dispositivos/abc123uid_desktop  ← entrada del laptop
+    const deviceKey = `${googleUid}_${deviceType}`;
+
     // Mostrar spinner en el botón de Google si está visible
     const googleBtn = document.getElementById('googleSignInBtn');
     if (googleBtn) {
@@ -384,11 +393,11 @@ async function completarRegistro(user) {
         const dispositivosActuales = codigoData.dispositivos || {};
         const dispositivosKeys     = Object.keys(dispositivosActuales);
 
-        // ── Si este Google UID ya está registrado bajo este código → solo actualizar ──
-        if (dispositivosActuales[googleUid]) {
+        // ── Si este dispositivo (mismo UID + mismo tipo) ya está registrado → solo actualizar ──
+        if (dispositivosActuales[deviceKey]) {
             const updates = {};
-            updates[`codigos/${codigo}/dispositivos/${googleUid}/usuario`]      = userName;
-            updates[`codigos/${codigo}/dispositivos/${googleUid}/ultimoAcceso`] = new Date().toISOString();
+            updates[`codigos/${codigo}/dispositivos/${deviceKey}/usuario`]      = userName;
+            updates[`codigos/${codigo}/dispositivos/${deviceKey}/ultimoAcceso`] = new Date().toISOString();
             await database.ref().update(updates);
 
             _guardarSesionLocal(userName, codigo, googleUid, deviceType);
@@ -400,6 +409,7 @@ async function completarRegistro(user) {
         }
 
         // ── Verificar que no haya OTRA cuenta de Google ya registrada ──
+        // Comparamos el googleUid del campo (no la clave) para detectar cuentas diferentes.
         if (dispositivosKeys.length > 0) {
             const otraCuenta = Object.values(dispositivosActuales).find(
                 dev => dev.googleUid && dev.googleUid !== googleUid
@@ -407,8 +417,7 @@ async function completarRegistro(user) {
             if (otraCuenta) {
                 await _cerrarSesionYMostrarError(
                     '🚫 Este código ya está vinculado a otra cuenta de Google. ' +
-                    'Usa la misma cuenta de Google con la que te registraste originalmente.',
-                    true // volver al paso 1 para que ingrese el código de nuevo
+                    'Usa la misma cuenta de Google con la que te registraste originalmente.'
                 );
                 return;
             }
@@ -439,9 +448,9 @@ async function completarRegistro(user) {
             return;
         }
 
-        // ── Todo ok: escribir en Firebase ──
+        // ── Todo ok: escribir en Firebase con la clave compuesta ──
         const updates = {};
-        updates[`codigos/${codigo}/dispositivos/${googleUid}`] = {
+        updates[`codigos/${codigo}/dispositivos/${deviceKey}`] = {
             googleUid:     googleUid,
             googleEmail:   user.email,
             tipo:          deviceType,
@@ -580,16 +589,20 @@ async function validateAuthWithFirebase(googleUid) {
             }
         }
 
-        // Verificar que este Google UID está registrado bajo este código
+        // Verificar que este dispositivo (clave compuesta) está registrado bajo este código
+        // La clave es googleUid_deviceType para distinguir móvil de laptop de la misma cuenta.
         const dispositivos = codigoData.dispositivos || {};
-        if (!dispositivos[googleUid]) {
+        const deviceType   = parsed.deviceType || getDeviceType();
+        const deviceKey    = `${googleUid}_${deviceType}`;
+
+        if (!dispositivos[deviceKey]) {
             localStorage.removeItem('eduspace_auth');
             showAuthError('Sesión inválida. Este dispositivo no está autorizado para este código.');
             return false;
         }
 
         // Actualizar último acceso
-        await database.ref(`codigos/${codigo}/dispositivos/${googleUid}/ultimoAcceso`).set(new Date().toISOString());
+        await database.ref(`codigos/${codigo}/dispositivos/${deviceKey}/ultimoAcceso`).set(new Date().toISOString());
 
         if (codigo === '6578hy') {
             showSpecialUserMessage();
