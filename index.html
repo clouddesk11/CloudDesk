@@ -193,30 +193,33 @@
                 </div>
             </div>
 
-            <!-- ══ PASO API REVEAL: Solo aparece en móvil después del auth ══ -->
-            <div id="auth-step-api-reveal" style="display: none;">
-                <div class="auth-header">
-                    <i class="fa-solid fa-check-circle auth-icon" style="color: var(--success);"></i>
-                    <h2>¡Registro Completo!</h2>
-                </div>
-                <div class="auth-body">
-                    <div class="api-reveal-container">
-                        <p class="api-reveal-saludo" id="apiRevealSaludo">Hola</p>
-                        <p class="api-reveal-desc">
-                            <i class="fa-solid fa-laptop"></i>
-                            Este es tu API para ingresar desde tu laptop:
-                        </p>
-                        <div class="api-reveal-number" id="apiRevealNumber">000000000</div>
-                        <p class="api-reveal-warning">
-                            <i class="fa-solid fa-triangle-exclamation"></i>
-                            Guarda este número. Lo necesitarás para acceder desde tu laptop.
-                        </p>
-                    </div>
-                    <button class="auth-submit" style="background: linear-gradient(135deg, #10b981, #0d9668);" onclick="finalizarRegistroMobile()">
-                        <i class="fa-solid fa-check"></i> Entendido, Continuar
-                    </button>
-                </div>
-            </div>
+           <!-- ══ PASO API REVEAL: Solo aparece en móvil después del auth ══ -->
+<div id="auth-step-api-reveal" style="display: none; position: relative;">
+    <button class="api-reveal-close-btn" onclick="finalizarRegistroMobile()">
+        <i class="fa-solid fa-times"></i>
+    </button>
+    <div class="auth-header">
+        <i class="fa-solid fa-check-circle auth-icon" style="color: var(--success);"></i>
+        <h2>¡Registro Completo!</h2>
+    </div>
+    <div class="auth-body">
+        <div class="api-reveal-container">
+            <p class="api-reveal-saludo" id="apiRevealSaludo">Hola</p>
+            <p class="api-reveal-desc">
+                <i class="fa-solid fa-laptop"></i>
+                Este es tu API para ingresar desde tu laptop:
+            </p>
+            <div class="api-reveal-number" id="apiRevealNumber">000000000</div>
+            <p class="api-reveal-warning">
+                <i class="fa-solid fa-triangle-exclamation"></i>
+                Guarda este número. Lo necesitarás para acceder desde tu laptop.
+            </p>
+        </div>
+        <button class="auth-submit" style="background: linear-gradient(135deg, #10b981, #0d9668);" onclick="finalizarRegistroMobile()">
+            <i class="fa-solid fa-check"></i> Entendido, Continuar
+        </button>
+    </div>
+</div>
 
         </div>
     </div>
@@ -675,3 +678,5 @@
     <script src="script.js"></script>
 </body>
 </html>
+  
+  
