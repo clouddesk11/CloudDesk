@@ -1221,7 +1221,15 @@ function iniciarListenerBloqueo() {
             database.ref(`codigos/${codigo}/bloqueado`).off('value', bloqueoListener);
         }
 
+        let primeraLlamada = true;
+
         bloqueoListener = database.ref(`codigos/${codigo}/bloqueado`).on('value', (snapshot) => {
+
+            if (primeraLlamada) {
+                primeraLlamada = false;
+                return;
+            }
+
             const estaBloqueado = snapshot.val();
 
             if (estaBloqueado === true) {
@@ -1263,7 +1271,6 @@ function iniciarListenerBloqueo() {
 
     } catch(e) { console.error('Error iniciando listener de bloqueo:', e); }
 }
-
 function mostrarNotificacionDesbloqueo() {
     const notif = document.createElement('div');
     notif.style.cssText = `
@@ -2269,4 +2276,5 @@ function switchTab(tab) {
     }
 
 }
+
 
