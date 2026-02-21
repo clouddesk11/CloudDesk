@@ -1116,10 +1116,15 @@ document.addEventListener('DOMContentLoaded', async () => {
 
             if (authData) {
                 const ok = await validateAuthWithFirebase(user.uid);
-                if (ok) {
-                    hideAuthModal();
-                    iniciarListenerBloqueo();
-                    actualizarPerfilSidebar();
+if (ok) {
+    const apiRevealStep = document.getElementById('auth-step-api-reveal');
+    const apiRevealVisible = apiRevealStep && apiRevealStep.style.display !== 'none';
+    if (!apiRevealVisible) {
+        hideAuthModal();
+    }
+    iniciarListenerBloqueo();
+    actualizarPerfilSidebar();
+}
                 } else {
                     showAuthModal();
                     isMobile ? mostrarPaso1() : mostrarPasoLaptop();
@@ -2263,4 +2268,5 @@ function switchTab(tab) {
         document.getElementById('tab-estudiantes').classList.add('active');
         renderEstudiantes();
     }
+
 }
