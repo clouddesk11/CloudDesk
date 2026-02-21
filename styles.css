@@ -3853,3 +3853,48 @@ footer {
 .api-reveal-close-btn:hover {
     color: var(--danger);
 }
+
+/* ============================================
+   API EN SIDEBAR
+   ============================================ */
+.sidebar-api-wrapper {
+    display: none; /* se controla desde JS */
+    align-items: center;
+    gap: 6px;
+    padding: 0.4rem 1rem;
+    margin-top: 0.3rem;
+    background: rgba(16, 185, 129, 0.08);
+    border: 1px solid rgba(16, 185, 129, 0.25);
+    border-radius: 8px;
+    width: calc(100% - 1.5rem);
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.3s ease 0.1s;
+}
+
+.sidebar.open .sidebar-api-wrapper {
+    opacity: 1;
+    pointer-events: all;
+}
+
+.sidebar-api-wrapper i {
+    color: var(--success);
+    font-size: 0.8rem;
+    flex-shrink: 0;
+}
+
+.sidebar-api-label {
+    font-size: 0.72rem;
+    color: var(--text-muted);
+    font-weight: 600;
+    white-space: nowrap;
+}
+
+.sidebar-api-number {
+    font-size: 0.78rem;
+    font-weight: 800;
+    color: var(--success);
+    letter-spacing: 2px;
+    font-family: monospace;
+    white-space: nowrap;
+}
