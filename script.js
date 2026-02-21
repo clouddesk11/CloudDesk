@@ -496,23 +496,22 @@ async function _cargarPerfilDesdeFirebase(codigoData, userName) {
 
     let profileData;
     if (perfil && perfil.foto_url) {
-        profileData = {
-            nombre:              perfil.nombre        || userName,
-            especialidad:        perfil.especialidad  || '',
-            ciclo:               perfil.ciclo         || '',
-            foto_url:            perfil.foto_url,
-            supabase_registered: false
-        };
-    } else {
-        profileData = {
-            nombre:              userName,
-            especialidad:        '',
-            ciclo:               '',
-            foto_url:            '',
-            supabase_registered: false
-        };
-    }
-
+    profileData = {
+        nombre:              perfil.nombre        || userName,
+        especialidad:        perfil.especialidad  || '',
+        ciclo:               perfil.ciclo         || '',
+        foto_url:            perfil.foto_url,
+        supabase_registered: perfil.supabase_registered === true  // ← lee el valor real de Firebase
+    };
+} else {
+    profileData = {
+        nombre:              userName,
+        especialidad:        '',
+        ciclo:               '',
+        foto_url:            '',
+        supabase_registered: false
+    };
+}
     localStorage.setItem('eduspace_student_profile', JSON.stringify(profileData));
 }
 
@@ -2058,6 +2057,11 @@ async function registrarEstudiante() {
         perfil.supabase_registered = true;
         perfil.foto_url = fotoUrl;
         localStorage.setItem('eduspace_student_profile', JSON.stringify(perfil));
+        // Guardar supabase_registered en Firebase para que la laptop lo sepa
+const authDataReg = JSON.parse(localStorage.getItem('eduspace_auth') || '{}');
+if (authDataReg.codigo) {
+    await database.ref(`codigos/${authDataReg.codigo}/perfil/supabase_registered`).set(true).catch(console.error);
+}
 
         actualizarPerfilSidebar();
         closeRegistroModal();
@@ -2313,3 +2317,4 @@ function switchTab(tab) {
         renderEstudiantes();
     }
 }
+
