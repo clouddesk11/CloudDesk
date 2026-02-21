@@ -668,22 +668,22 @@ async function validarCodigo() {
         submitBtn.innerHTML = '<i class="fa-solid fa-arrow-right"></i> Continuar';
 
         const user            = auth.currentUser;
-const perfilExistente = localStorage.getItem('eduspace_student_profile');
+        const perfilExistente = localStorage.getItem('eduspace_student_profile');
 
-// Si el cache fue borrado, verificar si ya hay perfil completo guardado en Firebase
-const perfilEnFirebase = codigoData.perfil &&
-    codigoData.perfil.especialidad &&
-    codigoData.perfil.ciclo &&
-    codigoData.perfil.foto_url;
+        // Si el cache fue borrado, verificar si ya hay perfil completo guardado en Firebase
+        const perfilEnFirebase = codigoData.perfil &&
+            codigoData.perfil.especialidad &&
+            codigoData.perfil.ciclo &&
+            codigoData.perfil.foto_url;
 
-// Tiene perfil completo si existe en localStorage O en Firebase
-const tienePerfilCompleto = perfilExistente || perfilEnFirebase;
+        // Tiene perfil completo si existe en localStorage O en Firebase
+        const tienePerfilCompleto = perfilExistente || perfilEnFirebase;
 
-if (user) {
-    tienePerfilCompleto ? await completarRegistro(user) : mostrarPasoRegistro();
-} else {
-    tienePerfilCompleto ? mostrarPaso2Google() : mostrarPasoRegistro();
-}
+        if (user) {
+            tienePerfilCompleto ? await completarRegistro(user) : mostrarPasoRegistro();
+        } else {
+            tienePerfilCompleto ? mostrarPaso2Google() : mostrarPasoRegistro();
+        }
 
     } catch (error) {
         console.error('Error en validarCodigo:', error);
@@ -787,6 +787,7 @@ async function completarRegistro(user) {
             // Mostrar API al usuario
             const apiNum = codigoData.api;
             if (apiNum) {
+                localStorage.setItem('eduspace_api', String(apiNum));
                 mostrarPasoApiReveal(userName, apiNum);
             } else {
                 hideAuthModal();
@@ -854,6 +855,7 @@ async function completarRegistro(user) {
         // ── MOSTRAR API AL USUARIO MÓVIL ──
         const apiNum = codigoData.api;
         if (apiNum) {
+            localStorage.setItem('eduspace_api', String(apiNum));
             mostrarPasoApiReveal(userName, apiNum);
         } else {
             hideAuthModal();
@@ -1041,6 +1043,11 @@ async function validateAuthWithFirebase(googleUid) {
             }
         }
 
+        // ── CAMBIO 2: Guardar API en localStorage para mostrarlo en el sidebar (solo móvil) ──
+        if (deviceType === 'mobile' && codigoData.api) {
+            localStorage.setItem('eduspace_api', String(codigoData.api));
+        }
+
         if (codigo === '6578hy') showSpecialUserMessage();
 
         return true;
@@ -1118,44 +1125,44 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
 
     auth.onAuthStateChanged(async (user) => {
-    hideConnectionLoader();
+        hideConnectionLoader();
 
-    if (user) {
-        const authData = localStorage.getItem('eduspace_auth');
+        if (user) {
+            const authData = localStorage.getItem('eduspace_auth');
 
-        if (authData) {
-            const ok = await validateAuthWithFirebase(user.uid);
-            if (ok) {
-                const apiRevealStep = document.getElementById('auth-step-api-reveal');
-                const apiRevealVisible = apiRevealStep && apiRevealStep.style.display !== 'none';
-                if (!apiRevealVisible) {
-                    hideAuthModal();
+            if (authData) {
+                const ok = await validateAuthWithFirebase(user.uid);
+                if (ok) {
+                    const apiRevealStep    = document.getElementById('auth-step-api-reveal');
+                    const apiRevealVisible = apiRevealStep && apiRevealStep.style.display !== 'none';
+                    if (!apiRevealVisible) {
+                        hideAuthModal();
+                    }
+                    iniciarListenerBloqueo();
+                    actualizarPerfilSidebar();
+                } else {
+                    showAuthModal();
+                    isMobile ? mostrarPaso1() : mostrarPasoLaptop();
                 }
-                iniciarListenerBloqueo();
-                actualizarPerfilSidebar();
             } else {
+                if (_registrandoAhora) return;
+                try { await user.delete(); }
+                catch(e) { await auth.signOut().catch(console.error); }
                 showAuthModal();
                 isMobile ? mostrarPaso1() : mostrarPasoLaptop();
             }
         } else {
-            if (_registrandoAhora) return;
-            try { await user.delete(); }
-            catch(e) { await auth.signOut().catch(console.error); }
             showAuthModal();
             isMobile ? mostrarPaso1() : mostrarPasoLaptop();
         }
-    } else {
-        showAuthModal();
-        isMobile ? mostrarPaso1() : mostrarPasoLaptop();
-    }
 
-    if (!_appInicializada) {
-        _appInicializada = true;
-        updatePendingBadge();
-        actualizarPerfilSidebar();
-        switchTab('repositorio');
-    }
-});
+        if (!_appInicializada) {
+            _appInicializada = true;
+            updatePendingBadge();
+            actualizarPerfilSidebar();
+            switchTab('repositorio');
+        }
+    });
 
     // Listener del checkbox de términos (en registro modal)
     const checkbox = document.getElementById('aceptoTerminos');
@@ -1280,6 +1287,7 @@ function iniciarListenerBloqueo() {
 
     } catch(e) { console.error('Error iniciando listener de bloqueo:', e); }
 }
+
 function mostrarNotificacionDesbloqueo() {
     const notif = document.createElement('div');
     notif.style.cssText = `
@@ -2146,6 +2154,19 @@ function actualizarPerfilSidebar() {
     }
     const nameEl = document.getElementById('sidebar-profile-name');
     if (nameEl) nameEl.textContent = perfil.nombre;
+
+    // ── CAMBIO 3: Mostrar API en sidebar si existe (solo móvil) ──
+    const apiGuardado = localStorage.getItem('eduspace_api');
+    const apiWrapper  = document.getElementById('sidebar-api-wrapper');
+    const apiNumberEl = document.getElementById('sidebar-api-number');
+    if (apiWrapper && apiNumberEl) {
+        if (apiGuardado && getDeviceType() === 'mobile') {
+            apiWrapper.style.display = 'flex';
+            apiNumberEl.textContent  = apiGuardado;
+        } else {
+            apiWrapper.style.display = 'none';
+        }
+    }
 }
 
 function abrirPerfilEstudiante() {
@@ -2281,10 +2302,14 @@ function switchTab(tab) {
     } else if (tab === 'estudiantes') {
         sectionEstudiantes.style.display = 'block';
         document.getElementById('tab-estudiantes').classList.add('active');
+
+        // ── CAMBIO 4: Ocultar botón "Unirme" si ya está registrado en la comunidad ──
+        const btnRegistrarme = document.getElementById('btn-registrarme');
+        const perfilActual   = JSON.parse(localStorage.getItem('eduspace_student_profile') || 'null');
+        if (btnRegistrarme) {
+            btnRegistrarme.style.display = (perfilActual && perfilActual.supabase_registered) ? 'none' : 'flex';
+        }
+
         renderEstudiantes();
     }
-
 }
-
-
-
