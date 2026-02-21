@@ -1109,45 +1109,44 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
 
     auth.onAuthStateChanged(async (user) => {
-        hideConnectionLoader();
+    hideConnectionLoader();
 
-        if (user) {
-            const authData = localStorage.getItem('eduspace_auth');
+    if (user) {
+        const authData = localStorage.getItem('eduspace_auth');
 
-            if (authData) {
-                const ok = await validateAuthWithFirebase(user.uid);
-if (ok) {
-    const apiRevealStep = document.getElementById('auth-step-api-reveal');
-    const apiRevealVisible = apiRevealStep && apiRevealStep.style.display !== 'none';
-    if (!apiRevealVisible) {
-        hideAuthModal();
-    }
-    iniciarListenerBloqueo();
-    actualizarPerfilSidebar();
-}
-                } else {
-                    showAuthModal();
-                    isMobile ? mostrarPaso1() : mostrarPasoLaptop();
+        if (authData) {
+            const ok = await validateAuthWithFirebase(user.uid);
+            if (ok) {
+                const apiRevealStep = document.getElementById('auth-step-api-reveal');
+                const apiRevealVisible = apiRevealStep && apiRevealStep.style.display !== 'none';
+                if (!apiRevealVisible) {
+                    hideAuthModal();
                 }
+                iniciarListenerBloqueo();
+                actualizarPerfilSidebar();
             } else {
-                if (_registrandoAhora) return;
-                try { await user.delete(); }
-                catch(e) { await auth.signOut().catch(console.error); }
                 showAuthModal();
                 isMobile ? mostrarPaso1() : mostrarPasoLaptop();
             }
         } else {
+            if (_registrandoAhora) return;
+            try { await user.delete(); }
+            catch(e) { await auth.signOut().catch(console.error); }
             showAuthModal();
             isMobile ? mostrarPaso1() : mostrarPasoLaptop();
         }
+    } else {
+        showAuthModal();
+        isMobile ? mostrarPaso1() : mostrarPasoLaptop();
+    }
 
-        if (!_appInicializada) {
-            _appInicializada = true;
-            updatePendingBadge();
-            actualizarPerfilSidebar();
-            switchTab('repositorio');
-        }
-    });
+    if (!_appInicializada) {
+        _appInicializada = true;
+        updatePendingBadge();
+        actualizarPerfilSidebar();
+        switchTab('repositorio');
+    }
+});
 
     // Listener del checkbox de términos (en registro modal)
     const checkbox = document.getElementById('aceptoTerminos');
@@ -2270,3 +2269,4 @@ function switchTab(tab) {
     }
 
 }
+
