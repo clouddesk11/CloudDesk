@@ -28,206 +28,129 @@
     </div>
 
     <!-- Modal de Autenticación -->
-    <div id="authModal" class="auth-modal" style="display: none;">
-        <div class="auth-modal-content">
+<div id="authModal" class="auth-modal" style="display: none;">
+    <div class="auth-modal-content">
 
-            <!-- ══ PASOS SOLO MÓVIL ══ -->
-
-            <!-- PASO 1: Nombre + Código (SOLO MÓVIL) -->
-            <div id="auth-step-code" style="display: none;">
-                <div class="auth-header">
-                    <i class="fa-solid fa-graduation-cap auth-icon"></i>
-                    <h2>Hola, bienvenido a EduSpace</h2>
-                </div>
-                <div class="auth-body">
-                    <div class="auth-section">
-                        <p class="auth-text">Regístrate con tu nombre.</p>
-                        <input type="text" id="authUserName" class="auth-input" placeholder="Ingresa tu nombre completo" autocomplete="off">
-                    </div>
-                    <div class="auth-section">
-                        <p class="auth-text">Ingresa tu código de compra. Si aún no dispones de uno, solicítalo al administrador del sistema.</p>
-                        <input type="text" id="authCode" class="auth-input" placeholder="Ingresa tu código" autocomplete="off">
-                    </div>
-                    <div id="authError" class="auth-error" style="display: none;"></div>
-                    <button id="authSubmit" class="auth-submit">
-                        <i class="fa-solid fa-arrow-right"></i> Continuar
-                    </button>
-                </div>
+        <!-- PASO 1: Código de acceso -->
+        <div id="auth-step-code">
+            <div class="auth-header">
+                <i class="fa-solid fa-graduation-cap auth-icon"></i>
+                <h2>Hola, bienvenido a EduSpace</h2>
             </div>
-
-            <!-- PASO 2: Especialidad + Ciclo + Foto (SOLO MÓVIL) -->
-            <div id="auth-step-registro" style="display: none;">
-                <div class="auth-header">
-                    <i class="fa-solid fa-id-card auth-icon"></i>
-                    <h2>Completa tu perfil</h2>
-                    <p style="color: var(--text-muted); font-size: 0.85rem; margin-top: 0.5rem;">
-                        Esta información aparecerá en tu sidebar de inmediato.
-                    </p>
+            <div class="auth-body">
+                <div class="auth-section">
+                    <p class="auth-text">Regístrate con tu nombre.</p>
+                    <input type="text" id="authUserName" class="auth-input" placeholder="Ingresa tu nombre completo" autocomplete="off">
                 </div>
-                <div class="auth-body">
-                    <div class="paso0-campos-row">
-                        <div class="form-group paso0-campo-half">
-                            <label for="selectEspecialidad">
-                                <i class="fa-solid fa-graduation-cap"></i> Especialidad
-                            </label>
-                            <select id="selectEspecialidad" class="paso0-select auth-select">
-                                <option value="" disabled selected>Elige</option>
-                                <option value="Comunicación">Comunicación</option>
-                            </select>
-                        </div>
-                        <div class="form-group paso0-campo-half">
-                            <label for="selectCiclo">
-                                <i class="fa-solid fa-layer-group"></i> Ciclo
-                            </label>
-                            <select id="selectCiclo" class="paso0-select auth-select">
-                                <option value="" disabled selected>Elige</option>
-                                <option value="VII">VII</option>
-                            </select>
-                        </div>
-                    </div>
-                    <div class="form-group">
-                        <label>
-                            <i class="fa-solid fa-camera"></i> Foto de Perfil
-                        </label>
-                        <div class="upload-area auth-upload-area" id="uploadAreaPaso0"
-                             onclick="document.getElementById('fotoInputPaso0').click()">
-                            <input type="file"
-                                   id="fotoInputPaso0"
-                                   accept="image/*"
-                                   style="display:none;"
-                                   onchange="previewImage(event)">
-                            <div id="uploadPlaceholderPaso0" class="upload-placeholder">
-                                <i class="fa-solid fa-cloud-upload-alt"></i>
-                                <p>Haz clic para seleccionar una foto</p>
-                                <span>JPG, PNG o GIF • Máx. 5MB</span>
-                            </div>
-                            <div id="imagePreviewPaso0" class="image-preview" style="display:none;">
-                                <img id="previewImgPaso0" src="" alt="Vista previa">
-                                <span class="paso0-foto-ok">
-                                    <i class="fa-solid fa-check-circle"></i> Foto seleccionada
-                                    <button type="button" class="btn-change-photo"
-                                            onclick="event.stopPropagation();document.getElementById('fotoInputPaso0').click()">
-                                        <i class="fa-solid fa-exchange-alt"></i> Cambiar
-                                    </button>
-                                </span>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div id="authRegistroError" class="auth-error" style="display: none;"></div>
-                    <button class="auth-submit" onclick="continuarDesdeAuth()">
-                        <i class="fa-solid fa-arrow-right"></i> Continuar
-                    </button>
+                <div class="auth-section">
+                    <p class="auth-text">Ingresa tu código de compra. Si aún no dispones de uno, solicítalo al administrador del sistema.</p>
+                    <input type="text" id="authCode" class="auth-input" placeholder="Ingresa tu código" autocomplete="off">
                 </div>
+                <div id="authError" class="auth-error" style="display: none;"></div>
+                <button id="authSubmit" class="auth-submit">
+                    <i class="fa-solid fa-arrow-right"></i> Continuar
+                </button>
             </div>
-
-            <!-- PASO 3: Vincula Google (SOLO MÓVIL) -->
-            <div id="auth-step-google" style="display: none;">
-                <div class="auth-header">
-                    <i class="fa-solid fa-shield-halved auth-icon"></i>
-                    <h2>Vincula tu cuenta de Google</h2>
-                    <p id="auth-codigo-validado" style="color: #10b981; margin-top: 0.5rem; font-size: 0.9rem; font-weight: 500;"></p>
-                    <p style="color: var(--text-muted); margin-top: 0.5rem; font-size: 0.85rem;">
-                        Tu cuenta de Google será la llave de acceso permanente. Usa siempre la misma.
-                    </p>
-                </div>
-                <div class="auth-body">
-                    <button id="googleSignInBtn" class="google-signin-btn" onclick="signInWithGoogle()">
-                        <svg width="20" height="20" viewBox="0 0 48 48">
-                            <path fill="#FFC107" d="M43.611 20.083H42V20H24v8h11.303c-1.649 4.657-6.08 8-11.303 8-6.627 0-12-5.373-12-12s5.373-12 12-12c3.059 0 5.842 1.154 7.961 3.039l5.657-5.657C34.046 6.053 29.268 4 24 4 12.955 4 4 12.955 4 24s8.955 20 20 20 20-8.955 20-20c0-1.341-.138-2.65-.389-3.917z"/>
-                            <path fill="#FF3D00" d="m6.306 14.691 6.571 4.819C14.655 15.108 18.961 12 24 12c3.059 0 5.842 1.154 7.961 3.039l5.657-5.657C34.046 6.053 29.268 4 24 4 16.318 4 9.656 8.337 6.306 14.691z"/>
-                            <path fill="#4CAF50" d="M24 44c5.166 0 9.86-1.977 13.409-5.192l-6.19-5.238A11.91 11.91 0 0 1 24 36c-5.202 0-9.619-3.317-11.283-7.946l-6.522 5.025C9.505 39.556 16.227 44 24 44z"/>
-                            <path fill="#1976D2" d="M43.611 20.083H42V20H24v8h11.303a12.04 12.04 0 0 1-4.087 5.571l.003-.002 6.19 5.238C36.971 39.205 44 34 44 24c0-1.341-.138-2.65-.389-3.917z"/>
-                        </svg>
-                        Continuar con Google
-                    </button>
-                    <div id="googleError" class="auth-error" style="display: none;"></div>
-                </div>
-            </div>
-
-            <!-- PASO 4: Mostrar API (SOLO MÓVIL - después de autenticación exitosa) -->
-            <div id="auth-step-api" style="display: none;">
-                <div class="auth-header">
-                    <i class="fa-solid fa-key auth-icon auth-icon-success"></i>
-                    <h2>¡Registro completado!</h2>
-                </div>
-                <div class="auth-body">
-                    <div class="api-reveal-container">
-                        <p class="api-reveal-greeting" id="api-reveal-greeting"></p>
-                        <p class="api-reveal-desc">
-                            <i class="fa-solid fa-laptop"></i>
-                            Este es tu <strong>API de acceso para laptop</strong>:
-                        </p>
-                        <div class="api-number-display" id="api-number-display">
-                            <span id="api-number-value">—</span>
-                        </div>
-                        <div class="api-reveal-warning">
-                            <i class="fa-solid fa-triangle-exclamation"></i>
-                            <span>Guarda este número en un lugar seguro. Lo necesitarás para ingresar desde tu laptop.</span>
-                        </div>
-                    </div>
-                    <button class="auth-submit auth-submit-success" onclick="cerrarAuthConAPI()">
-                        <i class="fa-solid fa-check"></i> Entendido, ¡ingresar!
-                    </button>
-                </div>
-            </div>
-
-            <!-- ══ PASOS SOLO LAPTOP/DESKTOP ══ -->
-
-            <!-- DESKTOP PASO 1: Ingresar API numérico -->
-            <div id="auth-step-desktop" style="display: none;">
-                <div class="auth-header">
-                    <i class="fa-solid fa-laptop auth-icon"></i>
-                    <h2>Acceso para Laptop</h2>
-                    <p style="color: var(--text-muted); font-size: 0.85rem; margin-top: 0.5rem;">
-                        Ingresa el API numérico que obtuviste al registrarte desde tu dispositivo móvil.
-                    </p>
-                </div>
-                <div class="auth-body">
-                    <div class="auth-section">
-                        <p class="auth-text">API de acceso</p>
-                        <input type="number"
-                               id="desktop-api-input"
-                               class="auth-input desktop-api-input"
-                               placeholder="Ej: 847291"
-                               autocomplete="off"
-                               min="1">
-                    </div>
-                    <div id="desktop-error" class="auth-error" style="display: none;"></div>
-                    <button id="desktop-api-btn" class="auth-submit" onclick="validarAPIDesktop()">
-                        <i class="fa-solid fa-arrow-right"></i> Verificar API
-                    </button>
-                </div>
-            </div>
-
-            <!-- DESKTOP PASO 2: Vincular Google -->
-            <div id="auth-step-desktop-google" style="display: none;">
-                <div class="auth-header">
-                    <i class="fa-solid fa-shield-halved auth-icon"></i>
-                    <h2>Verifica tu cuenta de Google</h2>
-                    <p style="color: var(--text-muted); font-size: 0.85rem; margin-top: 0.5rem;">
-                        Usa la misma cuenta de Google con la que te registraste en tu <strong>móvil</strong>.
-                    </p>
-                </div>
-                <div class="auth-body">
-                    <button id="desktop-google-btn" class="google-signin-btn" onclick="signInWithGoogleDesktop()">
-                        <svg width="20" height="20" viewBox="0 0 48 48">
-                            <path fill="#FFC107" d="M43.611 20.083H42V20H24v8h11.303c-1.649 4.657-6.08 8-11.303 8-6.627 0-12-5.373-12-12s5.373-12 12-12c3.059 0 5.842 1.154 7.961 3.039l5.657-5.657C34.046 6.053 29.268 4 24 4 12.955 4 4 12.955 4 24s8.955 20 20 20 20-8.955 20-20c0-1.341-.138-2.65-.389-3.917z"/>
-                            <path fill="#FF3D00" d="m6.306 14.691 6.571 4.819C14.655 15.108 18.961 12 24 12c3.059 0 5.842 1.154 7.961 3.039l5.657-5.657C34.046 6.053 29.268 4 24 4 16.318 4 9.656 8.337 6.306 14.691z"/>
-                            <path fill="#4CAF50" d="M24 44c5.166 0 9.86-1.977 13.409-5.192l-6.19-5.238A11.91 11.91 0 0 1 24 36c-5.202 0-9.619-3.317-11.283-7.946l-6.522 5.025C9.505 39.556 16.227 44 24 44z"/>
-                            <path fill="#1976D2" d="M43.611 20.083H42V20H24v8h11.303a12.04 12.04 0 0 1-4.087 5.571l.003-.002 6.19 5.238C36.971 39.205 44 34 44 24c0-1.341-.138-2.65-.389-3.917z"/>
-                        </svg>
-                        Continuar con Google
-                    </button>
-                    <div id="desktop-google-error" class="auth-error" style="display: none;"></div>
-                    <button class="auth-back-btn" onclick="volverAlAPIDesktop()">
-                        <i class="fa-solid fa-arrow-left"></i> Volver
-                    </button>
-                </div>
-            </div>
-
         </div>
+
+        <!-- PASO 2: Google sign-in (móvil) -->
+        <div id="auth-step-google" style="display: none;">
+            <div class="auth-header">
+                <i class="fa-solid fa-shield-halved auth-icon"></i>
+                <h2>Vincula tu cuenta de Google</h2>
+                <p id="auth-codigo-validado" style="color: #10b981; margin-top: 0.5rem; font-size: 0.9rem; font-weight: 500;"></p>
+                <p style="color: var(--text-muted); margin-top: 0.5rem; font-size: 0.85rem;">
+                    Tu cuenta de Google será la llave de acceso permanente. Usa siempre la misma.
+                </p>
+            </div>
+            <div class="auth-body">
+                <button id="googleSignInBtn" class="google-signin-btn" onclick="signInWithGoogle()">
+                    <svg width="20" height="20" viewBox="0 0 48 48">
+                        <path fill="#FFC107" d="M43.611 20.083H42V20H24v8h11.303c-1.649 4.657-6.08 8-11.303 8-6.627 0-12-5.373-12-12s5.373-12 12-12c3.059 0 5.842 1.154 7.961 3.039l5.657-5.657C34.046 6.053 29.268 4 24 4 12.955 4 4 12.955 4 24s8.955 20 20 20 20-8.955 20-20c0-1.341-.138-2.65-.389-3.917z"/>
+                        <path fill="#FF3D00" d="m6.306 14.691 6.571 4.819C14.655 15.108 18.961 12 24 12c3.059 0 5.842 1.154 7.961 3.039l5.657-5.657C34.046 6.053 29.268 4 24 4 16.318 4 9.656 8.337 6.306 14.691z"/>
+                        <path fill="#4CAF50" d="M24 44c5.166 0 9.86-1.977 13.409-5.192l-6.19-5.238A11.91 11.91 0 0 1 24 36c-5.202 0-9.619-3.317-11.283-7.946l-6.522 5.025C9.505 39.556 16.227 44 24 44z"/>
+                        <path fill="#1976D2" d="M43.611 20.083H42V20H24v8h11.303a12.04 12.04 0 0 1-4.087 5.571l.003-.002 6.19 5.238C36.971 39.205 44 34 44 24c0-1.341-.138-2.65-.389-3.917z"/>
+                    </svg>
+                    Continuar con Google
+                </button>
+                <div id="googleError" class="auth-error" style="display: none;"></div>
+            </div>
+        </div>
+
+        <!-- ══ PASO LAPTOP: Solo aparece en desktop ══ -->
+        <div id="auth-step-laptop" style="display: none;">
+            <div class="auth-header">
+                <i class="fa-solid fa-laptop auth-icon"></i>
+                <h2>Acceso desde Laptop</h2>
+                <p style="color: var(--text-muted); font-size: 0.85rem; margin-top: 0.5rem;">
+                    Ingresa tu API numérica para vincular este dispositivo.
+                </p>
+            </div>
+            <div class="auth-body">
+                <div class="auth-section">
+                    <p class="auth-text">Tu API fue asignada al registrarte desde el móvil.</p>
+                    <input type="number" id="laptopApiInput" class="auth-input"
+                           placeholder="Ingresa tu API numérica" autocomplete="off"
+                           style="text-align:center; font-size:1.3rem; letter-spacing:3px; font-weight:700;">
+                </div>
+                <div id="laptopApiError" class="auth-error" style="display: none;"></div>
+                <button id="laptopApiSubmit" class="auth-submit" onclick="validarAPI()">
+                    <i class="fa-solid fa-arrow-right"></i> Continuar
+                </button>
+            </div>
+        </div>
+
+        <!-- ══ PASO GOOGLE LAPTOP: Google sign-in para desktop ══ -->
+        <div id="auth-step-google-laptop" style="display: none;">
+            <div class="auth-header">
+                <i class="fa-solid fa-shield-halved auth-icon"></i>
+                <h2>Vincula tu cuenta de Google</h2>
+                <p id="auth-api-validado" style="color: #10b981; margin-top: 0.5rem; font-size: 0.9rem; font-weight: 500;"></p>
+                <p style="color: var(--text-muted); margin-top: 0.5rem; font-size: 0.85rem;">
+                    Usa la misma cuenta de Google con la que te registraste en el móvil.
+                </p>
+            </div>
+            <div class="auth-body">
+                <button id="googleSignInBtnLaptop" class="google-signin-btn" onclick="signInWithGoogleLaptop()">
+                    <svg width="20" height="20" viewBox="0 0 48 48">
+                        <path fill="#FFC107" d="M43.611 20.083H42V20H24v8h11.303c-1.649 4.657-6.08 8-11.303 8-6.627 0-12-5.373-12-12s5.373-12 12-12c3.059 0 5.842 1.154 7.961 3.039l5.657-5.657C34.046 6.053 29.268 4 24 4 12.955 4 4 12.955 4 24s8.955 20 20 20 20-8.955 20-20c0-1.341-.138-2.65-.389-3.917z"/>
+                        <path fill="#FF3D00" d="m6.306 14.691 6.571 4.819C14.655 15.108 18.961 12 24 12c3.059 0 5.842 1.154 7.961 3.039l5.657-5.657C34.046 6.053 29.268 4 24 4 16.318 4 9.656 8.337 6.306 14.691z"/>
+                        <path fill="#4CAF50" d="M24 44c5.166 0 9.86-1.977 13.409-5.192l-6.19-5.238A11.91 11.91 0 0 1 24 36c-5.202 0-9.619-3.317-11.283-7.946l-6.522 5.025C9.505 39.556 16.227 44 24 44z"/>
+                        <path fill="#1976D2" d="M43.611 20.083H42V20H24v8h11.303a12.04 12.04 0 0 1-4.087 5.571l.003-.002 6.19 5.238C36.971 39.205 44 34 44 24c0-1.341-.138-2.65-.389-3.917z"/>
+                    </svg>
+                    Continuar con Google
+                </button>
+                <div id="googleErrorLaptop" class="auth-error" style="display: none;"></div>
+            </div>
+        </div>
+
+        <!-- ══ PASO API REVEAL: Solo aparece en móvil después del auth ══ -->
+        <div id="auth-step-api-reveal" style="display: none;">
+            <div class="auth-header">
+                <i class="fa-solid fa-check-circle auth-icon" style="color: var(--success);"></i>
+                <h2>¡Registro Completo!</h2>
+            </div>
+            <div class="auth-body">
+                <div class="api-reveal-container">
+                    <p class="api-reveal-saludo" id="apiRevealSaludo">Hola</p>
+                    <p class="api-reveal-desc">
+                        <i class="fa-solid fa-laptop"></i>
+                        Este es tu API para ingresar desde tu laptop:
+                    </p>
+                    <div class="api-reveal-number" id="apiRevealNumber">000000000</div>
+                    <p class="api-reveal-warning">
+                        <i class="fa-solid fa-triangle-exclamation"></i>
+                        Guarda este número. Lo necesitarás para acceder desde tu laptop.
+                    </p>
+                </div>
+                <button class="auth-submit" style="background: linear-gradient(135deg, #10b981, #0d9668);" onclick="finalizarRegistroMobile()">
+                    <i class="fa-solid fa-check"></i> Entendido, Continuar
+                </button>
+            </div>
+        </div>
+
     </div>
+</div>
 
     <!-- Mensaje Especial -->
     <div id="specialUserMessage" class="special-user-message" style="display: none;">
@@ -272,7 +195,9 @@
         <i class="fa-solid fa-user-graduate"></i>
         <span class="sidebar-btn-text">Estudiantes</span>
     </button>
+    </nav>
 
+    <!-- Perfil del estudiante al fondo del sidebar -->
     <div id="sidebar-profile-wrapper" class="sidebar-profile-wrapper" style="display:none;">
         <div class="sidebar-profile-divider"></div>
         <div class="sidebar-profile" onclick="abrirPerfilEstudiante()">
@@ -464,7 +389,7 @@
     </button>
 </footer>
 
-    <!-- Modal Perfil Docente -->
+    <!-- Modal Perfil -->
     <div id="profileModal" class="modal">
         <div class="modal-content">
             <span class="close-modal" onclick="closeProfileModal()">×</span>
@@ -565,19 +490,71 @@
                 <div class="registro-form-container">
                     <h2><i class="fa-solid fa-user-graduate"></i> Únete a CloudDesk</h2>
 
-                    <div id="registro-sin-perfil" style="display: none; text-align: center; padding: 1.5rem 0;">
-                        <i class="fa-solid fa-circle-exclamation" style="font-size: 3rem; color: var(--warning); margin-bottom: 1rem; display: block;"></i>
-                        <h3 style="color: var(--text-light); margin-bottom: 1rem;">Perfil incompleto</h3>
-                        <p style="color: var(--text-muted); margin-bottom: 1.5rem; line-height: 1.6;">
-                            Para unirte a la comunidad primero debes completar tu perfil.<br>
-                            Cierra sesión e inicia nuevamente para hacerlo.
+                    <!-- ══ PASO 0: Especialidad + Ciclo + Foto (todo junto al inicio) ══ -->
+                    <div id="registro-paso0" class="registro-paso0">
+                        <p class="paso0-desc">
+                            <i class="fa-solid fa-circle-info" style="color:var(--primary-color);"></i>
+                            Completa tus datos y sube tu foto para continuar.
                         </p>
-                        <button onclick="cerrarSesionYReingresar()" style="padding: 0.8rem 1.5rem; background: var(--primary-color); color: white; border: none; border-radius: 8px; cursor: pointer; font-weight: 600; display: inline-flex; align-items: center; gap: 8px;">
-                            <i class="fa-solid fa-right-from-bracket"></i> Cerrar sesión e ingresar de nuevo
+
+                        <div class="paso0-campos-row">
+                            <div class="form-group paso0-campo-half">
+                                <label for="selectEspecialidad">
+                                    <i class="fa-solid fa-graduation-cap"></i> Especialidad
+                                </label>
+                                <select id="selectEspecialidad" class="paso0-select">
+                                    <option value="" disabled selected>Elige</option>
+                                    <option value="Comunicación">Comunicación</option>
+                                </select>
+                            </div>
+                            <div class="form-group paso0-campo-half">
+                                <label for="selectCiclo">
+                                    <i class="fa-solid fa-layer-group"></i> Ciclo
+                                </label>
+                                <select id="selectCiclo" class="paso0-select">
+                                    <option value="" disabled selected>Elige</option>
+                                    <option value="VII">VII</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <!-- Foto aquí -->
+                        <div class="form-group">
+                            <label>
+                                <i class="fa-solid fa-camera"></i> Foto de Perfil
+                            </label>
+                            <div class="upload-area" id="uploadAreaPaso0"
+                                 onclick="document.getElementById('fotoInputPaso0').click()">
+                                <input type="file"
+                                       id="fotoInputPaso0"
+                                       accept="image/*"
+                                       style="display:none;"
+                                       onchange="previewImage(event)">
+                                <div id="uploadPlaceholderPaso0" class="upload-placeholder">
+                                    <i class="fa-solid fa-cloud-upload-alt"></i>
+                                    <p>Haz clic para seleccionar una foto</p>
+                                    <span>JPG, PNG o GIF • Máx. 5MB</span>
+                                </div>
+                                <div id="imagePreviewPaso0" class="image-preview" style="display:none;">
+                                    <img id="previewImgPaso0" src="" alt="Vista previa">
+                                    <span class="paso0-foto-ok">
+                                        <i class="fa-solid fa-check-circle"></i> Foto seleccionada
+                                        <button type="button" class="btn-change-photo"
+                                                onclick="event.stopPropagation();document.getElementById('fotoInputPaso0').click()">
+                                            <i class="fa-solid fa-exchange-alt"></i> Cambiar
+                                        </button>
+                                    </span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <button class="btn-paso0-continuar" onclick="continuarATerminos()">
+                            <i class="fa-solid fa-arrow-right"></i> Continuar
                         </button>
                     </div>
 
-                    <div class="terminos-container" style="display: none;">
+                    <!-- ══ PASO 1: Términos y condiciones ══ -->
+                    <div class="terminos-container" style="display:none;">
                         <div class="terminos-scroll">
                             <h3>📋 Términos y Condiciones</h3>
                             <p><strong>Al registrarte en CloudDesk, aceptas lo siguiente:</strong></p>
@@ -602,13 +579,16 @@
                         </label>
                     </div>
 
-                    <div id="form-registro" class="form-registro" style="display:none; opacity: 0;">
+                    <!-- ══ PASO 2: Confirmación autorellenada (solo lectura) ══ -->
+                    <div id="form-registro" class="form-registro" style="display:none;">
+                        <!-- Foto (preview, no editable) -->
                         <div class="confirmacion-foto-wrap">
-                            <img id="fotoConfirmacion" src=""
-                                 alt="Tu foto"
+                            <img id="fotoConfirmacion" src="" alt="Tu foto"
                                  class="confirmacion-foto"
                                  onerror="this.src='https://ui-avatars.com/api/?name=?&background=3b82f6&color=fff&size=200'">
                         </div>
+
+                        <!-- Nombre (autorellenado, readonly) -->
                         <div class="form-group">
                             <label>
                                 <i class="fa-solid fa-user"></i> Nombre Completo
@@ -617,19 +597,23 @@
                                    class="confirmacion-input"
                                    placeholder="Autocompletado desde tu cuenta">
                         </div>
+
+                        <!-- Especialidad + Ciclo (badges) -->
                         <div class="form-group">
                             <label>
                                 <i class="fa-solid fa-graduation-cap"></i> Especialidad y Ciclo
                             </label>
                             <div class="form-autodata-row">
-                                <span class="form-autodata-badge" id="displayEspecialidad">—</span>
+                                <span class="form-autodata-badge"             id="displayEspecialidad">—</span>
                                 <span class="form-autodata-badge form-autodata-ciclo" id="displayCiclo">—</span>
                             </div>
                         </div>
+
                         <p class="confirmacion-hint">
                             <i class="fa-solid fa-circle-info"></i>
-                            Para cambiar tu foto, usa la opción en el menú lateral (sidebar).
+                            Podrás cambiar tu foto desde tu perfil en el menú lateral.
                         </p>
+
                         <button id="btnRegistrar" class="btn-registrar" onclick="registrarEstudiante()">
                             <i class="fa-solid fa-check-circle"></i> Unirme Ahora
                         </button>
@@ -654,6 +638,7 @@
                 <span class="modal-perfil-badge-esp"  id="perfil-modal-especialidad">—</span>
                 <span class="modal-perfil-badge-ciclo" id="perfil-modal-ciclo">—</span>
             </div>
+            <!-- Botón cambiar foto (único lugar) -->
             <input type="file" id="sidebar-foto-file-input" accept="image/*" style="display:none;"
                    onchange="procesarNuevaFotoPerfil(event)">
             <button id="btn-cambiar-foto-sidebar" class="btn-cambiar-foto-sidebar"
