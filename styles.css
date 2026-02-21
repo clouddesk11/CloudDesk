@@ -3778,114 +3778,21 @@ footer {
     transform: none;
 }
 
-/* ============================================
-   CAMBIOS CSS — AGREGAR/REEMPLAZAR EN styles.css
-   ============================================ */
-
-/* 1. Auth modal: hacerlo scrollable para el nuevo PASO 0 */
-.auth-modal-content {
-    background: linear-gradient(135deg, var(--card-bg) 0%, var(--bg-darker) 100%);
-    border-radius: 20px;
-    padding: 3rem;
-    max-width: 500px;
-    width: 90%;
-    box-shadow: 0 20px 60px rgba(59, 130, 246, 0.3);
-    border: 2px solid var(--primary-color);
-    animation: slideDown 0.4s ease;
-    /* NUEVO: evita que el contenido se salga en pantallas pequeñas */
-    overflow-y: auto;
-    max-height: 92vh;
-}
-
-/* 2. Upload area compacta dentro del auth modal */
-.auth-upload-area {
-    padding: 1rem !important;
-}
-
-.auth-upload-area .upload-placeholder i {
-    font-size: 2rem;
-    margin-bottom: 0.5rem;
-}
-
-.auth-upload-area .upload-placeholder p {
-    font-size: 0.88rem;
-    margin-bottom: 0.25rem;
-}
-
-.auth-upload-area .upload-placeholder span {
-    font-size: 0.78rem;
-}
-
-/* 3. Select dentro del auth modal (mismo estilo que auth-input) */
-.auth-body .paso0-select {
-    background-color: var(--card-bg);
-    border-color: var(--border-color);
-}
-
-.auth-body .paso0-select:focus {
-    border-color: var(--primary-color);
-    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
-}
-
-/* 4. Labels dentro del auth body (garantizar color correcto) */
-.auth-body .form-group label {
-    color: var(--text-light);
-    font-weight: 600;
-    display: flex;
-    align-items: center;
-    gap: 8px;
-    margin-bottom: 0.5rem;
-}
-
-/* 5. Reducir margin-bottom de form-group dentro del auth modal */
-.auth-body .form-group {
-    margin-bottom: 1rem;
-}
-
-/* 6. Preview de imagen circular en el auth modal */
-.auth-upload-area .image-preview img {
-    max-width: 90px;
-    max-height: 90px;
-    border-radius: 50%;
-    border: 3px solid var(--primary-color);
-    margin-bottom: 0.5rem;
-}
-
-/* ============================================
-   AÑADIR AL FINAL DE styles.css
-   Nuevos estilos: API reveal, Desktop auth
-   ============================================ */
-
-/* ── Ícono success (verde) en auth header ── */
-.auth-icon-success {
-    color: var(--success) !important;
-}
-
-/* ── Botón submit verde (para paso API) ── */
-.auth-submit-success {
-    background: linear-gradient(135deg, var(--success), #0d9668) !important;
-    box-shadow: 0 4px 15px rgba(16, 185, 129, 0.4) !important;
-}
-.auth-submit-success:hover {
-    box-shadow: 0 6px 20px rgba(16, 185, 129, 0.6) !important;
-}
-
-/* ── Contenedor principal del API reveal ── */
+/* ── Contenedor de API reveal ───────────────────── */
 .api-reveal-container {
-    background: rgba(16, 185, 129, 0.06);
-    border: 1.5px solid rgba(16, 185, 129, 0.3);
-    border-radius: 14px;
+    background: linear-gradient(135deg, rgba(16,185,129,0.1), rgba(59,130,246,0.1));
+    border: 2px solid var(--success);
+    border-radius: 16px;
     padding: 1.5rem;
     margin-bottom: 1.5rem;
     text-align: center;
-    animation: fadeIn 0.4s ease;
 }
 
-.api-reveal-greeting {
+.api-reveal-saludo {
+    font-size: 1.1rem;
     color: var(--text-light);
-    font-size: 1rem;
     font-weight: 600;
-    margin-bottom: 0.8rem;
+    margin-bottom: 0.5rem;
 }
 
 .api-reveal-desc {
@@ -3895,116 +3802,35 @@ footer {
     display: flex;
     align-items: center;
     justify-content: center;
-    gap: 7px;
-}
-.api-reveal-desc i { color: var(--primary-color); }
-.api-reveal-desc strong { color: var(--text-light); }
-
-/* ── El número gigante del API ── */
-.api-number-display {
-    background: rgba(16, 185, 129, 0.1);
-    border: 2px solid rgba(16, 185, 129, 0.5);
-    border-radius: 12px;
-    padding: 1.2rem 1.5rem;
-    margin: 1rem auto;
-    max-width: 280px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    position: relative;
+    gap: 8px;
 }
 
-#api-number-value {
-    font-size: 2.4rem;
-    font-weight: 800;
+.api-reveal-number {
+    font-size: 2.2rem;
+    font-weight: 900;
     color: var(--success);
-    font-family: 'Lucida Console', monospace;
-    letter-spacing: 6px;
-    user-select: all;
+    letter-spacing: 5px;
+    font-family: monospace;
+    background: rgba(16,185,129,0.1);
+    padding: 1rem 1.5rem;
+    border-radius: 12px;
+    border: 1px solid rgba(16,185,129,0.3);
+    margin-bottom: 1rem;
 }
 
-/* ── Advertencia de guardar el API ── */
 .api-reveal-warning {
-    display: flex;
-    align-items: flex-start;
-    gap: 8px;
-    background: rgba(245, 158, 11, 0.1);
-    border: 1px solid rgba(245, 158, 11, 0.3);
-    border-radius: 8px;
-    padding: 0.8rem;
-    margin-top: 1rem;
-    text-align: left;
-}
-.api-reveal-warning i   { color: var(--warning); flex-shrink: 0; margin-top: 2px; }
-.api-reveal-warning span { color: var(--text-muted); font-size: 0.85rem; line-height: 1.5; }
-
-/* ── Input gigante para el API en desktop ── */
-.desktop-api-input {
-    font-size: 1.6rem !important;
-    font-weight: 700 !important;
-    letter-spacing: 4px !important;
-    text-align: center !important;
-    border-color: rgba(59, 130, 246, 0.5) !important;
-    background: rgba(59, 130, 246, 0.04) !important;
-    padding: 1.2rem !important;
-}
-.desktop-api-input:focus {
-    border-color: var(--primary-color) !important;
-    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.15) !important;
-}
-
-/* ── Botón "Volver" en pasos desktop ── */
-.auth-back-btn {
-    width: 100%;
-    padding: 0.8rem;
-    background: transparent;
-    border: 1px solid var(--border-color);
-    border-radius: 10px;
-    color: var(--text-muted);
-    font-size: 0.9rem;
-    font-weight: 500;
-    cursor: pointer;
+    color: var(--warning);
+    font-size: 0.8rem;
     display: flex;
     align-items: center;
     justify-content: center;
-    gap: 8px;
-    transition: all 0.3s;
-    margin-top: 0.8rem;
-}
-.auth-back-btn:hover {
-    background: rgba(255,255,255,0.05);
-    color: var(--text-light);
-    border-color: var(--text-muted);
+    gap: 6px;
+    text-align: center;
+    line-height: 1.5;
 }
 
-/* ── Quitar flechas del input type=number en desktop ── */
-.desktop-api-input::-webkit-outer-spin-button,
-.desktop-api-input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
-.desktop-api-input[type=number] { -moz-appearance: textfield; }
-
-/* ── Auth select (en paso perfil móvil) ── */
-.auth-select {
-    width: 100%;
-    padding: 0.9rem 1rem;
-    background-color: rgba(255, 255, 255, 0.05);
-    border: 2px solid var(--border-color);
-    border-radius: 10px;
-    color: var(--text-light);
-    font-size: 1rem;
-    cursor: pointer;
-    transition: all 0.3s;
-    outline: none;
-    appearance: none;
-    -webkit-appearance: none;
-    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' fill='%239ca3af' viewBox='0 0 16 16'%3E%3Cpath d='M7.247 11.14 2.451 5.658C1.885 5.013 2.345 4 3.204 4h9.592a1 1 0 0 1 .753 1.659l-4.796 5.48a1 1 0 0 1-1.506 0z'/%3E%3C/svg%3E");
-    background-repeat: no-repeat;
-    background-position: right 1rem center;
-}
-.auth-select:focus {
-    border-color: var(--primary-color);
-    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
-}
-.auth-select option {
-    background-color: var(--card-bg);
-    color: var(--text-light);
+/* ── Auth modal scrollable para móvil ──────────── */
+.auth-modal-content {
+    overflow-y: auto;
+    max-height: 92vh;
 }
