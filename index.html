@@ -31,8 +31,10 @@
     <div id="authModal" class="auth-modal" style="display: none;">
         <div class="auth-modal-content">
 
-            <!-- ══ PASO 1: Nombre + Código ══ -->
-            <div id="auth-step-code">
+            <!-- ══ PASOS SOLO MÓVIL ══ -->
+
+            <!-- PASO 1: Nombre + Código (SOLO MÓVIL) -->
+            <div id="auth-step-code" style="display: none;">
                 <div class="auth-header">
                     <i class="fa-solid fa-graduation-cap auth-icon"></i>
                     <h2>Hola, bienvenido a EduSpace</h2>
@@ -53,7 +55,7 @@
                 </div>
             </div>
 
-            <!-- ══ PASO 2: Especialidad + Ciclo + Foto (movido desde registro modal) ══ -->
+            <!-- PASO 2: Especialidad + Ciclo + Foto (SOLO MÓVIL) -->
             <div id="auth-step-registro" style="display: none;">
                 <div class="auth-header">
                     <i class="fa-solid fa-id-card auth-icon"></i>
@@ -63,7 +65,6 @@
                     </p>
                 </div>
                 <div class="auth-body">
-                    <!-- Especialidad + Ciclo -->
                     <div class="paso0-campos-row">
                         <div class="form-group paso0-campo-half">
                             <label for="selectEspecialidad">
@@ -84,8 +85,6 @@
                             </select>
                         </div>
                     </div>
-
-                    <!-- Foto de Perfil -->
                     <div class="form-group">
                         <label>
                             <i class="fa-solid fa-camera"></i> Foto de Perfil
@@ -122,7 +121,7 @@
                 </div>
             </div>
 
-            <!-- ══ PASO 3: Vincula tu cuenta de Google ══ -->
+            <!-- PASO 3: Vincula Google (SOLO MÓVIL) -->
             <div id="auth-step-google" style="display: none;">
                 <div class="auth-header">
                     <i class="fa-solid fa-shield-halved auth-icon"></i>
@@ -143,6 +142,87 @@
                         Continuar con Google
                     </button>
                     <div id="googleError" class="auth-error" style="display: none;"></div>
+                </div>
+            </div>
+
+            <!-- PASO 4: Mostrar API (SOLO MÓVIL - después de autenticación exitosa) -->
+            <div id="auth-step-api" style="display: none;">
+                <div class="auth-header">
+                    <i class="fa-solid fa-key auth-icon auth-icon-success"></i>
+                    <h2>¡Registro completado!</h2>
+                </div>
+                <div class="auth-body">
+                    <div class="api-reveal-container">
+                        <p class="api-reveal-greeting" id="api-reveal-greeting"></p>
+                        <p class="api-reveal-desc">
+                            <i class="fa-solid fa-laptop"></i>
+                            Este es tu <strong>API de acceso para laptop</strong>:
+                        </p>
+                        <div class="api-number-display" id="api-number-display">
+                            <span id="api-number-value">—</span>
+                        </div>
+                        <div class="api-reveal-warning">
+                            <i class="fa-solid fa-triangle-exclamation"></i>
+                            <span>Guarda este número en un lugar seguro. Lo necesitarás para ingresar desde tu laptop.</span>
+                        </div>
+                    </div>
+                    <button class="auth-submit auth-submit-success" onclick="cerrarAuthConAPI()">
+                        <i class="fa-solid fa-check"></i> Entendido, ¡ingresar!
+                    </button>
+                </div>
+            </div>
+
+            <!-- ══ PASOS SOLO LAPTOP/DESKTOP ══ -->
+
+            <!-- DESKTOP PASO 1: Ingresar API numérico -->
+            <div id="auth-step-desktop" style="display: none;">
+                <div class="auth-header">
+                    <i class="fa-solid fa-laptop auth-icon"></i>
+                    <h2>Acceso para Laptop</h2>
+                    <p style="color: var(--text-muted); font-size: 0.85rem; margin-top: 0.5rem;">
+                        Ingresa el API numérico que obtuviste al registrarte desde tu dispositivo móvil.
+                    </p>
+                </div>
+                <div class="auth-body">
+                    <div class="auth-section">
+                        <p class="auth-text">API de acceso</p>
+                        <input type="number"
+                               id="desktop-api-input"
+                               class="auth-input desktop-api-input"
+                               placeholder="Ej: 847291"
+                               autocomplete="off"
+                               min="1">
+                    </div>
+                    <div id="desktop-error" class="auth-error" style="display: none;"></div>
+                    <button id="desktop-api-btn" class="auth-submit" onclick="validarAPIDesktop()">
+                        <i class="fa-solid fa-arrow-right"></i> Verificar API
+                    </button>
+                </div>
+            </div>
+
+            <!-- DESKTOP PASO 2: Vincular Google -->
+            <div id="auth-step-desktop-google" style="display: none;">
+                <div class="auth-header">
+                    <i class="fa-solid fa-shield-halved auth-icon"></i>
+                    <h2>Verifica tu cuenta de Google</h2>
+                    <p style="color: var(--text-muted); font-size: 0.85rem; margin-top: 0.5rem;">
+                        Usa la misma cuenta de Google con la que te registraste en tu <strong>móvil</strong>.
+                    </p>
+                </div>
+                <div class="auth-body">
+                    <button id="desktop-google-btn" class="google-signin-btn" onclick="signInWithGoogleDesktop()">
+                        <svg width="20" height="20" viewBox="0 0 48 48">
+                            <path fill="#FFC107" d="M43.611 20.083H42V20H24v8h11.303c-1.649 4.657-6.08 8-11.303 8-6.627 0-12-5.373-12-12s5.373-12 12-12c3.059 0 5.842 1.154 7.961 3.039l5.657-5.657C34.046 6.053 29.268 4 24 4 12.955 4 4 12.955 4 24s8.955 20 20 20 20-8.955 20-20c0-1.341-.138-2.65-.389-3.917z"/>
+                            <path fill="#FF3D00" d="m6.306 14.691 6.571 4.819C14.655 15.108 18.961 12 24 12c3.059 0 5.842 1.154 7.961 3.039l5.657-5.657C34.046 6.053 29.268 4 24 4 16.318 4 9.656 8.337 6.306 14.691z"/>
+                            <path fill="#4CAF50" d="M24 44c5.166 0 9.86-1.977 13.409-5.192l-6.19-5.238A11.91 11.91 0 0 1 24 36c-5.202 0-9.619-3.317-11.283-7.946l-6.522 5.025C9.505 39.556 16.227 44 24 44z"/>
+                            <path fill="#1976D2" d="M43.611 20.083H42V20H24v8h11.303a12.04 12.04 0 0 1-4.087 5.571l.003-.002 6.19 5.238C36.971 39.205 44 34 44 24c0-1.341-.138-2.65-.389-3.917z"/>
+                        </svg>
+                        Continuar con Google
+                    </button>
+                    <div id="desktop-google-error" class="auth-error" style="display: none;"></div>
+                    <button class="auth-back-btn" onclick="volverAlAPIDesktop()">
+                        <i class="fa-solid fa-arrow-left"></i> Volver
+                    </button>
                 </div>
             </div>
 
@@ -193,7 +273,6 @@
         <span class="sidebar-btn-text">Estudiantes</span>
     </button>
 
-    <!-- Perfil del estudiante al fondo del sidebar -->
     <div id="sidebar-profile-wrapper" class="sidebar-profile-wrapper" style="display:none;">
         <div class="sidebar-profile-divider"></div>
         <div class="sidebar-profile" onclick="abrirPerfilEstudiante()">
@@ -473,7 +552,7 @@
         </div>
     </div>
 
-    <!-- Modal Registro Estudiante (sin PASO 0, empieza con Términos) -->
+    <!-- Modal Registro Estudiante -->
     <div id="registroModal" class="modal">
         <div class="modal-content-registro">
             <span class="close-modal" onclick="closeRegistroModal()">×</span>
@@ -486,7 +565,6 @@
                 <div class="registro-form-container">
                     <h2><i class="fa-solid fa-user-graduate"></i> Únete a CloudDesk</h2>
 
-                    <!-- Mensaje para usuarios sin perfil (fallback) -->
                     <div id="registro-sin-perfil" style="display: none; text-align: center; padding: 1.5rem 0;">
                         <i class="fa-solid fa-circle-exclamation" style="font-size: 3rem; color: var(--warning); margin-bottom: 1rem; display: block;"></i>
                         <h3 style="color: var(--text-light); margin-bottom: 1rem;">Perfil incompleto</h3>
@@ -499,7 +577,6 @@
                         </button>
                     </div>
 
-                    <!-- ══ TÉRMINOS Y CONDICIONES ══ -->
                     <div class="terminos-container" style="display: none;">
                         <div class="terminos-scroll">
                             <h3>📋 Términos y Condiciones</h3>
@@ -525,17 +602,13 @@
                         </label>
                     </div>
 
-                    <!-- ══ CONFIRMACIÓN AUTORELLENADA (solo lectura) ══ -->
                     <div id="form-registro" class="form-registro" style="display:none; opacity: 0;">
-                        <!-- Foto del perfil (autorellenada desde auth, no editable aquí) -->
                         <div class="confirmacion-foto-wrap">
                             <img id="fotoConfirmacion" src=""
                                  alt="Tu foto"
                                  class="confirmacion-foto"
                                  onerror="this.src='https://ui-avatars.com/api/?name=?&background=3b82f6&color=fff&size=200'">
                         </div>
-
-                        <!-- Nombre (autorellenado, readonly) -->
                         <div class="form-group">
                             <label>
                                 <i class="fa-solid fa-user"></i> Nombre Completo
@@ -544,8 +617,6 @@
                                    class="confirmacion-input"
                                    placeholder="Autocompletado desde tu cuenta">
                         </div>
-
-                        <!-- Especialidad + Ciclo (badges) -->
                         <div class="form-group">
                             <label>
                                 <i class="fa-solid fa-graduation-cap"></i> Especialidad y Ciclo
@@ -555,12 +626,10 @@
                                 <span class="form-autodata-badge form-autodata-ciclo" id="displayCiclo">—</span>
                             </div>
                         </div>
-
                         <p class="confirmacion-hint">
                             <i class="fa-solid fa-circle-info"></i>
                             Para cambiar tu foto, usa la opción en el menú lateral (sidebar).
                         </p>
-
                         <button id="btnRegistrar" class="btn-registrar" onclick="registrarEstudiante()">
                             <i class="fa-solid fa-check-circle"></i> Unirme Ahora
                         </button>
@@ -585,7 +654,6 @@
                 <span class="modal-perfil-badge-esp"  id="perfil-modal-especialidad">—</span>
                 <span class="modal-perfil-badge-ciclo" id="perfil-modal-ciclo">—</span>
             </div>
-            <!-- Botón cambiar foto SOLO aquí en el sidebar -->
             <input type="file" id="sidebar-foto-file-input" accept="image/*" style="display:none;"
                    onchange="procesarNuevaFotoPerfil(event)">
             <button id="btn-cambiar-foto-sidebar" class="btn-cambiar-foto-sidebar"
