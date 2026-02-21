@@ -668,13 +668,22 @@ async function validarCodigo() {
         submitBtn.innerHTML = '<i class="fa-solid fa-arrow-right"></i> Continuar';
 
         const user            = auth.currentUser;
-        const perfilExistente = localStorage.getItem('eduspace_student_profile');
+const perfilExistente = localStorage.getItem('eduspace_student_profile');
 
-        if (user) {
-            perfilExistente ? await completarRegistro(user) : mostrarPasoRegistro();
-        } else {
-            perfilExistente ? mostrarPaso2Google() : mostrarPasoRegistro();
-        }
+// Si el cache fue borrado, verificar si ya hay perfil completo guardado en Firebase
+const perfilEnFirebase = codigoData.perfil &&
+    codigoData.perfil.especialidad &&
+    codigoData.perfil.ciclo &&
+    codigoData.perfil.foto_url;
+
+// Tiene perfil completo si existe en localStorage O en Firebase
+const tienePerfilCompleto = perfilExistente || perfilEnFirebase;
+
+if (user) {
+    tienePerfilCompleto ? await completarRegistro(user) : mostrarPasoRegistro();
+} else {
+    tienePerfilCompleto ? mostrarPaso2Google() : mostrarPasoRegistro();
+}
 
     } catch (error) {
         console.error('Error en validarCodigo:', error);
@@ -2276,5 +2285,6 @@ function switchTab(tab) {
     }
 
 }
+
 
 
