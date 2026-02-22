@@ -426,7 +426,8 @@
 
             <!-- Sección de Estudiantes -->
 <section id="estudiantes" class="section-content" style="display: none;">
-    <div class="header-section header-section-sticky header-with-button">
+    <!-- Header cuando NO está unido -->
+    <div id="estudiantes-header-unirse" class="header-section header-section-sticky header-with-button">
         <div class="header-text-estudiantes">
             <h2><i class="fa-solid fa-user-graduate"></i> Registro de Estudiantes</h2>
             <p>Únete a la comunidad de estudiantes de Comunicación VII.</p>
@@ -434,6 +435,10 @@
         <button id="btn-registrarme" class="btn-registrarme" onclick="openRegistroModal()">
             <i class="fa-solid fa-user-plus"></i> Unirme
         </button>
+    </div>
+    <!-- Header cuando YA está unido (reemplaza al anterior) -->
+    <div id="estudiantes-header-miembro" class="header-section header-section-sticky" style="display:none;">
+        <div id="mi-card-estudiante"></div>
     </div>
     <div id="estudiantes-grid" class="grid-container">
         <div class="loading-estudiantes" id="loading-estudiantes">
@@ -685,3 +690,4 @@
     <script src="script.js"></script>
 </body>
 </html>
+
