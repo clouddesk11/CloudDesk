@@ -3897,4 +3897,97 @@ footer {
     letter-spacing: 2px;
     font-family: monospace;
     white-space: nowrap;
+
+}
+
+/* ============================================
+   CARD PROPIA DEL MIEMBRO (header estudiantes)
+   ============================================ */
+.mi-card-wrapper {
+    display: flex;
+    align-items: center;
+    gap: 1.2rem;
+    background: linear-gradient(135deg, rgba(59,130,246,0.08), rgba(16,185,129,0.05));
+    border: 1.5px solid rgba(59,130,246,0.25);
+    border-radius: 14px;
+    padding: 1rem 1.4rem;
+    position: relative;
+    max-width: 600px;
+}
+
+.mi-card-foto {
+    width: 64px;
+    height: 64px;
+    min-width: 64px;
+    border-radius: 50%;
+    object-fit: cover;
+    border: 3px solid var(--primary-color);
+    box-shadow: 0 4px 12px rgba(59,130,246,0.3);
+}
+
+.mi-card-info {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+    flex: 1;
+}
+
+.mi-card-nombre {
+    font-size: 1.05rem;
+    font-weight: 700;
+    color: var(--text-light);
+}
+
+.mi-card-badges {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+    align-items: center;
+}
+
+.mi-card-badge-esp {
+    font-size: 0.78rem;
+    padding: 3px 10px;
+    background: rgba(59,130,246,0.12);
+    border: 1px solid rgba(59,130,246,0.3);
+    border-radius: 20px;
+    color: var(--accent-color);
+    font-weight: 600;
+}
+
+.mi-card-badge-ciclo {
+    font-size: 0.78rem;
+    padding: 3px 10px;
+    background: rgba(16,185,129,0.1);
+    border: 1px solid rgba(16,185,129,0.3);
+    border-radius: 20px;
+    color: var(--success);
+    font-weight: 600;
+}
+
+.mi-card-fecha {
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    display: flex;
+    align-items: center;
+    gap: 5px;
+}
+
+.mi-card-tag {
+    position: absolute;
+    top: 10px;
+    right: 14px;
+    font-size: 0.7rem;
+    background: rgba(16,185,129,0.15);
+    border: 1px solid rgba(16,185,129,0.35);
+    border-radius: 20px;
+    color: var(--success);
+    padding: 3px 10px;
+    font-weight: 700;
+}
+
+@media (max-width: 480px) {
+    .mi-card-foto { width: 50px; height: 50px; min-width: 50px; }
+    .mi-card-nombre { font-size: 0.92rem; }
+    .mi-card-tag { font-size: 0.65rem; padding: 2px 8px; }
 }
