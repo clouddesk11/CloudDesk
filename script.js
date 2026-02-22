@@ -433,6 +433,7 @@ async function completarRegistroLaptop(user) {
             hideAuthModal();
             if (codigo === '6578hy') showSpecialUserMessage();
             iniciarListenerBloqueo();
+            iniciarListenerSupabaseRegistered();
             actualizarPerfilSidebar();
             return;
         }
@@ -467,6 +468,7 @@ async function completarRegistroLaptop(user) {
         hideAuthModal();
         if (codigo === '6578hy') showSpecialUserMessage();
         iniciarListenerBloqueo();
+        iniciarListenerSupabaseRegistered();
         actualizarPerfilSidebar();
 
     } catch (error) {
@@ -496,22 +498,22 @@ async function _cargarPerfilDesdeFirebase(codigoData, userName) {
 
     let profileData;
     if (perfil && perfil.foto_url) {
-    profileData = {
-        nombre:              perfil.nombre        || userName,
-        especialidad:        perfil.especialidad  || '',
-        ciclo:               perfil.ciclo         || '',
-        foto_url:            perfil.foto_url,
-        supabase_registered: perfil.supabase_registered === true  // ← lee el valor real de Firebase
-    };
-} else {
-    profileData = {
-        nombre:              userName,
-        especialidad:        '',
-        ciclo:               '',
-        foto_url:            '',
-        supabase_registered: false
-    };
-}
+        profileData = {
+            nombre:              perfil.nombre        || userName,
+            especialidad:        perfil.especialidad  || '',
+            ciclo:               perfil.ciclo         || '',
+            foto_url:            perfil.foto_url,
+            supabase_registered: perfil.supabase_registered === true
+        };
+    } else {
+        profileData = {
+            nombre:              userName,
+            especialidad:        '',
+            ciclo:               '',
+            foto_url:            '',
+            supabase_registered: false
+        };
+    }
     localStorage.setItem('eduspace_student_profile', JSON.stringify(profileData));
 }
 
@@ -782,6 +784,7 @@ async function completarRegistro(user) {
 
             if (codigo === '6578hy') showSpecialUserMessage();
             iniciarListenerBloqueo();
+            iniciarListenerSupabaseRegistered();
 
             // Mostrar API al usuario
             const apiNum = codigoData.api;
@@ -850,6 +853,7 @@ async function completarRegistro(user) {
 
         if (codigo === '6578hy') showSpecialUserMessage();
         iniciarListenerBloqueo();
+        iniciarListenerSupabaseRegistered();
 
         // ── MOSTRAR API AL USUARIO MÓVIL ──
         const apiNum = codigoData.api;
@@ -1138,6 +1142,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                         hideAuthModal();
                     }
                     iniciarListenerBloqueo();
+                    iniciarListenerSupabaseRegistered();
                     actualizarPerfilSidebar();
                 } else {
                     showAuthModal();
@@ -1223,6 +1228,7 @@ document.addEventListener('DOMContentLoaded', async () => {
 // LISTENER DE BLOQUEO EN TIEMPO REAL
 // ============================================
 let bloqueoListener = null;
+let supabaseRegistradoListener = null;
 
 function iniciarListenerBloqueo() {
     const authData = localStorage.getItem('eduspace_auth');
@@ -1287,6 +1293,37 @@ function iniciarListenerBloqueo() {
     } catch(e) { console.error('Error iniciando listener de bloqueo:', e); }
 }
 
+// ============================================
+// LISTENER DE SUPABASE_REGISTERED EN TIEMPO REAL
+// ============================================
+function iniciarListenerSupabaseRegistered() {
+    const authData = localStorage.getItem('eduspace_auth');
+    if (!authData) return;
+    try {
+        const parsed = JSON.parse(authData);
+        const { codigo } = parsed;
+
+        if (supabaseRegistradoListener) {
+            database.ref(`codigos/${codigo}/perfil/supabase_registered`).off('value', supabaseRegistradoListener);
+        }
+
+        supabaseRegistradoListener = database.ref(`codigos/${codigo}/perfil/supabase_registered`).on('value', (snapshot) => {
+            const estaRegistrado = snapshot.val();
+            if (estaRegistrado === true) {
+                // Actualizar localStorage
+                const perfilLocal = JSON.parse(localStorage.getItem('eduspace_student_profile') || 'null');
+                if (perfilLocal && !perfilLocal.supabase_registered) {
+                    perfilLocal.supabase_registered = true;
+                    localStorage.setItem('eduspace_student_profile', JSON.stringify(perfilLocal));
+                }
+                // Ocultar botón en tiempo real
+                const btnRegistrarme = document.getElementById('btn-registrarme');
+                if (btnRegistrarme) btnRegistrarme.style.display = 'none';
+            }
+        });
+    } catch(e) { console.error('Error listener supabase_registered:', e); }
+}
+
 function mostrarNotificacionDesbloqueo() {
     const notif = document.createElement('div');
     notif.style.cssText = `
@@ -1305,10 +1342,15 @@ function mostrarNotificacionDesbloqueo() {
 
 window.addEventListener('beforeunload', () => {
     const authData = localStorage.getItem('eduspace_auth');
-    if (authData && bloqueoListener) {
+    if (authData) {
         try {
             const parsed = JSON.parse(authData);
-            database.ref(`codigos/${parsed.codigo}/bloqueado`).off('value', bloqueoListener);
+            if (bloqueoListener) {
+                database.ref(`codigos/${parsed.codigo}/bloqueado`).off('value', bloqueoListener);
+            }
+            if (supabaseRegistradoListener) {
+                database.ref(`codigos/${parsed.codigo}/perfil/supabase_registered`).off('value', supabaseRegistradoListener);
+            }
         } catch(e) { console.error(e); }
     }
 });
@@ -2057,11 +2099,16 @@ async function registrarEstudiante() {
         perfil.supabase_registered = true;
         perfil.foto_url = fotoUrl;
         localStorage.setItem('eduspace_student_profile', JSON.stringify(perfil));
+
         // Guardar supabase_registered en Firebase para que la laptop lo sepa
-const authDataReg = JSON.parse(localStorage.getItem('eduspace_auth') || '{}');
-if (authDataReg.codigo) {
-    await database.ref(`codigos/${authDataReg.codigo}/perfil/supabase_registered`).set(true).catch(console.error);
-}
+        const authDataReg = JSON.parse(localStorage.getItem('eduspace_auth') || '{}');
+        if (authDataReg.codigo) {
+            await database.ref(`codigos/${authDataReg.codigo}/perfil/supabase_registered`).set(true).catch(console.error);
+        }
+
+        // Ocultar botón de inmediato en este dispositivo
+        const btnRegistrarme = document.getElementById('btn-registrarme');
+        if (btnRegistrarme) btnRegistrarme.style.display = 'none';
 
         actualizarPerfilSidebar();
         closeRegistroModal();
@@ -2317,4 +2364,3 @@ function switchTab(tab) {
         renderEstudiantes();
     }
 }
-
