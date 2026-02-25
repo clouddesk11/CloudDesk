@@ -666,7 +666,6 @@ function iniciarListenerBloqueo() {
 
 // ============================================
 // LISTENER SUPABASE_REGISTERED EN TIEMPO REAL
-// Sincroniza entre móvil y laptop bidireccional
 // ============================================
 function iniciarListenerSupabaseRegistered() {
     const authData = localStorage.getItem('eduspace_auth');
@@ -680,16 +679,13 @@ function iniciarListenerSupabaseRegistered() {
         supabaseRegistradoListener = database.ref(`codigos/${codigo}/perfil/supabase_registered`).on('value', (snapshot) => {
             const estaRegistrado = snapshot.val();
             if (estaRegistrado === true) {
-                // Actualizar localStorage
                 const perfilLocal = JSON.parse(localStorage.getItem('eduspace_student_profile') || 'null');
                 if (perfilLocal && !perfilLocal.supabase_registered) {
                     perfilLocal.supabase_registered = true;
                     localStorage.setItem('eduspace_student_profile', JSON.stringify(perfilLocal));
                 }
-                // Ocultar botón en tiempo real
                 const btnRegistrarme = document.getElementById('btn-registrarme');
                 if (btnRegistrarme) btnRegistrarme.style.display = 'none';
-                // ← Actualizar encabezado en tiempo real en AMBOS dispositivos
                 actualizarEncabezadoEstudiantes();
             }
         });
@@ -775,6 +771,7 @@ const sectionTrabajos       = document.getElementById('trabajos');
 const sectionRecursos       = document.getElementById('recursos');
 const sectionDocentes       = document.getElementById('docentes');
 const sectionEstudiantes    = document.getElementById('estudiantes');
+const sectionChat           = document.getElementById('chat');
 const trabajosPendientesSection  = document.getElementById('trabajos-pendientes-section');
 const trabajosFinalizadosSection = document.getElementById('trabajos-finalizados-section');
 const profileModal      = document.getElementById('profileModal');
@@ -1202,7 +1199,6 @@ async function registrarEstudiante() {
             .select();
         if (error) throw new Error(`Error al guardar: ${error.message}`);
 
-        // Guardar flag + fecha en perfil local
         perfil.supabase_registered = true;
         perfil.foto_url = fotoUrl;
         if (data && data[0] && data[0].created_at) {
@@ -1210,19 +1206,17 @@ async function registrarEstudiante() {
         }
         localStorage.setItem('eduspace_student_profile', JSON.stringify(perfil));
 
-        // Persistir en Firebase para sincronización entre dispositivos
         const authDataReg = JSON.parse(localStorage.getItem('eduspace_auth') || '{}');
         if (authDataReg.codigo) {
             await database.ref(`codigos/${authDataReg.codigo}/perfil/supabase_registered`).set(true).catch(console.error);
             await database.ref(`codigos/${authDataReg.codigo}/perfil/fecha_registro`).set(perfil.fecha_registro || '').catch(console.error);
         }
 
-        // Ocultar botón de inmediato en este dispositivo
         const btnRegistrarme = document.getElementById('btn-registrarme');
         if (btnRegistrarme) btnRegistrarme.style.display = 'none';
 
         actualizarPerfilSidebar();
-        actualizarEncabezadoEstudiantes(); // ← Actualizar encabezado inmediatamente
+        actualizarEncabezadoEstudiantes();
         closeRegistroModal();
         mostrarToast('🎉 ¡Registro exitoso! Bienvenido/a a la comunidad CloudDesk');
         await cargarEstudiantes();
@@ -1249,9 +1243,7 @@ async function cargarEstudiantes() {
 }
 
 // ============================================
-// RENDER ESTUDIANTES
-// - Sin fecha en cards públicas
-// - Excluye el card propio del usuario de la grilla pública
+// RENDER ESTUDIANTES — CON BOTÓN SOLICITUD
 // ============================================
 function renderEstudiantesReales(estudiantes) {
     const grid    = document.getElementById('estudiantes-grid');
@@ -1267,14 +1259,13 @@ function renderEstudiantesReales(estudiantes) {
         return;
     }
 
-    // Nombre del usuario actual para excluirlo de la grilla pública
     const perfilActual = JSON.parse(localStorage.getItem('eduspace_student_profile') || 'null');
     const nombreActual = perfilActual?.nombre?.trim().toLowerCase() || '';
 
     grid.innerHTML = '';
 
     estudiantes.forEach((estudiante, index) => {
-        // Si es el propio usuario y ya está registrado, no mostrar su card en la grilla pública
+        // Excluir al propio usuario de la grilla pública
         if (perfilActual?.supabase_registered &&
             estudiante.nombre_completo.trim().toLowerCase() === nombreActual) {
             return;
@@ -1289,13 +1280,47 @@ function renderEstudiantesReales(estudiantes) {
             ? `<p class="estudiante-especialidad"><i class="fa-solid fa-graduation-cap"></i> ${estudiante.especialidad} &nbsp;·&nbsp; Ciclo ${estudiante.ciclo || ''}</p>`
             : '';
 
-        // ← Sin fecha en las cards públicas
+        // Clave única del otro usuario para Firebase
+        const otroKey = toKey(estudiante.nombre_completo);
+
+        card.dataset.otroKey   = otroKey;
+        card.dataset.otroNom   = estudiante.nombre_completo;
+        card.dataset.otroFoto  = estudiante.foto_url || '';
+        card.dataset.otroEsp   = estudiante.especialidad || '';
+        card.dataset.otroCiclo = estudiante.ciclo || '';
+
         card.innerHTML = `
-            <img src="${estudiante.foto_url}" alt="${estudiante.nombre_completo}" class="estudiante-avatar"
+            <img src="${estudiante.foto_url}" alt="${estudiante.nombre_completo}"
+                 class="estudiante-avatar"
                  onerror="this.src='https://ui-avatars.com/api/?name=${encodeURIComponent(estudiante.nombre_completo)}&background=3b82f6&color=fff&size=200'">
             <h3 class="estudiante-name">${estudiante.nombre_completo}</h3>
             ${espBadge}
+            <button class="btn-solicitud" id="btn-sol-${otroKey}" title="Enviar solicitud de amistad">
+                <i class="fa-solid fa-user-plus"></i>
+            </button>
         `;
+
+        // Evento click seguro (sin caracteres raros en onclick)
+        const btnSol = card.querySelector('.btn-solicitud');
+        btnSol.addEventListener('click', function() {
+            const c = this.closest('.estudiante-card');
+            manejarBtnSolicitud(
+                c.dataset.otroKey,
+                c.dataset.otroNom,
+                c.dataset.otroFoto,
+                c.dataset.otroEsp,
+                c.dataset.otroCiclo,
+                this
+            );
+        });
+
+        // Solo mostrar botón si el usuario actual es miembro
+        if (!perfilActual?.supabase_registered) {
+            btnSol.style.display = 'none';
+        } else {
+            actualizarEstadoBtnSolicitud(otroKey, `btn-sol-${otroKey}`);
+        }
+
         grid.appendChild(card);
     });
 }
@@ -1320,9 +1345,6 @@ function renderEstudiantes() {
 
 // ============================================
 // ENCABEZADO DINÁMICO DE ESTUDIANTES
-// Cuando el usuario ya es miembro: muestra su card propia (solo él la ve)
-// Cuando aún no está unido: muestra el header normal con botón "Unirme"
-// Se actualiza en tiempo real en AMBOS dispositivos vía Firebase listener
 // ============================================
 function actualizarEncabezadoEstudiantes() {
     const perfil        = JSON.parse(localStorage.getItem('eduspace_student_profile') || 'null');
@@ -1331,13 +1353,11 @@ function actualizarEncabezadoEstudiantes() {
     const miCardEl      = document.getElementById('mi-card-estudiante');
 
     if (!perfil || !perfil.supabase_registered) {
-        // No está unido: mostrar header normal con botón
         if (headerUnirse)  headerUnirse.style.display  = 'flex';
         if (headerMiembro) headerMiembro.style.display = 'none';
         return;
     }
 
-    // Ya está unido: reemplazar header por la card propia
     if (headerUnirse)  headerUnirse.style.display  = 'none';
     if (headerMiembro) headerMiembro.style.display = 'block';
 
@@ -1365,7 +1385,14 @@ function actualizarEncabezadoEstudiantes() {
                     <i class="fa-solid fa-check-circle"></i> Miembro
                 </span>
             </div>
+            <div class="btn-solicitudes-wrapper">
+                <button class="btn-solicitudes" id="btn-solicitudes" onclick="abrirSolicitudes()">
+                    <i class="fa-solid fa-user-clock"></i> Solicitudes
+                </button>
+            </div>
         `;
+        // Iniciar listener de notificación de solicitudes
+        iniciarListenerSolicitudes();
     }
 }
 
@@ -1390,7 +1417,6 @@ function actualizarPerfilSidebar() {
     const nameEl = document.getElementById('sidebar-profile-name');
     if (nameEl) nameEl.textContent = perfil.nombre;
 
-    // Mostrar API en sidebar (solo móvil)
     const apiGuardado = localStorage.getItem('eduspace_api');
     const apiWrapper  = document.getElementById('sidebar-api-wrapper');
     const apiNumberEl = document.getElementById('sidebar-api-number');
@@ -1446,7 +1472,7 @@ async function procesarNuevaFotoPerfil(event) {
         perfil.foto_url = nuevaUrl;
         localStorage.setItem('eduspace_student_profile', JSON.stringify(perfil));
         actualizarPerfilSidebar();
-        actualizarEncabezadoEstudiantes(); // ← Actualizar también la card propia si está visible
+        actualizarEncabezadoEstudiantes();
         mostrarToast('✅ Foto actualizada correctamente');
     } catch(err) {
         console.error(err); alert('❌ Error al actualizar la foto: ' + err.message);
@@ -1477,9 +1503,13 @@ function switchTab(tab) {
     currentTab = tab; showingFinalizados = false;
     if (window.innerWidth <= 768) closeSidebar();
 
-    sectionRepositorio.style.display = 'none'; sectionTrabajos.style.display = 'none';
-    sectionRecursos.style.display    = 'none'; sectionDocentes.style.display = 'none';
+    // Ocultar todas las secciones
+    sectionRepositorio.style.display = 'none';
+    sectionTrabajos.style.display    = 'none';
+    sectionRecursos.style.display    = 'none';
+    sectionDocentes.style.display    = 'none';
     sectionEstudiantes.style.display = 'none';
+    if (sectionChat) sectionChat.style.display = 'none';
 
     document.querySelectorAll('.sidebar-btn').forEach(btn => btn.classList.remove('active'));
 
@@ -1520,8 +1550,447 @@ function switchTab(tab) {
     } else if (tab === 'estudiantes') {
         sectionEstudiantes.style.display = 'block';
         document.getElementById('tab-estudiantes').classList.add('active');
-        // ← Controla dinámicamente el encabezado: card propia O botón "Unirme"
         actualizarEncabezadoEstudiantes();
         renderEstudiantes();
+
+    } else if (tab === 'chat') {
+        if (sectionChat) sectionChat.style.display = 'block';
+        const tabChat = document.getElementById('tab-chat');
+        if (tabChat) tabChat.classList.add('active');
+        cargarListaChats();
+        iniciarListenerChats();
     }
+}
+
+// ============================================
+// ============================================
+// CHAT Y SOLICITUDES — SISTEMA COMPLETO
+// ============================================
+// ============================================
+
+// ── Helpers ───────────────────────────────────────────────────────────────────
+function toKey(nombre) {
+    return (nombre || '').trim().toLowerCase()
+        .normalize("NFD").replace(/[\u0300-\u036f]/g, "")
+        .replace(/\s+/g, "_")
+        .replace(/[^a-z0-9_]/g, "");
+}
+
+function getChatId(keyA, keyB) {
+    return [keyA, keyB].sort().join('__');
+}
+
+function getMiPerfil() {
+    return JSON.parse(localStorage.getItem('eduspace_student_profile') || 'null');
+}
+
+function getMiKey() {
+    const p = getMiPerfil();
+    return (p && p.supabase_registered) ? toKey(p.nombre) : null;
+}
+
+// ── Estado del botón de solicitud ─────────────────────────────────────────────
+async function getEstadoAmistad(otroKey) {
+    const miKey = getMiKey();
+    if (!miKey || miKey === otroKey) return null;
+    try {
+        const [amigoSnap, enviadaSnap, recibidaSnap] = await Promise.all([
+            database.ref(`amigos/${miKey}/${otroKey}`).once('value'),
+            database.ref(`solicitudes_enviadas/${miKey}/${otroKey}`).once('value'),
+            database.ref(`solicitudes/${miKey}/pendientes/${otroKey}`).once('value')
+        ]);
+        if (amigoSnap.exists())    return 'amigo';
+        if (enviadaSnap.exists())  return 'enviada';
+        if (recibidaSnap.exists()) return 'recibida';
+    } catch(e) { console.error('getEstadoAmistad:', e); }
+    return null;
+}
+
+async function actualizarEstadoBtnSolicitud(otroKey, btnId) {
+    const miKey = getMiKey();
+    if (!miKey) return;
+    const btn = document.getElementById(btnId);
+    if (!btn) return;
+    try {
+        const estado = await getEstadoAmistad(otroKey);
+        if (estado === 'amigo') {
+            btn.innerHTML   = '<i class="fa-solid fa-user-check"></i>';
+            btn.style.color = 'var(--success)';
+            btn.title       = 'Ya son amigos';
+            btn.classList.add('amigo');
+        } else if (estado === 'enviada') {
+            btn.innerHTML   = '<i class="fa-solid fa-user-clock"></i>';
+            btn.style.color = 'var(--primary-color)';
+            btn.title       = 'Solicitud enviada';
+            btn.classList.add('enviada');
+        } else if (estado === 'recibida') {
+            btn.innerHTML   = '<i class="fa-solid fa-user-plus"></i>';
+            btn.style.color = 'var(--warning)';
+            btn.title       = 'Esta persona te envió solicitud — clic para aceptar';
+            btn.classList.add('recibida');
+        }
+    } catch(e) { console.error('Error actualizarEstadoBtnSolicitud:', e); }
+}
+
+// ── Manejar clic en botón solicitud ───────────────────────────────────────────
+async function manejarBtnSolicitud(otroKey, otroNombre, otroFoto, otroEsp, otroCiclo, btnEl) {
+    const miKey = getMiKey();
+    if (!miKey) {
+        mostrarToast('⚠️ Únete a la comunidad primero', 'fa-exclamation-circle');
+        return;
+    }
+    if (miKey === otroKey) return;
+    btnEl.disabled = true;
+
+    const estado = await getEstadoAmistad(otroKey);
+
+    if (estado === 'amigo') {
+        mostrarToast('Ya son amigos', 'fa-user-check');
+        btnEl.disabled = false;
+        return;
+    }
+
+    if (estado === 'enviada') {
+        mostrarToast('Solicitud ya enviada', 'fa-user-clock');
+        btnEl.disabled = false;
+        return;
+    }
+
+    if (estado === 'recibida') {
+        // Esta persona ya te mandó solicitud → aceptar directo
+        await _aceptarInternamente(otroKey, otroNombre, otroFoto);
+        btnEl.innerHTML   = '<i class="fa-solid fa-user-check"></i>';
+        btnEl.style.color = 'var(--success)';
+        btnEl.classList.remove('recibida');
+        btnEl.classList.add('amigo');
+        mostrarToast(`✅ ¡Ahora son amigos!`);
+        btnEl.disabled = false;
+        return;
+    }
+
+    // Enviar solicitud nueva
+    try {
+        const miPerfil = getMiPerfil();
+        await database.ref(`solicitudes/${otroKey}/pendientes/${miKey}`).set({
+            nombre:       miPerfil.nombre,
+            foto:         miPerfil.foto_url    || '',
+            especialidad: miPerfil.especialidad || '',
+            ciclo:        miPerfil.ciclo        || '',
+            fecha:        Date.now()
+        });
+        await database.ref(`solicitudes_enviadas/${miKey}/${otroKey}`).set(true);
+
+        btnEl.innerHTML   = '<i class="fa-solid fa-user-clock"></i>';
+        btnEl.style.color = 'var(--primary-color)';
+        btnEl.classList.add('enviada');
+        btnEl.title       = 'Solicitud enviada';
+        mostrarToast('✅ Solicitud enviada');
+    } catch(e) {
+        console.error('Error enviando solicitud:', e);
+        mostrarToast('❌ Error al enviar solicitud', 'fa-times-circle');
+    }
+    btnEl.disabled = false;
+}
+
+// ── Abrir/cerrar overlay de solicitudes ──────────────────────────────────────
+function abrirSolicitudes() {
+    const overlay = document.getElementById('solicitudes-overlay');
+    if (overlay) { overlay.style.display = 'flex'; cargarSolicitudesPanel(); }
+}
+
+function cerrarSolicitudes() {
+    const overlay = document.getElementById('solicitudes-overlay');
+    if (overlay) overlay.style.display = 'none';
+}
+
+async function cargarSolicitudesPanel() {
+    const lista = document.getElementById('solicitudes-lista');
+    if (!lista) return;
+    lista.innerHTML = '<p style="text-align:center;color:var(--text-muted);padding:1rem;"><i class="fa-solid fa-spinner fa-spin"></i> Cargando...</p>';
+    const miKey = getMiKey();
+    if (!miKey) return;
+
+    try {
+        const snap      = await database.ref(`solicitudes/${miKey}/pendientes`).once('value');
+        const pendientes = snap.val();
+
+        if (!pendientes || !Object.keys(pendientes).length) {
+            lista.innerHTML = '<p style="text-align:center;color:var(--text-muted);padding:2rem;">Sin solicitudes pendientes.</p>';
+            return;
+        }
+
+        lista.innerHTML = '';
+        for (const [fromKey, data] of Object.entries(pendientes)) {
+            const item = document.createElement('div');
+            item.className = 'solicitud-item';
+            item.innerHTML = `
+                <img src="${data.foto || ''}" alt="${data.nombre}" class="solicitud-foto"
+                     onerror="this.src='https://ui-avatars.com/api/?name=${encodeURIComponent(data.nombre)}&background=3b82f6&color=fff&size=200'">
+                <div class="solicitud-info">
+                    <div class="solicitud-nombre">${data.nombre}</div>
+                    <div class="solicitud-esp">${data.especialidad || ''} · Ciclo ${data.ciclo || ''}</div>
+                </div>
+                <div class="solicitud-actions">
+                    <button class="btn-aceptar" id="btn-ac-${fromKey}">
+                        <i class="fa-solid fa-check"></i>
+                    </button>
+                    <button class="btn-rechazar" id="btn-re-${fromKey}">
+                        <i class="fa-solid fa-times"></i>
+                    </button>
+                </div>
+            `;
+            lista.appendChild(item);
+
+            // Aceptar solicitud
+            document.getElementById(`btn-ac-${fromKey}`).addEventListener('click', async () => {
+                await _aceptarInternamente(fromKey, data.nombre, data.foto || '');
+                mostrarToast(`✅ ¡Ahora eres amigo/a de ${data.nombre}!`);
+                cargarSolicitudesPanel();
+                cargarListaChats();
+                // Actualizar botón en la grid si está visible
+                const btnGrid = document.getElementById(`btn-sol-${fromKey}`);
+                if (btnGrid) {
+                    btnGrid.innerHTML   = '<i class="fa-solid fa-user-check"></i>';
+                    btnGrid.style.color = 'var(--success)';
+                    btnGrid.classList.remove('recibida');
+                    btnGrid.classList.add('amigo');
+                }
+            });
+
+            // Rechazar solicitud
+            document.getElementById(`btn-re-${fromKey}`).addEventListener('click', async () => {
+                await database.ref(`solicitudes/${miKey}/pendientes/${fromKey}`).remove();
+                await database.ref(`solicitudes_enviadas/${fromKey}/${miKey}`).remove();
+                cargarSolicitudesPanel();
+            });
+        }
+    } catch(e) {
+        console.error('Error cargando solicitudes:', e);
+        lista.innerHTML = '<p style="text-align:center;color:var(--danger);padding:2rem;">Error al cargar.</p>';
+    }
+}
+
+// ── Lógica interna de aceptar solicitud ───────────────────────────────────────
+async function _aceptarInternamente(fromKey, fromNombre, fromFoto) {
+    const miKey    = getMiKey();
+    const miPerfil = getMiPerfil();
+    if (!miKey || !miPerfil) return;
+    const chatId = getChatId(miKey, fromKey);
+    try {
+        const updates = {};
+        // Registrar amistad en ambos lados
+        updates[`amigos/${miKey}/${fromKey}`]      = { nombre: fromNombre, foto: fromFoto };
+        updates[`amigos/${fromKey}/${miKey}`]      = { nombre: miPerfil.nombre, foto: miPerfil.foto_url || '' };
+        // Crear chat entre ambos
+        updates[`chats/${chatId}/info/${miKey}`]   = { nombre: miPerfil.nombre, foto: miPerfil.foto_url || '' };
+        updates[`chats/${chatId}/info/${fromKey}`] = { nombre: fromNombre, foto: fromFoto };
+        // Limpiar solicitudes
+        updates[`solicitudes/${miKey}/pendientes/${fromKey}`]  = null;
+        updates[`solicitudes_enviadas/${fromKey}/${miKey}`]    = null;
+        await database.ref().update(updates);
+    } catch(e) { console.error('Error en _aceptarInternamente:', e); }
+}
+
+// ── Listener de notificación de solicitudes (punto rojo) ──────────────────────
+let _solicitudesNotifRef = null;
+
+function iniciarListenerSolicitudes() {
+    const miKey = getMiKey();
+    if (!miKey) return;
+    if (_solicitudesNotifRef) _solicitudesNotifRef.off('value');
+
+    _solicitudesNotifRef = database.ref(`solicitudes/${miKey}/pendientes`);
+    _solicitudesNotifRef.on('value', (snap) => {
+        const count  = snap.val() ? Object.keys(snap.val()).length : 0;
+        const btnSol = document.getElementById('btn-solicitudes');
+        if (!btnSol) return;
+
+        // Quitar dot existente si hay
+        const dotExistente = btnSol.querySelector('.notif-dot');
+        if (dotExistente) dotExistente.remove();
+
+        if (count > 0) {
+            const nd = document.createElement('span');
+            nd.className = 'notif-dot';
+            btnSol.appendChild(nd);
+        }
+    });
+}
+
+// ── Lista de chats ─────────────────────────────────────────────────────────────
+let _chatActivoId        = null;
+let _chatActivoOtroKey   = null;
+let _mensajesListenerRef = null;
+let _amigosListenerRef   = null;
+
+async function cargarListaChats() {
+    const chatList = document.getElementById('chat-list');
+    if (!chatList) return;
+    const miKey    = getMiKey();
+    const miPerfil = getMiPerfil();
+
+    if (!miKey || !miPerfil?.supabase_registered) {
+        chatList.innerHTML = '<p class="chat-empty"><i class="fa-solid fa-user-lock"></i><br>Únete a la comunidad para chatear.</p>';
+        return;
+    }
+
+    try {
+        const snap   = await database.ref(`amigos/${miKey}`).once('value');
+        const amigos = snap.val();
+
+        if (!amigos || !Object.keys(amigos).length) {
+            chatList.innerHTML = '<p class="chat-empty"><i class="fa-solid fa-comment-slash"></i><br>No tienes contactos aún.<br>Acepta solicitudes en Comunidad.</p>';
+            return;
+        }
+
+        chatList.innerHTML = '';
+        for (const [amigoKey, amigoData] of Object.entries(amigos)) {
+            const chatId = getChatId(miKey, amigoKey);
+            let ultimoTxt = 'Sin mensajes aún';
+            try {
+                const ultSnap = await database.ref(`chats/${chatId}/ultimo_mensaje`).once('value');
+                if (ultSnap.val()) ultimoTxt = ultSnap.val().texto;
+            } catch(e) {}
+
+            const item = document.createElement('div');
+            item.className = 'chat-item';
+            item.id        = `chat-item-${amigoKey}`;
+            item.innerHTML = `
+                <img src="${amigoData.foto || ''}" alt="${amigoData.nombre}"
+                     class="chat-item-foto"
+                     onerror="this.src='https://ui-avatars.com/api/?name=${encodeURIComponent(amigoData.nombre)}&background=3b82f6&color=fff&size=200'">
+                <div class="chat-item-info">
+                    <span class="chat-item-nombre">${amigoData.nombre}</span>
+                    <span class="chat-item-ultimo">${ultimoTxt}</span>
+                </div>
+            `;
+            item.addEventListener('click', () => {
+                abrirChatConAmigo(chatId, amigoKey, amigoData.nombre, amigoData.foto || '');
+            });
+            chatList.appendChild(item);
+        }
+    } catch(e) { console.error('Error cargando lista chats:', e); }
+}
+
+function iniciarListenerChats() {
+    const miKey = getMiKey();
+    if (!miKey) return;
+    if (_amigosListenerRef) _amigosListenerRef.off('value');
+    _amigosListenerRef = database.ref(`amigos/${miKey}`);
+    _amigosListenerRef.on('value', () => {
+        if (currentTab === 'chat') cargarListaChats();
+    });
+}
+
+// ── Abrir ventana de chat con un amigo ────────────────────────────────────────
+function abrirChatConAmigo(chatId, otroKey, otroNombre, otroFoto) {
+    _chatActivoId      = chatId;
+    _chatActivoOtroKey = otroKey;
+
+    // Marcar activo en lista
+    document.querySelectorAll('.chat-item').forEach(i => i.classList.remove('active'));
+    const item = document.getElementById(`chat-item-${otroKey}`);
+    if (item) item.classList.add('active');
+
+    // En móvil: ocultar lista, mostrar ventana
+    if (window.innerWidth <= 768) {
+        const sp = document.getElementById('chat-sidebar-panel');
+        const cm = document.getElementById('chat-main');
+        if (sp) sp.style.display = 'none';
+        if (cm) { cm.style.display = 'flex'; cm.classList.add('mobile-visible'); }
+    }
+
+    // Mostrar ventana de chat
+    const placeholder = document.getElementById('chat-placeholder');
+    const chatWindow  = document.getElementById('chat-window');
+    if (placeholder) placeholder.style.display = 'none';
+    if (chatWindow)  chatWindow.style.display   = 'flex';
+
+    // Construir header
+    const isMobile = window.innerWidth <= 768;
+    const winHeader = document.getElementById('chat-win-header');
+    if (winHeader) {
+        winHeader.innerHTML = `
+            ${isMobile ? `<button class="chat-back-btn" onclick="volverListaChats()"><i class="fa-solid fa-arrow-left"></i></button>` : ''}
+            <img src="${otroFoto}" alt="${otroNombre}" class="chat-header-foto"
+                 onerror="this.src='https://ui-avatars.com/api/?name=${encodeURIComponent(otroNombre)}&background=3b82f6&color=fff&size=200'">
+            <span class="chat-header-nombre">${otroNombre}</span>
+        `;
+    }
+
+    // Detener listener anterior y limpiar mensajes
+    if (_mensajesListenerRef) { _mensajesListenerRef.off('child_added'); _mensajesListenerRef = null; }
+    const messagesEl = document.getElementById('chat-messages');
+    if (messagesEl) messagesEl.innerHTML = '';
+
+    // Iniciar listener de mensajes en tiempo real
+    const miKey = getMiKey();
+    _mensajesListenerRef = database.ref(`chats/${chatId}/mensajes`);
+    _mensajesListenerRef.on('child_added', (snap) => {
+        const msg = snap.val();
+        if (!msg || !messagesEl) return;
+        const esMio = msg.de_key === miKey;
+        const hora  = msg.fecha
+            ? new Date(msg.fecha).toLocaleTimeString('es-ES', { hour:'2-digit', minute:'2-digit' })
+            : '';
+        const wrap = document.createElement('div');
+        wrap.className = `chat-bubble-wrapper ${esMio ? 'mio' : 'otro'}`;
+        wrap.innerHTML = `
+            <div class="chat-bubble ${esMio ? 'mio' : 'otro'}">
+                ${msg.texto}
+                <div class="chat-bubble-time">${hora}</div>
+            </div>
+        `;
+        messagesEl.appendChild(wrap);
+        messagesEl.scrollTop = messagesEl.scrollHeight;
+    });
+
+    setTimeout(() => document.getElementById('chat-input')?.focus(), 100);
+}
+
+// ── Volver a la lista (móvil) ──────────────────────────────────────────────────
+function volverListaChats() {
+    const sp = document.getElementById('chat-sidebar-panel');
+    const cm = document.getElementById('chat-main');
+    if (sp) { sp.style.display = 'flex'; }
+    if (cm) { cm.style.display = 'none'; cm.classList.remove('mobile-visible'); }
+
+    const placeholder = document.getElementById('chat-placeholder');
+    const chatWindow  = document.getElementById('chat-window');
+    if (chatWindow)  chatWindow.style.display   = 'none';
+    if (placeholder) placeholder.style.display  = 'flex';
+
+    if (_mensajesListenerRef) { _mensajesListenerRef.off('child_added'); _mensajesListenerRef = null; }
+    _chatActivoId      = null;
+    _chatActivoOtroKey = null;
+}
+
+// ── Enviar mensaje ─────────────────────────────────────────────────────────────
+async function enviarMensaje() {
+    const input    = document.getElementById('chat-input');
+    const texto    = input?.value?.trim();
+    if (!texto || !_chatActivoId) return;
+    const miPerfil = getMiPerfil();
+    const miKey    = getMiKey();
+    if (!miPerfil || !miKey) return;
+
+    input.value = '';
+    try {
+        const msg = {
+            de_key:     miKey,
+            de_nombre:  miPerfil.nombre,
+            texto:      texto,
+            fecha:      Date.now()
+        };
+        await database.ref(`chats/${_chatActivoId}/mensajes`).push(msg);
+        await database.ref(`chats/${_chatActivoId}/ultimo_mensaje`).set({
+            texto,
+            fecha:   Date.now(),
+            de_key:  miKey
+        });
+
+        // Actualizar preview en la lista de chats
+        const itemUlt = document.querySelector(`#chat-item-${_chatActivoOtroKey} .chat-item-ultimo`);
+        if (itemUlt) itemUlt.textContent = texto;
+    } catch(e) { console.error('Error enviando mensaje:', e); }
 }
