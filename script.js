@@ -1557,7 +1557,6 @@ function switchTab(tab) {
         if (sectionChat) sectionChat.style.display = 'block';
         const tabChat = document.getElementById('tab-chat');
         if (tabChat) tabChat.classList.add('active');
-        cargarListaChats();
         iniciarListenerChats();
     }
 }
@@ -1994,3 +1993,4 @@ async function enviarMensaje() {
         if (itemUlt) itemUlt.textContent = texto;
     } catch(e) { console.error('Error enviando mensaje:', e); }
 }
+
