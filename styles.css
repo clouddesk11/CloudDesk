@@ -4148,12 +4148,12 @@ footer {
 .chat-container {
     display: flex;
     flex: 1;
-    height: calc(100vh - 80px);
+    height: calc(100vh - 60px);
     overflow: hidden;
     background: #0b141a;
     border: none;
     border-radius: 0;
-    margin: 0;
+    margin: 0 -2rem -2rem -2rem;
 }
 
 /* ── Panel izquierdo ── */
@@ -4446,3 +4446,4 @@ footer {
         border-top-right-radius: 2px;
     }
 }
+
