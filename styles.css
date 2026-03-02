@@ -4134,11 +4134,10 @@ footer {
    CHAT — WHATSAPP STYLE
    ============================================ */
 #chat {
-    position: relative;
+    display: flex;
+    flex-direction: column;
+    height: 100%;
     padding: 0 !important;
-    margin: 0 !important;
-    height: 100vh;
-    overflow: hidden;
 }
 
 #chat-header-section {
@@ -4148,17 +4147,13 @@ footer {
 
 .chat-container {
     display: flex;
+    flex: 1;
     height: calc(100vh - 60px);
     overflow: hidden;
     background: #0b141a;
     border: none;
     border-radius: 0;
     margin: 0 -2rem -2rem -2rem;
-    position: absolute;
-    left: 80px;
-    right: 0;
-    top: 0;
-    bottom: 0;
 }
 
 /* ── Panel izquierdo ── */
@@ -4451,5 +4446,6 @@ footer {
         border-top-right-radius: 2px;
     }
 }
+
 
 
