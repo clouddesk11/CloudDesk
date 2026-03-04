@@ -755,6 +755,24 @@
         </div>
     </div>
 
+    <!-- Overlay Amigos -->
+<div id="amigos-overlay" class="solicitudes-overlay"
+     style="display:none;" onclick="cerrarAmigos()">
+    <div class="solicitudes-panel" onclick="event.stopPropagation()">
+        <div class="solicitudes-header">
+            <h3><i class="fa-solid fa-user-friends"></i> Mis Amigos</h3>
+            <button class="sol-close-btn" onclick="cerrarAmigos()">
+                <i class="fa-solid fa-times"></i>
+            </button>
+        </div>
+        <div id="amigos-lista" class="solicitudes-lista">
+            <p style="text-align:center;color:var(--text-muted);padding:2rem;">
+                Sin amigos aún.
+            </p>
+        </div>
+    </div>
+</div>
+
     <!-- Scripts -->
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-database-compat.js"></script>
@@ -764,4 +782,5 @@
 </body>
 
 </html>
+
 
