@@ -1204,8 +1204,7 @@ async function registrarEstudiante() {
 
         perfil.supabase_registered = true;
         perfil.foto_url = fotoUrl;
-        if (data && data[0] && data[0].created_at) {
-            perfil.fecha_registro = new Date(data[0].created_at).toLocaleDateString('es-ES');
+        perfil.fecha_registro = new Date().toLocaleDateString('es-ES');
         }
         localStorage.setItem('eduspace_student_profile', JSON.stringify(perfil));
 
@@ -1236,7 +1235,7 @@ async function cargarEstudiantes() {
     if (!supabaseClient) { grid.innerHTML = '<p style="grid-column:1/-1;text-align:center;color:var(--danger);padding:2rem;">Error de conexión.</p>'; return; }
     try {
         if (loading) loading.style.display = 'block';
-        const { data, error } = await supabaseClient.from('estudiantes').select('*').order('created_at', { ascending: false });
+        const { data, error } = await supabaseClient.from('estudiantes').select('*');
         if (error) throw error;
         renderEstudiantesReales(data);
     } catch(error) {
@@ -2123,4 +2122,5 @@ async function eliminarAmigo(amigoKey, amigoNombre) {
         mostrarToast('❌ Error al eliminar amigo', 'fa-times-circle');
     }
 }
+
 
