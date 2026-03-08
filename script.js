@@ -74,7 +74,8 @@ function _setTempValidacion(val) {
 function _ocultarTodosLosSteps() {
     const ids = [
         'auth-step-code', 'auth-step-registro', 'auth-step-google',
-        'auth-step-api-reveal', 'auth-step-laptop', 'auth-step-google-laptop'
+        'auth-step-api-reveal', 'auth-step-laptop', 'auth-step-google-laptop',
+        'auth-step-no-registrado'
     ];
     ids.forEach(id => {
         const el = document.getElementById(id);
@@ -351,10 +352,10 @@ async function procesarLoginGoogle(user) {
                 const u = auth.currentUser;
                 if (u) await u.delete();
             } catch(e) { await auth.signOut().catch(console.error); }
-            if (errEl) {
-                errEl.textContent = '🚫 Tu cuenta de Google no está registrada en el sistema. Contacta al administrador.';
-                errEl.style.display = 'block';
-            }
+           if (errEl) {
+    errEl.innerHTML = '🚫 Tu cuenta de Google no está registrada en el sistema. <span class="saber-mas-link" onclick="mostrarSaberMas()">Saber más</span>';
+    errEl.style.display = 'block';
+}
             if (btn) { btn.disabled = false; btn.innerHTML = googleBtnHTML(); }
             return;
         }
@@ -2140,6 +2141,94 @@ async function enviarDenuncia() {
     } finally {
         btn.disabled = false; btn.innerHTML = '<i class="fa-solid fa-paper-plane"></i> Enviar Denuncia';
     }
+}
+
+// ============================================
+// PASO "SABER MÁS" — CUENTA NO REGISTRADA
+// ============================================
+
+/**
+ * Muestra el paso explicativo cuando la cuenta no está registrada.
+ * Oculta todo lo anterior y muestra el diseño con imagen + caja de scroll.
+ */
+async function mostrarSaberMas() {
+    _ocultarTodosLosSteps();
+
+    const step = document.getElementById('auth-step-no-registrado');
+    if (step) step.style.display = 'block';
+
+    // Carga las especialidades activas desde Firebase
+    await cargarEspecialidadesActivas();
+}
+
+/**
+ * Consulta Firebase y muestra solo las especialidades/ciclos
+ * que tienen al menos un usuario registrado.
+ */
+async function cargarEspecialidadesActivas() {
+    const container = document.getElementById('no-reg-especialidades');
+    if (!container) return;
+
+    try {
+        const snap    = await database.ref('codigos').once('value');
+        const codigos = snap.val() || {};
+
+        // Agrupa por especialidad → conjunto de ciclos
+        // especMap = { "Comunicación": Set(["V", "VII"]), "Inicial": Set(["III"]) }
+        const especMap = {};
+
+        for (const [key, data] of Object.entries(codigos)) {
+            // Solo cuenta si tiene especialidad asignada
+            if (data.especialidad && data.especialidad.trim() !== '') {
+                const esp = data.especialidad.trim();
+                if (!especMap[esp]) {
+                    especMap[esp] = new Set();
+                }
+                if (data.ciclo && data.ciclo.trim() !== '') {
+                    especMap[esp].add(data.ciclo.trim());
+                }
+            }
+        }
+
+        // Si no hay ninguna especialidad, muestra mensaje
+        if (Object.keys(especMap).length === 0) {
+            container.innerHTML = '<p style="color:var(--text-muted);font-size:0.8rem;padding:0.3rem 0;">No hay especialidades disponibles actualmente.</p>';
+            return;
+        }
+
+        // Construye las tarjetas de cada especialidad
+        container.innerHTML = '';
+        for (const [esp, ciclosSet] of Object.entries(especMap)) {
+            // Ordena los ciclos alfabéticamente
+            const ciclos = Array.from(ciclosSet).sort();
+
+            const div       = document.createElement('div');
+            div.className   = 'no-reg-esp-item';
+
+            const ciclosBadges = ciclos
+                .map(c => `<span class="no-reg-ciclo-badge">Ciclo ${c}</span>`)
+                .join('');
+
+            div.innerHTML = `
+                <div class="no-reg-esp-nombre">
+                    <i class="fa-solid fa-book-open"></i> ${esp}
+                </div>
+                <div class="no-reg-ciclos">
+                    ${ciclosBadges || '<span style="color:var(--text-muted);font-size:0.72rem;">Sin ciclos especificados</span>'}
+                </div>
+            `;
+            container.appendChild(div);
+        }
+
+    } catch (e) {
+        console.error('Error cargando especialidades activas:', e);
+        container.innerHTML = '<p style="color:var(--danger);font-size:0.78rem;">Error al cargar las especialidades.</p>';
+    }
+}
+
+function volverAlLogin() {
+    _ocultarTodosLosSteps();
+    mostrarPaso1();
 }
 
 
