@@ -4862,3 +4862,313 @@ body.tema-inicial .auth-submit {
 body.tema-inicial .notification-dot {
     background: #ec4899;
 }
+
+/* ============================================
+   "SABER MÁS" — LINK EN MENSAJE DE ERROR
+   ============================================ */
+.saber-mas-link {
+    color: #60a5fa;
+    cursor: pointer;
+    text-decoration: underline;
+    font-weight: 700;
+    margin-left: 5px;
+    transition: color 0.2s;
+    white-space: nowrap;
+}
+.saber-mas-link:hover {
+    color: #93c5fd;
+}
+
+/* ============================================
+   PASO NO REGISTRADO — LAYOUT PRINCIPAL
+   ============================================ */
+
+/* Contenedor: imagen izquierda + caja derecha */
+.no-reg-layout {
+    display: flex;
+    align-items: flex-end;    /* imagen alineada abajo como el muñeco */
+    gap: 1rem;
+    margin-bottom: 1rem;
+}
+
+/* ── Columna izquierda: imagen del personaje ── */
+.no-reg-imagen-col {
+    flex-shrink: 0;
+    width: 90px;
+    display: flex;
+    align-items: flex-end;
+    justify-content: center;
+}
+
+.no-reg-img {
+    width: 90px;
+    height: auto;
+    max-height: 290px;
+    object-fit: contain;
+    filter: drop-shadow(0 4px 14px rgba(0,0,0,0.35));
+}
+
+/* ── Columna derecha: caja de contenido ── */
+.no-reg-content-col {
+    flex: 1;
+    min-width: 0;
+}
+
+/* Caja con scroll AMARILLO (como la barra del dibujo) */
+.no-reg-scroll-box {
+    max-height: 290px;
+    overflow-y: auto;
+    padding: 1rem;
+    background: rgba(255, 255, 255, 0.02);
+    border: 1.5px solid rgba(59, 130, 246, 0.2);
+    border-radius: 12px;
+    /* Scrollbar amarillo — Firefox */
+    scrollbar-width: thin;
+    scrollbar-color: #f59e0b transparent;
+}
+
+/* Scrollbar amarillo — Chrome/Safari */
+.no-reg-scroll-box::-webkit-scrollbar {
+    width: 6px;
+}
+.no-reg-scroll-box::-webkit-scrollbar-track {
+    background: transparent;
+}
+.no-reg-scroll-box::-webkit-scrollbar-thumb {
+    background: #f59e0b;
+    border-radius: 4px;
+}
+.no-reg-scroll-box::-webkit-scrollbar-thumb:hover {
+    background: #d97706;
+}
+
+/* ── Título ── */
+.no-reg-titulo {
+    color: var(--primary-color);
+    font-size: 0.92rem;
+    font-weight: 700;
+    margin: 0 0 0.75rem;
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    padding-bottom: 0.6rem;
+    border-bottom: 1px solid rgba(59, 130, 246, 0.15);
+}
+
+/* ── Texto introductorio ── */
+.no-reg-texto {
+    color: var(--text-muted);
+    font-size: 0.8rem;
+    line-height: 1.6;
+    margin: 0 0 0.9rem;
+}
+
+/* ── Bloque de cada razón ── */
+.no-reg-razon {
+    display: flex;
+    gap: 0.65rem;
+    align-items: flex-start;
+    margin-bottom: 0.85rem;
+    padding: 0.75rem;
+    background: rgba(59, 130, 246, 0.05);
+    border-left: 3px solid var(--primary-color);
+    border-radius: 0 8px 8px 0;
+}
+
+.no-reg-razon-icon {
+    width: 26px;
+    height: 26px;
+    min-width: 26px;
+    border-radius: 50%;
+    background: rgba(59, 130, 246, 0.15);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--primary-color);
+    font-size: 0.78rem;
+    flex-shrink: 0;
+    margin-top: 2px;
+}
+
+.no-reg-razon-texto strong {
+    color: var(--text-light);
+    font-size: 0.84rem;
+    display: block;
+    margin-bottom: 0.3rem;
+}
+
+.no-reg-razon-texto p {
+    color: var(--text-muted);
+    font-size: 0.77rem;
+    line-height: 1.55;
+    margin: 0;
+}
+
+/* ── Lista de especialidades activas ── */
+.no-reg-esp-list {
+    margin: 0.55rem 0;
+    display: flex;
+    flex-direction: column;
+    gap: 0.4rem;
+}
+
+.no-reg-loading {
+    color: var(--text-muted);
+    font-size: 0.78rem;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    padding: 0.4rem 0;
+}
+
+.no-reg-esp-item {
+    background: rgba(16, 185, 129, 0.06);
+    border: 1px solid rgba(16, 185, 129, 0.22);
+    border-radius: 8px;
+    padding: 0.5rem 0.75rem;
+}
+
+.no-reg-esp-nombre {
+    color: var(--success);
+    font-size: 0.8rem;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    margin-bottom: 0.3rem;
+}
+
+.no-reg-ciclos {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 4px;
+}
+
+.no-reg-ciclo-badge {
+    font-size: 0.7rem;
+    padding: 2px 8px;
+    background: rgba(16, 185, 129, 0.12);
+    border: 1px solid rgba(16, 185, 129, 0.3);
+    border-radius: 12px;
+    color: var(--success);
+    font-weight: 600;
+}
+
+.no-reg-esp-footer {
+    color: var(--text-muted);
+    font-size: 0.75rem;
+    line-height: 1.5;
+    margin: 0.5rem 0 0;
+}
+
+/* ── Sección de soporte ── */
+.no-reg-soporte-box {
+    margin-top: 0.9rem;
+    padding-top: 0.9rem;
+    border-top: 1px solid rgba(255, 255, 255, 0.06);
+}
+
+.no-reg-advertencia {
+    display: flex;
+    gap: 0.65rem;
+    align-items: flex-start;
+    padding: 0.75rem;
+    background: rgba(245, 158, 11, 0.07);
+    border: 1px solid rgba(245, 158, 11, 0.22);
+    border-radius: 8px;
+    margin-bottom: 0.85rem;
+}
+
+.no-reg-adv-icon {
+    color: var(--warning);
+    font-size: 1rem;
+    margin-top: 2px;
+    flex-shrink: 0;
+}
+
+.no-reg-advertencia strong {
+    color: var(--warning);
+    font-size: 0.82rem;
+    display: block;
+    margin-bottom: 0.25rem;
+}
+
+.no-reg-advertencia p {
+    color: var(--text-muted);
+    font-size: 0.76rem;
+    line-height: 1.5;
+    margin: 0;
+}
+
+/* ── Botón WhatsApp ── */
+.no-reg-wa-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 9px;
+    width: 100%;
+    padding: 0.85rem 1rem;
+    background: linear-gradient(135deg, #25d366, #1da851);
+    color: white;
+    border-radius: 10px;
+    text-decoration: none;
+    font-size: 0.88rem;
+    font-weight: 700;
+    transition: all 0.3s;
+    box-shadow: 0 4px 12px rgba(37, 211, 102, 0.3);
+}
+
+.no-reg-wa-btn i {
+    font-size: 1.15rem;
+}
+
+.no-reg-wa-btn:hover {
+    background: linear-gradient(135deg, #1da851, #16a34a);
+    transform: translateY(-1px);
+    box-shadow: 0 6px 18px rgba(37, 211, 102, 0.45);
+}
+
+/* ── Botón "Volver al inicio de sesión" ── */
+.no-reg-volver-btn {
+    width: 100%;
+    padding: 0.78rem;
+    margin-top: 0.75rem;
+    background: transparent;
+    border: 1.5px solid rgba(255, 255, 255, 0.1);
+    border-radius: 10px;
+    color: var(--text-muted);
+    font-size: 0.86rem;
+    font-weight: 600;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    transition: all 0.25s;
+    font-family: inherit;
+}
+
+.no-reg-volver-btn:hover {
+    background: rgba(255, 255, 255, 0.05);
+    color: var(--text-light);
+    border-color: rgba(255, 255, 255, 0.2);
+}
+
+/* ── Responsivo móvil ── */
+@media (max-width: 480px) {
+    .no-reg-layout {
+        flex-direction: column;
+        align-items: center;
+        gap: 0.8rem;
+    }
+    .no-reg-imagen-col {
+        width: 70px;
+    }
+    .no-reg-img {
+        width: 70px;
+        max-height: 110px;
+    }
+    .no-reg-scroll-box {
+        max-height: 250px;
+    }
+}
