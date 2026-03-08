@@ -85,13 +85,15 @@ function _ocultarTodosLosSteps() {
 // ============================================
 // FLUJO MÓVIL: PASOS
 // ============================================
+
+// ── PASO 1: Solo muestra el botón de Google ──
 function mostrarPaso1() {
     _ocultarTodosLosSteps();
     document.getElementById('auth-step-code').style.display = 'block';
-    const errCode = document.getElementById('authError');
-    if (errCode) { errCode.style.display = 'none'; errCode.textContent = ''; }
-    const btn = document.getElementById('authSubmit');
-    if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fa-solid fa-arrow-right"></i> Continuar'; }
+    const errEl = document.getElementById('authError');
+    if (errEl) { errEl.style.display = 'none'; errEl.textContent = ''; }
+    const btn = document.getElementById('googleSignInBtn');
+    if (btn) { btn.disabled = false; btn.innerHTML = googleBtnHTML(); }
 }
 
 function mostrarPasoRegistro() {
@@ -99,10 +101,6 @@ function mostrarPasoRegistro() {
     document.getElementById('auth-step-registro').style.display = 'block';
     const errReg = document.getElementById('authRegistroError');
     if (errReg) { errReg.textContent = ''; errReg.style.display = 'none'; }
-    const esp  = document.getElementById('selectEspecialidad');
-    const ciclo = document.getElementById('selectCiclo');
-    if (esp) esp.value = '';
-    if (ciclo) ciclo.value = '';
     resetImagePreview();
     selectedImageFile = null; selectedImageDataUrl = ''; selectedEspecialidad = ''; selectedCiclo = '';
 }
@@ -304,238 +302,252 @@ function googleBtnHTML() {
     return `<svg width="20" height="20" viewBox="0 0 48 48"><path fill="#FFC107" d="M43.611 20.083H42V20H24v8h11.303c-1.649 4.657-6.08 8-11.303 8-6.627 0-12-5.373-12-12s5.373-12 12-12c3.059 0 5.842 1.154 7.961 3.039l5.657-5.657C34.046 6.053 29.268 4 24 4 12.955 4 4 12.955 4 24s8.955 20 20 20 20-8.955 20-20c0-1.341-.138-2.65-.389-3.917z"/><path fill="#FF3D00" d="m6.306 14.691 6.571 4.819C14.655 15.108 18.961 12 24 12c3.059 0 5.842 1.154 7.961 3.039l5.657-5.657C34.046 6.053 29.268 4 24 4 16.318 4 9.656 8.337 6.306 14.691z"/><path fill="#4CAF50" d="M24 44c5.166 0 9.86-1.977 13.409-5.192l-6.19-5.238A11.91 11.91 0 0 1 24 36c-5.202 0-9.619-3.317-11.283-7.946l-6.522 5.025C9.505 39.556 16.227 44 24 44z"/><path fill="#1976D2" d="M43.611 20.083H42V20H24v8h11.303a12.04 12.04 0 0 1-4.087 5.571l.003-.002 6.19 5.238C36.971 39.205 44 34 44 24c0-1.341-.138-2.65-.389-3.917z"/></svg> Continuar con Google`;
 }
 
-function continuarDesdeAuth() {
-    const esp   = document.getElementById('selectEspecialidad').value;
-    const ciclo = document.getElementById('selectCiclo').value;
-    const errEl = document.getElementById('authRegistroError');
+// ============================================
+// NUEVA AUTENTICACIÓN — GOOGLE + EMAIL PANEL
+// ============================================
+
+async function signInWithGoogle() {
+    const btn   = document.getElementById('googleSignInBtn');
+    const errEl = document.getElementById('authError');
+    if (errEl) errEl.style.display = 'none';
+    btn.disabled = true;
+    btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Conectando...';
+    try {
+        const provider = new firebase.auth.GoogleAuthProvider();
+        provider.setCustomParameters({ prompt: 'select_account' });
+        _registrandoAhora = true;
+        const result = await auth.signInWithPopup(provider);
+        await procesarLoginGoogle(result.user);
+    } catch (error) {
+        let mensaje = '❌ Error al iniciar sesión con Google.';
+        if (error.code === 'auth/popup-closed-by-user') mensaje = '⚠️ Cerraste la ventana de Google.';
+        if (error.code === 'auth/popup-blocked')         mensaje = '⚠️ Permite las ventanas emergentes.';
+        if (errEl) { errEl.textContent = mensaje; errEl.style.display = 'block'; }
+        btn.disabled = false; btn.innerHTML = googleBtnHTML();
+    } finally { _registrandoAhora = false; }
+}
+
+async function buscarCodigoPorEmail(email) {
+    const snap = await database.ref('codigos').once('value');
+    const codigos = snap.val() || {};
+    for (const [key, data] of Object.entries(codigos)) {
+        if (data.email && data.email.toLowerCase() === email.toLowerCase()) {
+            return { codigoKey: key, ...data };
+        }
+    }
+    return null;
+}
+
+async function procesarLoginGoogle(user) {
+    const errEl = document.getElementById('authError');
+    const btn   = document.getElementById('googleSignInBtn');
+    if (btn) { btn.disabled = true; btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Verificando...'; }
+
+    try {
+        const codigoEncontrado = await buscarCodigoPorEmail(user.email);
+
+        if (!codigoEncontrado) {
+            try {
+                const u = auth.currentUser;
+                if (u) await u.delete();
+            } catch(e) { await auth.signOut().catch(console.error); }
+            if (errEl) {
+                errEl.textContent = '🚫 Tu cuenta de Google no está registrada en el sistema. Contacta al administrador.';
+                errEl.style.display = 'block';
+            }
+            if (btn) { btn.disabled = false; btn.innerHTML = googleBtnHTML(); }
+            return;
+        }
+
+        if (codigoEncontrado.bloqueado === true) {
+            try {
+                const u = auth.currentUser;
+                if (u) await u.delete();
+            } catch(e) { await auth.signOut().catch(console.error); }
+            if (errEl) {
+                errEl.textContent = `🚫 ACCESO BLOQUEADO: ${codigoEncontrado.motivoBloqueo || 'Tu acceso ha sido bloqueado.'}`;
+                errEl.style.display = 'block';
+            }
+            if (btn) { btn.disabled = false; btn.innerHTML = googleBtnHTML(); }
+            return;
+        }
+
+        const codigo     = codigoEncontrado.codigoKey;
+        const nombre     = codigoEncontrado.propietario || '';
+        const esp        = codigoEncontrado.especialidad || '';
+        const ciclo      = codigoEncontrado.ciclo || '';
+        const apiNum     = codigoEncontrado.api || '';
+        const googleUid  = user.uid;
+        const deviceType = getDeviceType();
+        const deviceKey  = `${googleUid}_${deviceType}`;
+
+        _guardarSesionLocal(nombre, codigo, googleUid, deviceType);
+        _setTempValidacion({ userName: nombre, codigo, codigoData: codigoEncontrado });
+
+        const dispositivos = codigoEncontrado.dispositivos || {};
+        if (!dispositivos[deviceKey]) {
+            await database.ref(`codigos/${codigo}/dispositivos/${deviceKey}`).set({
+                googleUid,
+                googleEmail: user.email,
+                tipo: deviceType,
+                usuario: nombre,
+                fechaRegistro: new Date().toISOString(),
+                ultimoAcceso: new Date().toISOString()
+            });
+        } else {
+            await database.ref(`codigos/${codigo}/dispositivos/${deviceKey}/ultimoAcceso`).set(new Date().toISOString());
+        }
+
+        const perfilExistente  = localStorage.getItem('eduspace_student_profile');
+        const perfilEnFirebase = codigoEncontrado.perfil?.foto_url;
+
+        if (perfilExistente || perfilEnFirebase) {
+            if (perfilEnFirebase && !perfilExistente) {
+                await _cargarPerfilDesdeFirebase(codigoEncontrado, nombre);
+            }
+            if (apiNum && deviceType === 'mobile') localStorage.setItem('eduspace_api', String(apiNum));
+            _setTempValidacion(null);
+            hideAuthModal();
+            if (codigo === '6578hy') showSpecialUserMessage();
+            iniciarListenerBloqueo();
+            iniciarListenerSupabaseRegistered();
+            actualizarPerfilSidebar();
+            return;
+        }
+
+        mostrarPasoRegistroNuevo(nombre, esp, ciclo, apiNum);
+
+    } catch (error) {
+        console.error('Error en procesarLoginGoogle:', error);
+        if (errEl) { errEl.textContent = '❌ Error de conexión. Intenta nuevamente.'; errEl.style.display = 'block'; }
+        if (btn) { btn.disabled = false; btn.innerHTML = googleBtnHTML(); }
+    }
+}
+
+function mostrarPasoRegistroNuevo(nombre, especialidad, ciclo, api) {
+    _ocultarTodosLosSteps();
+    document.getElementById('auth-step-registro').style.display = 'block';
+
+    const inputNombre = document.getElementById('reg-nombre');
+    const inputEsp    = document.getElementById('reg-especialidad');
+    const inputCiclo  = document.getElementById('reg-ciclo');
+    if (inputNombre) inputNombre.value = nombre;
+    if (inputEsp)    inputEsp.value    = especialidad;
+    if (inputCiclo)  inputCiclo.value  = ciclo ? `Ciclo ${ciclo}` : '—';
+
+    selectedEspecialidad = especialidad;
+    selectedCiclo        = ciclo;
+
+    const apiWrapper = document.getElementById('reg-api-wrapper');
+    const apiNumEl   = document.getElementById('reg-api-number');
+    if (api && getDeviceType() === 'mobile' && apiWrapper && apiNumEl) {
+        apiWrapper.style.display = 'block';
+        apiNumEl.textContent     = api;
+        localStorage.setItem('eduspace_api', String(api));
+    }
+
+    aplicarTemaEspecialidad(especialidad);
+
+    resetImagePreview();
+    selectedImageFile = null; selectedImageDataUrl = '';
+}
+
+async function continuarDesdeAuth() {
+    const errEl  = document.getElementById('authRegistroError');
     if (errEl) { errEl.style.display = 'none'; errEl.textContent = ''; }
-    if (!esp || !ciclo) { if (errEl) { errEl.textContent = '⚠️ Por favor selecciona tu especialidad y ciclo.'; errEl.style.display = 'block'; } return; }
-    if (!selectedImageFile) { if (errEl) { errEl.textContent = '⚠️ Por favor selecciona una foto de perfil para continuar.'; errEl.style.display = 'block'; } return; }
-    selectedEspecialidad = esp; selectedCiclo = ciclo;
-    mostrarPaso2Google();
+
+    const tempVal = _getTempValidacion();
+    if (!tempVal) { mostrarPaso1(); return; }
+
+    const { userName, codigo, codigoData } = tempVal;
+    const user = auth.currentUser;
+    if (!user) { mostrarPaso1(); return; }
+
+    const apiNum = codigoData.api || '';
+
+    const btn = document.querySelector('#auth-step-registro .auth-submit');
+    if (btn) { btn.disabled = true; btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Guardando...'; }
+
+    try {
+        let fotoUrl = '';
+        if (selectedImageFile) {
+            const formData = new FormData();
+            formData.append('file', selectedImageFile);
+            formData.append('upload_preset', CLOUDINARY_CONFIG.UPLOAD_PRESET);
+            formData.append('folder', 'estudiantes_clouddesk');
+            const res = await fetch(`https://api.cloudinary.com/v1_1/${CLOUDINARY_CONFIG.CLOUD_NAME}/image/upload`, { method:'POST', body:formData });
+            if (res.ok) { const data = await res.json(); fotoUrl = data.secure_url; }
+        }
+
+        const perfil = {
+            nombre:              userName,
+            especialidad:        selectedEspecialidad,
+            ciclo:               selectedCiclo,
+            foto_url:            fotoUrl,
+            supabase_registered: false,
+            fecha_registro:      ''
+        };
+        localStorage.setItem('eduspace_student_profile', JSON.stringify(perfil));
+        if (codigo) await _savePerfilToFirebase(codigo, perfil);
+
+        if (apiNum && getDeviceType() === 'mobile') localStorage.setItem('eduspace_api', String(apiNum));
+
+        _setTempValidacion(null);
+        hideAuthModal();
+        if (codigo === '6578hy') showSpecialUserMessage();
+        iniciarListenerBloqueo();
+        iniciarListenerSupabaseRegistered();
+        actualizarPerfilSidebar();
+
+    } catch(err) {
+        console.error(err);
+        if (errEl) { errEl.textContent = '❌ Error al guardar. Intenta de nuevo.'; errEl.style.display = 'block'; }
+    } finally {
+        if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fa-solid fa-check"></i> Entrar'; }
+    }
 }
 
 function normalizarNombre(nombre) {
     return nombre.trim().toLowerCase().normalize("NFD").replace(/[\u0300-\u036f]/g, "").replace(/\s+/g, " ");
 }
 
-async function validarCodigo() {
-    const userName  = document.getElementById('authUserName').value.trim();
-    const codigo    = document.getElementById('authCode').value.trim();
-    const errorDiv  = document.getElementById('authError');
-    const submitBtn = document.getElementById('authSubmit');
-    errorDiv.style.display = 'none'; errorDiv.textContent = '';
-    if (!userName) { errorDiv.textContent = 'Por favor, ingresa tu nombre.'; errorDiv.style.display = 'block'; return; }
-    if (!codigo)   { errorDiv.textContent = 'Por favor, ingresa tu código.'; errorDiv.style.display = 'block'; return; }
-    submitBtn.disabled = true; submitBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Verificando...';
-    try {
-        let snapshot;
-        try { snapshot = await database.ref(`codigos/${codigo}`).once('value'); }
-        catch(fbError) { errorDiv.textContent = '⚠️ Error de conexión. Verifica tu internet e intenta nuevamente.'; errorDiv.style.display = 'block'; submitBtn.disabled = false; submitBtn.innerHTML = '<i class="fa-solid fa-arrow-right"></i> Continuar'; return; }
-        if (!snapshot.exists()) { errorDiv.textContent = '❌ Código inválido. Verifica con el administrador.'; errorDiv.style.display = 'block'; submitBtn.disabled = false; submitBtn.innerHTML = '<i class="fa-solid fa-arrow-right"></i> Continuar'; return; }
-        const codigoData           = snapshot.val();
-        const dispositivosActuales = codigoData.dispositivos || {};
-        const dispositivosKeys     = Object.keys(dispositivosActuales);
-        if (codigoData.bloqueado === true) { errorDiv.textContent = `🚫 ACCESO BLOQUEADO: ${codigoData.motivoBloqueo || 'Tu acceso ha sido bloqueado por el administrador.'}`; errorDiv.style.display = 'block'; submitBtn.disabled = false; submitBtn.innerHTML = '<i class="fa-solid fa-arrow-right"></i> Continuar'; return; }
-        if (codigoData.propietario && codigoData.propietario.trim() !== '') {
-            if (normalizarNombre(codigoData.propietario) !== normalizarNombre(userName)) { errorDiv.innerHTML = `❌ El nombre ingresado no coincide con el registrado para este código.<br><small style="opacity:.8;">Escríbelo exactamente como el administrador lo registró.</small>`; errorDiv.style.display = 'block'; submitBtn.disabled = false; submitBtn.innerHTML = '<i class="fa-solid fa-arrow-right"></i> Continuar'; return; }
-        } else if (dispositivosKeys.length > 0) {
-            let nombrePrimero = '';
-            for (const key of dispositivosKeys) { const u = (dispositivosActuales[key].usuario || '').trim(); if (u) { nombrePrimero = u; break; } }
-            if (nombrePrimero && normalizarNombre(nombrePrimero) !== normalizarNombre(userName)) { errorDiv.innerHTML = `❌ El nombre ingresado no coincide con el titular de este código.<br><small style="opacity:.8;">Este código ya está vinculado a otro usuario.</small>`; errorDiv.style.display = 'block'; submitBtn.disabled = false; submitBtn.innerHTML = '<i class="fa-solid fa-arrow-right"></i> Continuar'; return; }
-        }
-        _setTempValidacion({ userName, codigo, codigoData });
-        submitBtn.disabled = false; submitBtn.innerHTML = '<i class="fa-solid fa-arrow-right"></i> Continuar';
-        const user             = auth.currentUser;
-        const perfilExistente  = localStorage.getItem('eduspace_student_profile');
-        const perfilEnFirebase = codigoData.perfil && codigoData.perfil.especialidad && codigoData.perfil.ciclo && codigoData.perfil.foto_url;
-        const tienePerfilCompleto = perfilExistente || perfilEnFirebase;
-        if (user) { tienePerfilCompleto ? await completarRegistro(user) : mostrarPasoRegistro(); }
-        else      { tienePerfilCompleto ? mostrarPaso2Google() : mostrarPasoRegistro(); }
-    } catch (error) {
-        console.error('Error en validarCodigo:', error);
-        errorDiv.textContent = '❌ Error de conexión. Por favor, intenta nuevamente.'; errorDiv.style.display = 'block';
-        submitBtn.disabled = false; submitBtn.innerHTML = '<i class="fa-solid fa-arrow-right"></i> Continuar';
-    }
-}
-
-async function signInWithGoogle() {
-    const btn      = document.getElementById('googleSignInBtn');
-    const errorDiv = document.getElementById('googleError');
-    if (!_getTempValidacion()) { errorDiv.textContent = '⚠️ Error interno. Recarga la página e intenta de nuevo.'; errorDiv.style.display = 'block'; return; }
-    btn.disabled = true; btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Conectando...'; errorDiv.style.display = 'none';
-    try {
-        const provider = new firebase.auth.GoogleAuthProvider();
-        provider.setCustomParameters({ prompt: 'select_account' });
-        _registrandoAhora = true;
-        const result = await auth.signInWithPopup(provider);
-        await completarRegistro(result.user);
-    } catch (error) {
-        console.error('Error Google Sign-In:', error);
-        let mensaje = '❌ Error al iniciar sesión con Google. Intenta nuevamente.';
-        if (error.code === 'auth/popup-closed-by-user') mensaje = '⚠️ Cerraste la ventana de Google. Intenta nuevamente.';
-        if (error.code === 'auth/popup-blocked')         mensaje = '⚠️ El navegador bloqueó la ventana emergente. Permite las ventanas emergentes.';
-        errorDiv.textContent = mensaje; errorDiv.style.display = 'block';
-        btn.disabled = false; btn.innerHTML = googleBtnHTML();
-    } finally { _registrandoAhora = false; }
-}
-
-async function completarRegistro(user) {
-    if (!_getTempValidacion()) { console.warn('completarRegistro sin _tempValidacion.'); await auth.signOut(); showAuthModal(); mostrarPaso1(); return; }
-    const { userName, codigo } = _getTempValidacion();
-    const googleUid  = user.uid;
-    const deviceType = 'mobile';
-    const deviceKey  = `${googleUid}_${deviceType}`;
-    const googleBtn = document.getElementById('googleSignInBtn');
-    if (googleBtn) { googleBtn.disabled = true; googleBtn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Registrando...'; }
-    const googleErr = document.getElementById('googleError');
-    if (googleErr) googleErr.style.display = 'none';
-    try {
-        const snapshot   = await database.ref(`codigos/${codigo}`).once('value');
-        const codigoData = snapshot.val();
-        if (!codigoData) { await _cerrarSesionYMostrarError('❌ El código ya no existe en el sistema.'); return; }
-        if (codigoData.bloqueado === true) { await _cerrarSesionYMostrarError(`🚫 ACCESO BLOQUEADO: ${codigoData.motivoBloqueo || 'Tu acceso ha sido bloqueado.'}`); return; }
-        const dispositivosActuales = codigoData.dispositivos || {};
-        const dispositivosKeys     = Object.keys(dispositivosActuales);
-        if (dispositivosActuales[deviceKey]) {
-            const updates = {};
-            updates[`codigos/${codigo}/dispositivos/${deviceKey}/usuario`]      = userName;
-            updates[`codigos/${codigo}/dispositivos/${deviceKey}/ultimoAcceso`] = new Date().toISOString();
-            await database.ref().update(updates);
-            _guardarSesionLocal(userName, codigo, googleUid, deviceType);
-            _setTempValidacion(null);
-            await _guardarPerfilEstudianteDesdAuth(userName, codigo, codigoData);
-            if (codigo === '6578hy') showSpecialUserMessage();
-            iniciarListenerBloqueo(); iniciarListenerSupabaseRegistered();
-            const apiNum = codigoData.api;
-            if (apiNum) { localStorage.setItem('eduspace_api', String(apiNum)); mostrarPasoApiReveal(userName, apiNum); }
-            else        { hideAuthModal(); actualizarPerfilSidebar(); }
-            return;
-        }
-        if (dispositivosKeys.length > 0) {
-            const otraCuenta = Object.values(dispositivosActuales).find(dev => dev.googleUid && dev.googleUid !== googleUid);
-            if (otraCuenta) { await _cerrarSesionYMostrarError('🚫 Este código ya está vinculado a otra cuenta de Google. Usa la misma cuenta original.'); return; }
-        }
-        const mobileCount = Object.values(dispositivosActuales).filter(d => d.tipo === 'mobile').length;
-        if (mobileCount >= 1) { await _cerrarSesionYMostrarError('📱 Este código ya está en uso en 1 dispositivo móvil. Solo se permite 1 móvil por código.'); return; }
-        const totalDispositivos = dispositivosKeys.length;
-        if (totalDispositivos >= 2) { await _cerrarSesionYMostrarError('⚠️ Este código ya alcanzó el límite de 2 dispositivos (1 móvil + 1 PC).'); return; }
-        const updates = {};
-        updates[`codigos/${codigo}/dispositivos/${deviceKey}`] = { googleUid, googleEmail: user.email, tipo: deviceType, usuario: userName, fechaRegistro: new Date().toISOString(), ultimoAcceso: new Date().toISOString() };
-        const usosRestantes = Math.max(0, 2 - (totalDispositivos + 1));
-        updates[`codigos/${codigo}/usosRestantes`] = usosRestantes;
-        if (usosRestantes === 0) updates[`codigos/${codigo}/completado`] = true;
-        await database.ref().update(updates);
-        _guardarSesionLocal(userName, codigo, googleUid, deviceType);
-        _setTempValidacion(null);
-        await _guardarPerfilEstudianteDesdAuth(userName, codigo, codigoData);
-        if (codigo === '6578hy') showSpecialUserMessage();
-        iniciarListenerBloqueo(); iniciarListenerSupabaseRegistered();
-        const apiNum = codigoData.api;
-        if (apiNum) { localStorage.setItem('eduspace_api', String(apiNum)); mostrarPasoApiReveal(userName, apiNum); }
-        else        { hideAuthModal(); actualizarPerfilSidebar(); }
-    } catch (error) {
-        console.error('Error en completarRegistro:', error);
-        if (googleBtn) { googleBtn.disabled = false; googleBtn.innerHTML = googleBtnHTML(); }
-        if (googleErr) { googleErr.textContent = '❌ Error de conexión. Por favor, intenta nuevamente.'; googleErr.style.display = 'block'; }
-    } finally { _registrandoAhora = false; }
-}
-
-async function _guardarPerfilEstudianteDesdAuth(userName, codigo, codigoData) {
-    const perfilExistente = localStorage.getItem('eduspace_student_profile');
-    if (perfilExistente) {
-        const perfilData = JSON.parse(perfilExistente);
-        if (perfilData.foto_url && codigo) await _savePerfilToFirebase(codigo, perfilData);
-        actualizarPerfilSidebar(); return;
-    }
-    if (!selectedImageFile && !selectedImageDataUrl) { actualizarPerfilSidebar(); return; }
-    try {
-        let fotoUrl = selectedImageDataUrl;
-        if (selectedImageFile) {
-            const formData = new FormData();
-            formData.append('file', selectedImageFile); formData.append('upload_preset', CLOUDINARY_CONFIG.UPLOAD_PRESET); formData.append('folder', 'estudiantes_clouddesk');
-            const res = await fetch(`https://api.cloudinary.com/v1_1/${CLOUDINARY_CONFIG.CLOUD_NAME}/image/upload`, { method: 'POST', body: formData });
-            if (res.ok) { const data = await res.json(); fotoUrl = data.secure_url; }
-            else console.warn('Cloudinary upload falló, usando dataURL como fallback.');
-        }
-        const perfil = { nombre: userName, especialidad: selectedEspecialidad, ciclo: selectedCiclo, foto_url: fotoUrl, supabase_registered: false, fecha_registro: '' };
-        localStorage.setItem('eduspace_student_profile', JSON.stringify(perfil));
-        if (codigo) await _savePerfilToFirebase(codigo, perfil);
-        actualizarPerfilSidebar();
-    } catch (err) {
-        console.error('Error en _guardarPerfilEstudianteDesdAuth:', err);
-        if (selectedImageDataUrl) {
-            const perfilFallback = { nombre: userName, especialidad: selectedEspecialidad, ciclo: selectedCiclo, foto_url: selectedImageDataUrl, supabase_registered: false, fecha_registro: '' };
-            localStorage.setItem('eduspace_student_profile', JSON.stringify(perfilFallback));
-            if (codigo) await _savePerfilToFirebase(codigo, perfilFallback).catch(console.error);
-            actualizarPerfilSidebar();
-        }
-    }
-}
-
+// ============================================
+// GUARDAR SESIÓN LOCAL
+// ============================================
 function _guardarSesionLocal(userName, codigo, googleUid, deviceType) {
-    localStorage.setItem('eduspace_auth', JSON.stringify({ userName, codigo, googleUid, deviceType, timestamp: Date.now() }));
+    const authData = { userName, codigo, googleUid, deviceType, timestamp: Date.now() };
+    localStorage.setItem('eduspace_auth', JSON.stringify(authData));
 }
 
-async function _cerrarSesionYMostrarError(mensaje) {
-    const userAEliminar = auth.currentUser;
-    if (userAEliminar) { try { await userAEliminar.delete(); } catch(deleteErr) { await auth.signOut().catch(e => console.error(e)); } }
-    localStorage.removeItem('eduspace_auth'); _setTempValidacion(null);
-    showAuthModal(); mostrarPaso1();
-    const errDiv = document.getElementById('authError');
-    if (errDiv) { errDiv.innerHTML = mensaje; errDiv.style.display = 'block'; }
-}
-
+// ============================================
+// VALIDAR AUTH CON FIREBASE
+// ============================================
 async function validateAuthWithFirebase(googleUid) {
-    const authData = localStorage.getItem('eduspace_auth');
-    if (!authData) return false;
     try {
+        const authData = localStorage.getItem('eduspace_auth');
+        if (!authData) return false;
         const parsed = JSON.parse(authData);
         const { codigo, userName } = parsed;
         if (parsed.googleUid !== googleUid) { localStorage.removeItem('eduspace_auth'); return false; }
+
+        // Verificar que el email sigue siendo válido en el sistema
+        const user = auth.currentUser;
+        if (user?.email) {
+            const codigoDelEmail = await buscarCodigoPorEmail(user.email);
+            if (!codigoDelEmail || codigoDelEmail.codigoKey !== codigo) {
+                localStorage.removeItem('eduspace_auth'); return false;
+            }
+        }
+
         const snapshot   = await database.ref(`codigos/${codigo}`).once('value');
         const codigoData = snapshot.val();
-        if (!codigoData) { localStorage.removeItem('eduspace_auth'); showAuthError('Código inválido o eliminado del sistema.'); return false; }
-        if (codigoData.bloqueado === true) { localStorage.removeItem('eduspace_auth'); showAuthError(`🚫 ACCESO BLOQUEADO: ${codigoData.motivoBloqueo || 'Tu acceso ha sido bloqueado por el administrador.'}`); return false; }
-        if (codigoData.propietario && codigoData.propietario.trim() !== '') {
-            if (normalizarNombre(codigoData.propietario) !== normalizarNombre(userName || '')) { localStorage.removeItem('eduspace_auth'); showAuthError('⚠️ La sesión guardada no es válida. Ingresa de nuevo.'); return false; }
-        } else {
-            const dispositivos = codigoData.dispositivos || {};
-            let nombrePrimero = '';
-            for (const key of Object.keys(dispositivos)) { const u = (dispositivos[key].usuario || '').trim(); if (u) { nombrePrimero = u; break; } }
-            if (nombrePrimero && normalizarNombre(nombrePrimero) !== normalizarNombre(userName || '')) { localStorage.removeItem('eduspace_auth'); showAuthError('⚠️ La sesión guardada no corresponde al titular de este código.'); return false; }
-        }
-        const dispositivos = codigoData.dispositivos || {};
-        const deviceType   = parsed.deviceType || getDeviceType();
-        const deviceKey    = `${googleUid}_${deviceType}`;
-        if (!dispositivos[deviceKey]) { localStorage.removeItem('eduspace_auth'); showAuthError('Sesión inválida. Este dispositivo no está autorizado para este código.'); return false; }
-        await database.ref(`codigos/${codigo}/dispositivos/${deviceKey}/ultimoAcceso`).set(new Date().toISOString());
-        if (deviceType === 'desktop') {
-            const perfilLocal = localStorage.getItem('eduspace_student_profile');
-            if (!perfilLocal && codigoData.perfil && codigoData.perfil.foto_url) await _cargarPerfilDesdeFirebase(codigoData, userName);
-        }
-        if (deviceType === 'mobile' && codigoData.api) localStorage.setItem('eduspace_api', String(codigoData.api));
-        if (codigo === '6578hy') showSpecialUserMessage();
+        if (!codigoData) { localStorage.removeItem('eduspace_auth'); return false; }
+        if (codigoData.bloqueado === true) { localStorage.removeItem('eduspace_auth'); return false; }
         return true;
-    } catch(e) { console.error('Error validando autenticación:', e); return true; }
-}
-
-function showAuthError(message) {
-    const errCode   = document.getElementById('authError');
-    const errGoogle = document.getElementById('googleError');
-    const stepCode  = document.getElementById('auth-step-code');
-    if (stepCode && stepCode.style.display !== 'none') { if (errCode) { errCode.innerHTML = message; errCode.style.display = 'block'; } }
-    else { if (errGoogle) { errGoogle.innerHTML = message; errGoogle.style.display = 'block'; } }
-}
-
-function showSpecialUserMessage() { const el = document.getElementById('specialUserMessage'); if (el) el.style.display = 'flex'; }
-function hideSpecialUserMessage() { const el = document.getElementById('specialUserMessage'); if (el) el.style.display = 'none'; }
-
-async function cerrarSesionYReingresar() {
-    closeRegistroModal(); await auth.signOut().catch(console.error);
-    localStorage.removeItem('eduspace_auth'); localStorage.removeItem('eduspace_student_profile');
-    _setTempValidacion(null); showAuthModal();
-    getDeviceType() === 'mobile' ? mostrarPaso1() : mostrarPasoLaptop();
+    } catch(e) {
+        console.error('Error validateAuthWithFirebase:', e);
+        return false;
+    }
 }
 
 // ============================================
@@ -543,46 +555,49 @@ async function cerrarSesionYReingresar() {
 // ============================================
 let _appInicializada = false;
 let _authValidating = false;
+
 document.addEventListener('DOMContentLoaded', async () => {
     showConnectionLoader();
-    const isMobile = getDeviceType() === 'mobile';
-    if (isMobile) {
-        const submitBtn = document.getElementById('authSubmit');
-        if (submitBtn) submitBtn.addEventListener('click', validarCodigo);
-        document.getElementById('authUserName')?.addEventListener('keypress', (e) => { if (e.key === 'Enter') validarCodigo(); });
-        document.getElementById('authCode')?.addEventListener('keypress',     (e) => { if (e.key === 'Enter') validarCodigo(); });
-    }
-    if (!isMobile) {
-        document.getElementById('laptopApiInput')?.addEventListener('keypress', (e) => { if (e.key === 'Enter') validarAPI(); });
+
+    // Laptop: input API
+    if (getDeviceType() === 'desktop') {
+        document.getElementById('laptopApiInput')?.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') validarAPI();
+        });
     }
 
-   auth.onAuthStateChanged(async (user) => {
-    if (_authValidating) { hideConnectionLoader(); return; }
-    _authValidating = true;
-    hideConnectionLoader();
-    if (user) {
-        const authData = localStorage.getItem('eduspace_auth');
-        if (authData) {
-            const ok = await validateAuthWithFirebase(user.uid);
-            if (ok) {
-                const apiRevealStep = document.getElementById('auth-step-api-reveal');
-                if (!apiRevealStep || apiRevealStep.style.display === 'none') hideAuthModal();
-                iniciarListenerBloqueo();
-                iniciarListenerSupabaseRegistered();
-                actualizarPerfilSidebar();
-            } else { showAuthModal(); isMobile ? mostrarPaso1() : mostrarPasoLaptop(); }
+    auth.onAuthStateChanged(async (user) => {
+        if (_authValidating) { hideConnectionLoader(); return; }
+        _authValidating = true;
+        hideConnectionLoader();
+
+        if (user) {
+            const authData = localStorage.getItem('eduspace_auth');
+            if (authData) {
+                const ok = await validateAuthWithFirebase(user.uid);
+                if (ok) {
+                    const apiRevealStep = document.getElementById('auth-step-api-reveal');
+                    if (!apiRevealStep || apiRevealStep.style.display === 'none') hideAuthModal();
+                    iniciarListenerBloqueo();
+                    iniciarListenerSupabaseRegistered();
+                    actualizarPerfilSidebar();
+                } else {
+                    showAuthModal(); getDeviceType() === 'mobile' ? mostrarPaso1() : mostrarPasoLaptop();
+                }
+            } else {
+                if (_registrandoAhora) { _authValidating = false; return; }
+                await auth.signOut().catch(console.error);
+                showAuthModal(); getDeviceType() === 'mobile' ? mostrarPaso1() : mostrarPasoLaptop();
+            }
         } else {
-            if (_registrandoAhora) { _authValidating = false; return; }
-            await auth.signOut().catch(console.error);
-            showAuthModal(); isMobile ? mostrarPaso1() : mostrarPasoLaptop();
+            showAuthModal(); getDeviceType() === 'mobile' ? mostrarPaso1() : mostrarPasoLaptop();
         }
-    } else { showAuthModal(); isMobile ? mostrarPaso1() : mostrarPasoLaptop(); }
 
-    if (!_appInicializada) {
-        _appInicializada = true; updatePendingBadge(); actualizarPerfilSidebar(); switchTab('repositorio');
-    }
-    setTimeout(() => { _authValidating = false; }, 4000);
-});
+        if (!_appInicializada) {
+            _appInicializada = true; updatePendingBadge(); actualizarPerfilSidebar(); switchTab('repositorio');
+        }
+        setTimeout(() => { _authValidating = false; }, 4000);
+    });
 
     const checkbox = document.getElementById('aceptoTerminos');
     if (checkbox) {
@@ -642,10 +657,8 @@ function iniciarListenerBloqueo() {
                     const motivo = motivoSnapshot.val() || 'Tu acceso ha sido bloqueado por el administrador.';
                     await auth.signOut().catch(e => console.error(e));
                     localStorage.removeItem('eduspace_auth'); _setTempValidacion(null);
-                    showAuthModal();
-                    const isMobile = getDeviceType() === 'mobile';
-                    isMobile ? mostrarPaso1() : mostrarPasoLaptop();
-                    const errorDiv = document.getElementById(isMobile ? 'authError' : 'laptopApiError');
+                    showAuthModal(); mostrarPaso1();
+                    const errorDiv = document.getElementById('authError');
                     if (errorDiv) { errorDiv.textContent = `🚫 ACCESO BLOQUEADO: ${motivo}`; errorDiv.style.display = 'block'; }
                     hideSpecialUserMessage();
                 });
@@ -1206,7 +1219,6 @@ async function registrarEstudiante() {
         perfil.foto_url = fotoUrl;
         perfil.fecha_registro = new Date().toLocaleDateString('es-ES');
         localStorage.setItem('eduspace_student_profile', JSON.stringify(perfil));
-        
 
         const authDataReg = JSON.parse(localStorage.getItem('eduspace_auth') || '{}');
         if (authDataReg.codigo) {
@@ -1265,7 +1277,6 @@ async function renderEstudiantesReales(estudiantes) {
     const nombreActual = perfilActual?.nombre?.trim().toLowerCase() || '';
     const miKey        = getMiKey();
 
-    // Obtener lista de amigos actuales para excluirlos
     let amigosKeys = [];
     if (miKey) {
         try {
@@ -1283,7 +1294,6 @@ async function renderEstudiantesReales(estudiantes) {
         const otroKey = toKey(estudiante.nombre_completo);
         const esAmigo = amigosKeys.includes(otroKey);
 
-        // Excluir al propio usuario y a sus amigos
         if (esYoMismo || esAmigo) return;
 
         const card = document.createElement('div');
@@ -1428,8 +1438,7 @@ function actualizarPerfilSidebar() {
         initial.textContent = (perfil.nombre || '?')[0].toUpperCase();
         initial.style.display = 'flex'; if (img) img.style.display = 'none';
     }
-    const nameEl = document.getElementById('sidebar-profile-name');
-    if (nameEl) nameEl.textContent = perfil.nombre;
+    if (perfil.especialidad) aplicarTemaEspecialidad(perfil.especialidad);
 
     const apiGuardado = localStorage.getItem('eduspace_api');
     const apiWrapper  = document.getElementById('sidebar-api-wrapper');
@@ -1517,7 +1526,6 @@ function switchTab(tab) {
     currentTab = tab; showingFinalizados = false;
     if (window.innerWidth <= 768) closeSidebar();
 
-    // Ocultar todas las secciones
     sectionRepositorio.style.display = 'none';
     sectionTrabajos.style.display    = 'none';
     sectionRecursos.style.display    = 'none';
@@ -1536,7 +1544,6 @@ function switchTab(tab) {
         sectionRepositorio.style.display = 'block';
         document.getElementById('tab-repositorio').classList.add('active');
         renderFiles();
-
     } else if (tab === 'trabajos') {
         sectionTrabajos.style.display = 'block';
         document.getElementById('tab-trabajos').classList.add('active');
@@ -1550,23 +1557,19 @@ function switchTab(tab) {
             btn.classList.remove('showing-finalizados');
         }
         renderAssignments();
-
     } else if (tab === 'recursos') {
         sectionRecursos.style.display = 'block';
         document.getElementById('tab-recursos').classList.add('active');
         renderRecursosContent();
-
     } else if (tab === 'docentes') {
         sectionDocentes.style.display = 'block';
         document.getElementById('tab-docentes').classList.add('active');
         renderDocentes();
-
     } else if (tab === 'estudiantes') {
         sectionEstudiantes.style.display = 'block';
         document.getElementById('tab-estudiantes').classList.add('active');
         actualizarEncabezadoEstudiantes();
         renderEstudiantes();
-
     } else if (tab === 'chat') {
         if (sectionChat) sectionChat.style.display = 'block';
         const tabChat = document.getElementById('tab-chat');
@@ -1576,12 +1579,9 @@ function switchTab(tab) {
 }
 
 // ============================================
-// ============================================
 // CHAT Y SOLICITUDES — SISTEMA COMPLETO
 // ============================================
-// ============================================
 
-// ── Helpers ───────────────────────────────────────────────────────────────────
 function toKey(nombre) {
     return (nombre || '').trim().toLowerCase()
         .normalize("NFD").replace(/[\u0300-\u036f]/g, "")
@@ -1589,20 +1589,13 @@ function toKey(nombre) {
         .replace(/[^a-z0-9_]/g, "");
 }
 
-function getChatId(keyA, keyB) {
-    return [keyA, keyB].sort().join('__');
-}
-
-function getMiPerfil() {
-    return JSON.parse(localStorage.getItem('eduspace_student_profile') || 'null');
-}
-
+function getChatId(keyA, keyB) { return [keyA, keyB].sort().join('__'); }
+function getMiPerfil() { return JSON.parse(localStorage.getItem('eduspace_student_profile') || 'null'); }
 function getMiKey() {
     const p = getMiPerfil();
     return (p && p.supabase_registered) ? toKey(p.nombre) : null;
 }
 
-// ── Estado del botón de solicitud ─────────────────────────────────────────────
 async function getEstadoAmistad(otroKey) {
     const miKey = getMiKey();
     if (!miKey || miKey === otroKey) return null;
@@ -1628,93 +1621,50 @@ async function actualizarEstadoBtnSolicitud(otroKey, btnId) {
         const estado = await getEstadoAmistad(otroKey);
         if (estado === 'amigo') {
             btn.innerHTML   = '<i class="fa-solid fa-user-check"></i>';
-            btn.style.color = 'var(--success)';
-            btn.title       = 'Ya son amigos';
-            btn.classList.add('amigo');
+            btn.style.color = 'var(--success)'; btn.title = 'Ya son amigos'; btn.classList.add('amigo');
         } else if (estado === 'enviada') {
             btn.innerHTML   = '<i class="fa-solid fa-user-clock"></i>';
-            btn.style.color = 'var(--primary-color)';
-            btn.title       = 'Solicitud enviada';
-            btn.classList.add('enviada');
+            btn.style.color = 'var(--primary-color)'; btn.title = 'Solicitud enviada'; btn.classList.add('enviada');
         } else if (estado === 'recibida') {
             btn.innerHTML   = '<i class="fa-solid fa-user-plus"></i>';
-            btn.style.color = 'var(--warning)';
-            btn.title       = 'Esta persona te envió solicitud — clic para aceptar';
-            btn.classList.add('recibida');
+            btn.style.color = 'var(--warning)'; btn.title = 'Esta persona te envió solicitud — clic para aceptar'; btn.classList.add('recibida');
         }
     } catch(e) { console.error('Error actualizarEstadoBtnSolicitud:', e); }
 }
 
-// ── Manejar clic en botón solicitud ───────────────────────────────────────────
 async function manejarBtnSolicitud(otroKey, otroNombre, otroFoto, otroEsp, otroCiclo, btnEl) {
     const miKey = getMiKey();
-    if (!miKey) {
-        mostrarToast('⚠️ Únete a la comunidad primero', 'fa-exclamation-circle');
-        return;
-    }
+    if (!miKey) { mostrarToast('⚠️ Únete a la comunidad primero', 'fa-exclamation-circle'); return; }
     if (miKey === otroKey) return;
     btnEl.disabled = true;
-
     const estado = await getEstadoAmistad(otroKey);
-
-    if (estado === 'amigo') {
-        mostrarToast('Ya son amigos', 'fa-user-check');
-        btnEl.disabled = false;
-        return;
-    }
-
-    if (estado === 'enviada') {
-        mostrarToast('Solicitud ya enviada', 'fa-user-clock');
-        btnEl.disabled = false;
-        return;
-    }
-
+    if (estado === 'amigo')   { mostrarToast('Ya son amigos', 'fa-user-check'); btnEl.disabled = false; return; }
+    if (estado === 'enviada') { mostrarToast('Solicitud ya enviada', 'fa-user-clock'); btnEl.disabled = false; return; }
     if (estado === 'recibida') {
-        // Esta persona ya te mandó solicitud → aceptar directo
         await _aceptarInternamente(otroKey, otroNombre, otroFoto);
-        btnEl.innerHTML   = '<i class="fa-solid fa-user-check"></i>';
-        btnEl.style.color = 'var(--success)';
-        btnEl.classList.remove('recibida');
-        btnEl.classList.add('amigo');
-        mostrarToast(`✅ ¡Ahora son amigos!`);
-        btnEl.disabled = false;
-        return;
+        btnEl.innerHTML = '<i class="fa-solid fa-user-check"></i>'; btnEl.style.color = 'var(--success)';
+        btnEl.classList.remove('recibida'); btnEl.classList.add('amigo');
+        mostrarToast(`✅ ¡Ahora son amigos!`); btnEl.disabled = false; return;
     }
-
-    // Enviar solicitud nueva
     try {
         const miPerfil = getMiPerfil();
         await database.ref(`solicitudes/${otroKey}/pendientes/${miKey}`).set({
-            nombre:       miPerfil.nombre,
-            foto:         miPerfil.foto_url    || '',
-            especialidad: miPerfil.especialidad || '',
-            ciclo:        miPerfil.ciclo        || '',
-            fecha:        Date.now()
+            nombre: miPerfil.nombre, foto: miPerfil.foto_url || '',
+            especialidad: miPerfil.especialidad || '', ciclo: miPerfil.ciclo || '', fecha: Date.now()
         });
         await database.ref(`solicitudes_enviadas/${miKey}/${otroKey}`).set(true);
-
-        btnEl.innerHTML   = '<i class="fa-solid fa-user-clock"></i>';
-        btnEl.style.color = 'var(--primary-color)';
-        btnEl.classList.add('enviada');
-        btnEl.title       = 'Solicitud enviada';
+        btnEl.innerHTML = '<i class="fa-solid fa-user-clock"></i>'; btnEl.style.color = 'var(--primary-color)';
+        btnEl.classList.add('enviada'); btnEl.title = 'Solicitud enviada';
         mostrarToast('✅ Solicitud enviada');
-    } catch(e) {
-        console.error('Error enviando solicitud:', e);
-        mostrarToast('❌ Error al enviar solicitud', 'fa-times-circle');
-    }
+    } catch(e) { console.error('Error enviando solicitud:', e); mostrarToast('❌ Error al enviar solicitud', 'fa-times-circle'); }
     btnEl.disabled = false;
 }
 
-// ── Abrir/cerrar overlay de solicitudes ──────────────────────────────────────
 function abrirSolicitudes() {
     const overlay = document.getElementById('solicitudes-overlay');
     if (overlay) { overlay.style.display = 'flex'; cargarSolicitudesPanel(); }
 }
-
-function cerrarSolicitudes() {
-    const overlay = document.getElementById('solicitudes-overlay');
-    if (overlay) overlay.style.display = 'none';
-}
+function cerrarSolicitudes() { const overlay = document.getElementById('solicitudes-overlay'); if (overlay) overlay.style.display = 'none'; }
 
 async function cargarSolicitudesPanel() {
     const lista = document.getElementById('solicitudes-lista');
@@ -1722,20 +1672,15 @@ async function cargarSolicitudesPanel() {
     lista.innerHTML = '<p style="text-align:center;color:var(--text-muted);padding:1rem;"><i class="fa-solid fa-spinner fa-spin"></i> Cargando...</p>';
     const miKey = getMiKey();
     if (!miKey) return;
-
     try {
         const snap      = await database.ref(`solicitudes/${miKey}/pendientes`).once('value');
         const pendientes = snap.val();
-
         if (!pendientes || !Object.keys(pendientes).length) {
-            lista.innerHTML = '<p style="text-align:center;color:var(--text-muted);padding:2rem;">Sin solicitudes pendientes.</p>';
-            return;
+            lista.innerHTML = '<p style="text-align:center;color:var(--text-muted);padding:2rem;">Sin solicitudes pendientes.</p>'; return;
         }
-
         lista.innerHTML = '';
         for (const [fromKey, data] of Object.entries(pendientes)) {
-            const item = document.createElement('div');
-            item.className = 'solicitud-item';
+            const item = document.createElement('div'); item.className = 'solicitud-item';
             item.innerHTML = `
                 <img src="${data.foto || ''}" alt="${data.nombre}" class="solicitud-foto"
                      onerror="this.src='https://ui-avatars.com/api/?name=${encodeURIComponent(data.nombre)}&background=3b82f6&color=fff&size=200'">
@@ -1744,93 +1689,58 @@ async function cargarSolicitudesPanel() {
                     <div class="solicitud-esp">${data.especialidad || ''} · Ciclo ${data.ciclo || ''}</div>
                 </div>
                 <div class="solicitud-actions">
-                    <button class="btn-aceptar" id="btn-ac-${fromKey}">
-                        <i class="fa-solid fa-check"></i>
-                    </button>
-                    <button class="btn-rechazar" id="btn-re-${fromKey}">
-                        <i class="fa-solid fa-times"></i>
-                    </button>
-                </div>
-            `;
+                    <button class="btn-aceptar" id="btn-ac-${fromKey}"><i class="fa-solid fa-check"></i></button>
+                    <button class="btn-rechazar" id="btn-re-${fromKey}"><i class="fa-solid fa-times"></i></button>
+                </div>`;
             lista.appendChild(item);
-
-            // Aceptar solicitud
             document.getElementById(`btn-ac-${fromKey}`).addEventListener('click', async () => {
                 await _aceptarInternamente(fromKey, data.nombre, data.foto || '');
                 mostrarToast(`✅ ¡Ahora eres amigo/a de ${data.nombre}!`);
-                cargarSolicitudesPanel();
-                cargarListaChats();
-                // Actualizar botón en la grid si está visible
+                cargarSolicitudesPanel(); cargarListaChats();
                 const btnGrid = document.getElementById(`btn-sol-${fromKey}`);
-                if (btnGrid) {
-                    btnGrid.innerHTML   = '<i class="fa-solid fa-user-check"></i>';
-                    btnGrid.style.color = 'var(--success)';
-                    btnGrid.classList.remove('recibida');
-                    btnGrid.classList.add('amigo');
-                }
+                if (btnGrid) { btnGrid.innerHTML = '<i class="fa-solid fa-user-check"></i>'; btnGrid.style.color = 'var(--success)'; btnGrid.classList.remove('recibida'); btnGrid.classList.add('amigo'); }
             });
-
-            // Rechazar solicitud
             document.getElementById(`btn-re-${fromKey}`).addEventListener('click', async () => {
                 await database.ref(`solicitudes/${miKey}/pendientes/${fromKey}`).remove();
                 await database.ref(`solicitudes_enviadas/${fromKey}/${miKey}`).remove();
                 cargarSolicitudesPanel();
             });
         }
-    } catch(e) {
-        console.error('Error cargando solicitudes:', e);
-        lista.innerHTML = '<p style="text-align:center;color:var(--danger);padding:2rem;">Error al cargar.</p>';
-    }
+    } catch(e) { console.error('Error cargando solicitudes:', e); lista.innerHTML = '<p style="text-align:center;color:var(--danger);padding:2rem;">Error al cargar.</p>'; }
 }
 
-// ── Lógica interna de aceptar solicitud ───────────────────────────────────────
 async function _aceptarInternamente(fromKey, fromNombre, fromFoto) {
-    const miKey    = getMiKey();
-    const miPerfil = getMiPerfil();
+    const miKey = getMiKey(); const miPerfil = getMiPerfil();
     if (!miKey || !miPerfil) return;
     const chatId = getChatId(miKey, fromKey);
     try {
         const updates = {};
-        // Registrar amistad en ambos lados
         updates[`amigos/${miKey}/${fromKey}`]      = { nombre: fromNombre, foto: fromFoto };
         updates[`amigos/${fromKey}/${miKey}`]      = { nombre: miPerfil.nombre, foto: miPerfil.foto_url || '' };
-        // Crear chat entre ambos
         updates[`chats/${chatId}/info/${miKey}`]   = { nombre: miPerfil.nombre, foto: miPerfil.foto_url || '' };
         updates[`chats/${chatId}/info/${fromKey}`] = { nombre: fromNombre, foto: fromFoto };
-        // Limpiar solicitudes
         updates[`solicitudes/${miKey}/pendientes/${fromKey}`]  = null;
         updates[`solicitudes_enviadas/${fromKey}/${miKey}`]    = null;
         await database.ref().update(updates);
     } catch(e) { console.error('Error en _aceptarInternamente:', e); }
 }
 
-// ── Listener de notificación de solicitudes (punto rojo) ──────────────────────
 let _solicitudesNotifRef = null;
 
 function iniciarListenerSolicitudes() {
-    const miKey = getMiKey();
-    if (!miKey) return;
+    const miKey = getMiKey(); if (!miKey) return;
     if (_solicitudesNotifRef) _solicitudesNotifRef.off('value');
-
     _solicitudesNotifRef = database.ref(`solicitudes/${miKey}/pendientes`);
     _solicitudesNotifRef.on('value', (snap) => {
         const count  = snap.val() ? Object.keys(snap.val()).length : 0;
         const btnSol = document.getElementById('btn-solicitudes');
         if (!btnSol) return;
-
-        // Quitar dot existente si hay
         const dotExistente = btnSol.querySelector('.notif-dot');
         if (dotExistente) dotExistente.remove();
-
-        if (count > 0) {
-            const nd = document.createElement('span');
-            nd.className = 'notif-dot';
-            btnSol.appendChild(nd);
-        }
+        if (count > 0) { const nd = document.createElement('span'); nd.className = 'notif-dot'; btnSol.appendChild(nd); }
     });
 }
 
-// ── Lista de chats ─────────────────────────────────────────────────────────────
 let _chatActivoId        = null;
 let _chatActivoOtroKey   = null;
 let _mensajesListenerRef = null;
@@ -1840,91 +1750,61 @@ async function cargarListaChats() {
     const chatList   = document.getElementById('chat-list');
     const chatHeader = document.getElementById('chat-header-section');
     if (!chatList) return;
-    const miKey    = getMiKey();
-    const miPerfil = getMiPerfil();
-
+    const miKey = getMiKey(); const miPerfil = getMiPerfil();
     if (!miKey || !miPerfil?.supabase_registered) {
         chatList.innerHTML = '<p class="chat-empty"><i class="fa-solid fa-user-lock"></i><br>Únete a la comunidad para chatear.</p>';
-        if (chatHeader) chatHeader.style.display = 'block';
-        return;
+        if (chatHeader) chatHeader.style.display = 'block'; return;
     }
-
     try {
         const snap   = await database.ref(`amigos/${miKey}`).once('value');
         const amigos = snap.val();
-
         if (!amigos || !Object.keys(amigos).length) {
             chatList.innerHTML = '<p class="chat-empty"><i class="fa-solid fa-comment-slash"></i><br>No tienes contactos aún.<br>Acepta solicitudes en Comunidad.</p>';
-            if (chatHeader) chatHeader.style.display = 'block';
-            return;
+            if (chatHeader) chatHeader.style.display = 'block'; return;
         }
-        // Hay chats → ocultar header
         if (chatHeader) chatHeader.style.display = 'none';
-
         chatList.innerHTML = '';
         for (const [amigoKey, amigoData] of Object.entries(amigos)) {
             const chatId = getChatId(miKey, amigoKey);
             let ultimoTxt = 'Sin mensajes aún';
-            try {
-                const ultSnap = await database.ref(`chats/${chatId}/ultimo_mensaje`).once('value');
-                if (ultSnap.val()) ultimoTxt = ultSnap.val().texto;
-            } catch(e) {}
-
-            const item = document.createElement('div');
-            item.className = 'chat-item';
-            item.id        = `chat-item-${amigoKey}`;
+            try { const ultSnap = await database.ref(`chats/${chatId}/ultimo_mensaje`).once('value'); if (ultSnap.val()) ultimoTxt = ultSnap.val().texto; } catch(e) {}
+            const item = document.createElement('div'); item.className = 'chat-item'; item.id = `chat-item-${amigoKey}`;
             item.innerHTML = `
-                <img src="${amigoData.foto || ''}" alt="${amigoData.nombre}"
-                     class="chat-item-foto"
+                <img src="${amigoData.foto || ''}" alt="${amigoData.nombre}" class="chat-item-foto"
                      onerror="this.src='https://ui-avatars.com/api/?name=${encodeURIComponent(amigoData.nombre)}&background=3b82f6&color=fff&size=200'">
                 <div class="chat-item-info">
                     <span class="chat-item-nombre">${amigoData.nombre}</span>
                     <span class="chat-item-ultimo">${ultimoTxt}</span>
-                </div>
-            `;
-            item.addEventListener('click', () => {
-                abrirChatConAmigo(chatId, amigoKey, amigoData.nombre, amigoData.foto || '');
-            });
+                </div>`;
+            item.addEventListener('click', () => { abrirChatConAmigo(chatId, amigoKey, amigoData.nombre, amigoData.foto || ''); });
             chatList.appendChild(item);
         }
     } catch(e) { console.error('Error cargando lista chats:', e); }
 }
 
 function iniciarListenerChats() {
-    const miKey = getMiKey();
-    if (!miKey) return;
+    const miKey = getMiKey(); if (!miKey) return;
     if (_amigosListenerRef) _amigosListenerRef.off('value');
     _amigosListenerRef = database.ref(`amigos/${miKey}`);
-    _amigosListenerRef.on('value', () => {
-        if (currentTab === 'chat') cargarListaChats();
-    });
+    _amigosListenerRef.on('value', () => { if (currentTab === 'chat') cargarListaChats(); });
 }
 
-// ── Abrir ventana de chat con un amigo ────────────────────────────────────────
 function abrirChatConAmigo(chatId, otroKey, otroNombre, otroFoto) {
-    _chatActivoId      = chatId;
-    _chatActivoOtroKey = otroKey;
-
-    // Marcar activo en lista
+    _chatActivoId = chatId; _chatActivoOtroKey = otroKey;
     document.querySelectorAll('.chat-item').forEach(i => i.classList.remove('active'));
     const item = document.getElementById(`chat-item-${otroKey}`);
     if (item) item.classList.add('active');
-
-    // En móvil: ocultar lista, mostrar ventana
     if (window.innerWidth <= 768) {
         const sp = document.getElementById('chat-sidebar-panel');
         const cm = document.getElementById('chat-main');
         if (sp) sp.style.display = 'none';
         if (cm) { cm.style.display = 'flex'; cm.classList.add('mobile-visible'); }
     }
-
-    // Mostrar ventana de chat
     const placeholder = document.getElementById('chat-placeholder');
     const chatWindow  = document.getElementById('chat-window');
     if (placeholder) placeholder.style.display = 'none';
     if (chatWindow)  chatWindow.style.display   = 'flex';
 
-    // Construir header
     const isMobile = window.innerWidth <= 768;
     const winHeader = document.getElementById('chat-win-header');
     if (winHeader) {
@@ -1935,88 +1815,58 @@ function abrirChatConAmigo(chatId, otroKey, otroNombre, otroFoto) {
             <span class="chat-header-nombre">${otroNombre}</span>
             <button class="btn-denunciar-chat" onclick="abrirDenuncia('${otroNombre.replace(/'/g,"\\'")}')">
                 <i class="fa-solid fa-flag"></i><span class="btn-den-txt"> Denunciar</span>
-            </button>
-        `;
+            </button>`;
     }
 
-    // Detener listener anterior y limpiar mensajes
     if (_mensajesListenerRef) { _mensajesListenerRef.off('child_added'); _mensajesListenerRef = null; }
     const messagesEl = document.getElementById('chat-messages');
     if (messagesEl) messagesEl.innerHTML = '';
 
-    // Iniciar listener de mensajes en tiempo real
     const miKey = getMiKey();
     _mensajesListenerRef = database.ref(`chats/${chatId}/mensajes`);
     _mensajesListenerRef.on('child_added', (snap) => {
         const msg = snap.val();
         if (!msg || !messagesEl) return;
         const esMio = msg.de_key === miKey;
-        const hora  = msg.fecha
-            ? new Date(msg.fecha).toLocaleTimeString('es-ES', { hour:'2-digit', minute:'2-digit' })
-            : '';
+        const hora  = msg.fecha ? new Date(msg.fecha).toLocaleTimeString('es-ES', { hour:'2-digit', minute:'2-digit' }) : '';
         const wrap = document.createElement('div');
         wrap.className = `chat-bubble-wrapper ${esMio ? 'mio' : 'otro'}`;
-        wrap.innerHTML = `
-            <div class="chat-bubble ${esMio ? 'mio' : 'otro'}">
-                ${msg.texto}
-                <div class="chat-bubble-time">${hora}</div>
-            </div>
-        `;
+        wrap.innerHTML = `<div class="chat-bubble ${esMio ? 'mio' : 'otro'}">${msg.texto}<div class="chat-bubble-time">${hora}</div></div>`;
         messagesEl.appendChild(wrap);
         messagesEl.scrollTop = messagesEl.scrollHeight;
     });
-
     setTimeout(() => document.getElementById('chat-input')?.focus(), 100);
 }
 
-// ── Volver a la lista (móvil) ──────────────────────────────────────────────────
 function volverListaChats() {
     const sp = document.getElementById('chat-sidebar-panel');
     const cm = document.getElementById('chat-main');
-    if (sp) { sp.style.display = 'flex'; }
+    if (sp) sp.style.display = 'flex';
     if (cm) { cm.style.display = 'none'; cm.classList.remove('mobile-visible'); }
-
     const placeholder = document.getElementById('chat-placeholder');
     const chatWindow  = document.getElementById('chat-window');
     if (chatWindow)  chatWindow.style.display   = 'none';
     if (placeholder) placeholder.style.display  = 'flex';
-
     if (_mensajesListenerRef) { _mensajesListenerRef.off('child_added'); _mensajesListenerRef = null; }
-    _chatActivoId      = null;
-    _chatActivoOtroKey = null;
+    _chatActivoId = null; _chatActivoOtroKey = null;
 }
 
-// ── Enviar mensaje ─────────────────────────────────────────────────────────────
 async function enviarMensaje() {
-    const input    = document.getElementById('chat-input');
-    const texto    = input?.value?.trim();
+    const input = document.getElementById('chat-input');
+    const texto = input?.value?.trim();
     if (!texto || !_chatActivoId) return;
-    const miPerfil = getMiPerfil();
-    const miKey    = getMiKey();
+    const miPerfil = getMiPerfil(); const miKey = getMiKey();
     if (!miPerfil || !miKey) return;
-
     input.value = '';
     try {
-        const msg = {
-            de_key:     miKey,
-            de_nombre:  miPerfil.nombre,
-            texto:      texto,
-            fecha:      Date.now()
-        };
+        const msg = { de_key: miKey, de_nombre: miPerfil.nombre, texto, fecha: Date.now() };
         await database.ref(`chats/${_chatActivoId}/mensajes`).push(msg);
-        await database.ref(`chats/${_chatActivoId}/ultimo_mensaje`).set({
-            texto,
-            fecha:   Date.now(),
-            de_key:  miKey
-        });
-
-        // Actualizar preview en la lista de chats
+        await database.ref(`chats/${_chatActivoId}/ultimo_mensaje`).set({ texto, fecha: Date.now(), de_key: miKey });
         const itemUlt = document.querySelector(`#chat-item-${_chatActivoOtroKey} .chat-item-ultimo`);
         if (itemUlt) itemUlt.textContent = texto;
     } catch(e) { console.error('Error enviando mensaje:', e); }
 }
 
-// ── Fix teclado móvil en chat ──
 if ('visualViewport' in window) {
     window.visualViewport.addEventListener('resize', () => {
         const chatMain = document.getElementById('chat-main');
@@ -2027,107 +1877,77 @@ if ('visualViewport' in window) {
     });
 }
 
-// ── Abrir/cerrar overlay de Amigos ───────────────────────────────────────────
-function abrirAmigos() {
-    const overlay = document.getElementById('amigos-overlay');
-    if (overlay) { overlay.style.display = 'flex'; cargarAmigosPanel(); }
-}
+function abrirAmigos() { const overlay = document.getElementById('amigos-overlay'); if (overlay) { overlay.style.display = 'flex'; cargarAmigosPanel(); } }
+function cerrarAmigos() { const overlay = document.getElementById('amigos-overlay'); if (overlay) overlay.style.display = 'none'; }
 
-function cerrarAmigos() {
-    const overlay = document.getElementById('amigos-overlay');
-    if (overlay) overlay.style.display = 'none';
-}
-
-// ── Cargar lista de amigos en el panel ────────────────────────────────────────
 async function cargarAmigosPanel() {
-    const lista = document.getElementById('amigos-lista');
-    if (!lista) return;
+    const lista = document.getElementById('amigos-lista'); if (!lista) return;
     lista.innerHTML = '<p style="text-align:center;color:var(--text-muted);padding:1rem;"><i class="fa-solid fa-spinner fa-spin"></i> Cargando...</p>';
-    const miKey = getMiKey();
-    if (!miKey) return;
-
+    const miKey = getMiKey(); if (!miKey) return;
     try {
-        const snap   = await database.ref(`amigos/${miKey}`).once('value');
+        const snap = await database.ref(`amigos/${miKey}`).once('value');
         const amigos = snap.val();
-
-        if (!amigos || !Object.keys(amigos).length) {
-            lista.innerHTML = '<p style="text-align:center;color:var(--text-muted);padding:2rem;">Sin amigos aún.</p>';
-            return;
-        }
-
+        if (!amigos || !Object.keys(amigos).length) { lista.innerHTML = '<p style="text-align:center;color:var(--text-muted);padding:2rem;">Sin amigos aún.</p>'; return; }
         lista.innerHTML = '';
         for (const [amigoKey, amigoData] of Object.entries(amigos)) {
-            const item = document.createElement('div');
-            item.className = 'amigo-item';
+            const item = document.createElement('div'); item.className = 'amigo-item';
             item.innerHTML = `
-                <img src="${amigoData.foto || ''}" alt="${amigoData.nombre}"
-                     class="amigo-foto"
+                <img src="${amigoData.foto || ''}" alt="${amigoData.nombre}" class="amigo-foto"
                      onerror="this.src='https://ui-avatars.com/api/?name=${encodeURIComponent(amigoData.nombre)}&background=10b981&color=fff&size=200'">
-                <div class="amigo-info">
-                    <div class="amigo-nombre">${amigoData.nombre}</div>
-                </div>
-                <button class="btn-eliminar-amigo" id="btn-del-${amigoKey}">
-                    <i class="fa-solid fa-user-minus"></i> Eliminar
-                </button>
-            `;
-
-            item.querySelector(`#btn-del-${amigoKey}`).addEventListener('click', () => {
-                eliminarAmigo(amigoKey, amigoData.nombre);
-            });
-
+                <div class="amigo-info"><div class="amigo-nombre">${amigoData.nombre}</div></div>
+                <button class="btn-eliminar-amigo" id="btn-del-${amigoKey}"><i class="fa-solid fa-user-minus"></i> Eliminar</button>`;
+            item.querySelector(`#btn-del-${amigoKey}`).addEventListener('click', () => { eliminarAmigo(amigoKey, amigoData.nombre); });
             lista.appendChild(item);
         }
-    } catch(e) {
-        console.error('Error cargando amigos:', e);
-        lista.innerHTML = '<p style="text-align:center;color:var(--danger);padding:2rem;">Error al cargar.</p>';
-    }
+    } catch(e) { console.error('Error cargando amigos:', e); lista.innerHTML = '<p style="text-align:center;color:var(--danger);padding:2rem;">Error al cargar.</p>'; }
 }
 
-// ── Eliminar amigo ─────────────────────────────────────────────────────────────
 async function eliminarAmigo(amigoKey, amigoNombre) {
     const confirmar = confirm(`¿Seguro que quieres eliminar a "${amigoNombre}"?`);
     if (!confirmar) return;
-
-    const miKey  = getMiKey();
-    if (!miKey) return;
-
+    const miKey = getMiKey(); if (!miKey) return;
     const chatId = getChatId(miKey, amigoKey);
-
     try {
         const updates = {};
-        // Eliminar amistad en ambos lados
-        updates[`amigos/${miKey}/${amigoKey}`]     = null;
-        updates[`amigos/${amigoKey}/${miKey}`]     = null;
-        // Eliminar chat completo (mensajes, info, último mensaje)
-        updates[`chats/${chatId}`]                 = null;
-        // Limpiar solicitudes residuales en ambos lados
-        updates[`solicitudes_enviadas/${miKey}/${amigoKey}`]  = null;
-        updates[`solicitudes_enviadas/${amigoKey}/${miKey}`]  = null;
-        updates[`solicitudes/${miKey}/pendientes/${amigoKey}`] = null;
-        updates[`solicitudes/${amigoKey}/pendientes/${miKey}`] = null;
-
+        updates[`amigos/${miKey}/${amigoKey}`] = null; updates[`amigos/${amigoKey}/${miKey}`] = null;
+        updates[`chats/${chatId}`] = null;
+        updates[`solicitudes_enviadas/${miKey}/${amigoKey}`]  = null; updates[`solicitudes_enviadas/${amigoKey}/${miKey}`]  = null;
+        updates[`solicitudes/${miKey}/pendientes/${amigoKey}`] = null; updates[`solicitudes/${amigoKey}/pendientes/${miKey}`] = null;
         await database.ref().update(updates);
-
         mostrarToast(`✅ "${amigoNombre}" eliminado de tus amigos`);
-
-        // Si el chat eliminado estaba abierto, cerrarlo
-        if (_chatActivoOtroKey === amigoKey) {
-            volverListaChats();
-        }
-
-        // Recargar todo
-        cargarAmigosPanel();
-        cargarListaChats();
-        cargarEstudiantes();
-
-    } catch(e) {
-        console.error('Error eliminando amigo:', e);
-        mostrarToast('❌ Error al eliminar amigo', 'fa-times-circle');
-    }
+        if (_chatActivoOtroKey === amigoKey) volverListaChats();
+        cargarAmigosPanel(); cargarListaChats(); cargarEstudiantes();
+    } catch(e) { console.error('Error eliminando amigo:', e); mostrarToast('❌ Error al eliminar amigo', 'fa-times-circle'); }
 }
 
+// ============================================
+// CICLOS POR ESPECIALIDAD Y TEMA
+// ============================================
+const CICLOS_POR_ESPECIALIDAD = {
+    'Comunicación': ['V', 'VII'],
+    'Inicial':      ['III', 'V', 'VII']
+};
 
+function onEspecialidadAuthCambio() {
+    const esp    = document.getElementById('selectEspecialidad')?.value;
+    const select = document.getElementById('selectCiclo');
+    if (!select) return;
+    select.innerHTML = '<option value="" disabled selected>Elige ciclo</option>';
+    const ciclos = CICLOS_POR_ESPECIALIDAD[esp] || [];
+    ciclos.forEach(c => {
+        const opt = document.createElement('option');
+        opt.value = c; opt.textContent = c;
+        select.appendChild(opt);
+    });
+    aplicarTemaEspecialidad(esp);
+}
 
+function aplicarTemaEspecialidad(especialidad) {
+    document.body.classList.remove('tema-inicial', 'tema-comunicacion');
+    if (especialidad === 'Inicial') {
+        document.body.classList.add('tema-inicial');
+    }
+}
 
 // ============================================
 // SISTEMA DE DENUNCIAS
@@ -2142,19 +1962,17 @@ let _denTimerIntvl  = null;
 let _denTimerSecs   = 0;
 
 function abrirDenuncia(nombrePrerellenado) {
-    // Reset todo
     _denEvidFile = null; _denAudioBlob = null; _denAudioChunks = [];
     _denGrabando = false; _denEvidTipo = 'foto';
     if (_denTimerIntvl) { clearInterval(_denTimerIntvl); _denTimerIntvl = null; }
-
     const ahora = new Date();
     document.getElementById('denuncia-nombre').value      = nombrePrerellenado || '';
     document.getElementById('denuncia-cargo').value       = '';
-    document.getElementById('denuncia-ciclo').value = '';
-const espEl = document.getElementById('denuncia-especialidad');
-if (espEl) espEl.value = '';
-const rowEst = document.getElementById('denuncia-estudiante-row');
-if (rowEst) rowEst.style.display = 'none';
+    document.getElementById('denuncia-ciclo').value       = '';
+    const espEl = document.getElementById('denuncia-especialidad');
+    if (espEl) espEl.value = '';
+    const rowEst = document.getElementById('denuncia-estudiante-row');
+    if (rowEst) rowEst.style.display = 'none';
     document.getElementById('denuncia-descripcion').value = '';
     document.getElementById('denuncia-terminos-check').checked = false;
     document.getElementById('denuncia-fecha').value = ahora.toISOString().split('T')[0];
@@ -2172,7 +1990,6 @@ if (rowEst) rowEst.style.display = 'none';
     if (btnGrab) btnGrab.style.display = 'flex';
     if (btnStop) btnStop.style.display = 'none';
     if (timer)   timer.style.display   = 'none';
-
     selTabEv('foto');
     _mostrarDenStep(1);
     document.getElementById('denunciaModal').style.display = 'block';
@@ -2186,8 +2003,7 @@ function _mostrarDenStep(n) {
 
 function continuarAFormulario() {
     if (!document.getElementById('denuncia-terminos-check').checked) {
-        mostrarToast('⚠️ Debes aceptar los términos para continuar', 'fa-exclamation-circle');
-        return;
+        mostrarToast('⚠️ Debes aceptar los términos para continuar', 'fa-exclamation-circle'); return;
     }
     _mostrarDenStep(2);
 }
@@ -2204,10 +2020,9 @@ function onCargoCambio() {
     const rowEst = document.getElementById('denuncia-estudiante-row');
     if (rowEst) rowEst.style.display = isEst ? 'grid' : 'none';
     if (!isEst) {
-        const espEl  = document.getElementById('denuncia-especialidad');
-        const cicEl  = document.getElementById('denuncia-ciclo');
-        if (espEl) espEl.value = '';
-        if (cicEl) cicEl.value = '';
+        const espEl = document.getElementById('denuncia-especialidad');
+        const cicEl = document.getElementById('denuncia-ciclo');
+        if (espEl) espEl.value = ''; if (cicEl) cicEl.value = '';
     }
 }
 
@@ -2222,9 +2037,8 @@ function selTabEv(tipo) {
 function onEvFile(event, tipo) {
     const file = event.target.files[0]; if (!file) return;
     _denEvidFile = file; _denEvidTipo = tipo;
-    const preview     = document.getElementById('den-ev-preview');
-    const audPreview  = document.getElementById('den-audio-preview');
-
+    const preview    = document.getElementById('den-ev-preview');
+    const audPreview = document.getElementById('den-audio-preview');
     if (tipo === 'foto') {
         const reader = new FileReader();
         reader.onload = e => {
@@ -2243,7 +2057,7 @@ function onEvFile(event, tipo) {
         audPreview.innerHTML = `<audio controls src="${url}" style="width:100%;margin-top:0.5rem;"></audio>
         <p style="color:var(--success);font-size:0.8rem;text-align:center;margin-top:4px;"><i class="fa-solid fa-check-circle"></i> ${file.name}</p>`;
         audPreview.style.display = 'block';
-        _denAudioBlob = null; // usar el file, no blob
+        _denAudioBlob = null;
     }
 }
 
@@ -2262,9 +2076,7 @@ async function iniciarGrabacion() {
             prev.style.display = 'block';
             stream.getTracks().forEach(t => t.stop());
         };
-        _denMediaRec.start();
-        _denGrabando = true;
-        _denTimerSecs = 0;
+        _denMediaRec.start(); _denGrabando = true; _denTimerSecs = 0;
         document.getElementById('btn-grabar-den').style.display  = 'none';
         document.getElementById('btn-detener-den').style.display = 'flex';
         document.getElementById('den-timer').style.display       = 'inline-block';
@@ -2274,9 +2086,7 @@ async function iniciarGrabacion() {
             const s = String(_denTimerSecs%60).padStart(2,'0');
             document.getElementById('den-timer').textContent = `🔴 ${m}:${s}`;
         }, 1000);
-    } catch(e) {
-        mostrarToast('❌ No se pudo acceder al micrófono', 'fa-microphone-slash');
-    }
+    } catch(e) { mostrarToast('❌ No se pudo acceder al micrófono', 'fa-microphone-slash'); }
 }
 
 function detenerGrabacion() {
@@ -2291,71 +2101,45 @@ function detenerGrabacion() {
 async function enviarDenuncia() {
     const nombre      = document.getElementById('denuncia-nombre').value.trim();
     const cargo       = document.getElementById('denuncia-cargo').value;
-    const ciclo        = document.getElementById('denuncia-ciclo').value;
+    const ciclo       = document.getElementById('denuncia-ciclo').value;
     const especialidad = document.getElementById('denuncia-especialidad')?.value || '';
     const descripcion = document.getElementById('denuncia-descripcion').value.trim();
     const fecha       = document.getElementById('denuncia-fecha').value;
     const hora        = document.getElementById('denuncia-hora').value;
     const btn         = document.getElementById('btn-enviar-denuncia');
-
-    if (!nombre || !cargo || !descripcion) {
-        mostrarToast('⚠️ Completa los campos obligatorios', 'fa-exclamation-circle'); return;
-    }
-    if (descripcion.length < 20) {
-        mostrarToast('⚠️ La descripción es muy corta (mín. 20 caracteres)', 'fa-exclamation-circle'); return;
-    }
-
-    btn.disabled = true;
-    btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Enviando…';
-
+    if (!nombre || !cargo || !descripcion) { mostrarToast('⚠️ Completa los campos obligatorios', 'fa-exclamation-circle'); return; }
+    if (descripcion.length < 20) { mostrarToast('⚠️ La descripción es muy corta (mín. 20 caracteres)', 'fa-exclamation-circle'); return; }
+    btn.disabled = true; btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Enviando…';
     try {
-        let evidenciaUrl  = '';
-        let evidenciaTipo = '';
-
+        let evidenciaUrl = '', evidenciaTipo = '';
         const archivoASubir = _denEvidFile || (_denAudioBlob ? new File([_denAudioBlob], 'audio_denuncia.webm', { type:'audio/webm' }) : null);
-
         if (archivoASubir) {
             evidenciaTipo = _denEvidFile
                 ? (_denEvidFile.type.startsWith('image/') ? 'foto' : _denEvidFile.type.startsWith('video/') ? 'video' : 'audio')
                 : 'audio';
-
             const resourceType = evidenciaTipo === 'foto' ? 'image' : evidenciaTipo === 'video' ? 'video' : 'raw';
-            const endpoint     = `https://api.cloudinary.com/v1_1/${CLOUDINARY_CONFIG.CLOUD_NAME}/${resourceType}/upload`;
-
+            const endpoint = `https://api.cloudinary.com/v1_1/${CLOUDINARY_CONFIG.CLOUD_NAME}/${resourceType}/upload`;
             const fd = new FormData();
-            fd.append('file', archivoASubir);
-            fd.append('upload_preset', CLOUDINARY_CONFIG.UPLOAD_PRESET);
-            fd.append('folder', 'denuncias_clouddesk');
-
+            fd.append('file', archivoASubir); fd.append('upload_preset', CLOUDINARY_CONFIG.UPLOAD_PRESET); fd.append('folder', 'denuncias_clouddesk');
             const res = await fetch(endpoint, { method:'POST', body:fd });
             if (res.ok) { const data = await res.json(); evidenciaUrl = data.secure_url; }
         }
-
         const idAnonimo = 'DEN-' + Math.random().toString(36).substring(2,8).toUpperCase();
-
         await database.ref('denuncias').push({
             denunciado_nombre: nombre,
             denunciado_cargo: cargo === 'Estudiante'
-    ? `${cargo}${especialidad ? ' · ' + especialidad : ''}${ciclo ? ' · Ciclo ' + ciclo : ''}`
-    : cargo,
-            descripcion,
-            evidencia_url:  evidenciaUrl,
-            evidencia_tipo: evidenciaTipo,
-            fecha,
-            hora,
-            timestamp:   Date.now(),
-            estado:      'pendiente',
-            id_anonimo:  idAnonimo
+                ? `${cargo}${especialidad ? ' · ' + especialidad : ''}${ciclo ? ' · Ciclo ' + ciclo : ''}`
+                : cargo,
+            descripcion, evidencia_url: evidenciaUrl, evidencia_tipo: evidenciaTipo,
+            fecha, hora, timestamp: Date.now(), estado: 'pendiente', id_anonimo: idAnonimo
         });
-
-      
         _mostrarDenStep(3);
-
     } catch(e) {
         console.error('Error enviando denuncia:', e);
         mostrarToast('❌ Error al enviar la denuncia. Intenta de nuevo.', 'fa-times-circle');
     } finally {
-        btn.disabled = false;
-        btn.innerHTML = '<i class="fa-solid fa-paper-plane"></i> Enviar Denuncia';
+        btn.disabled = false; btn.innerHTML = '<i class="fa-solid fa-paper-plane"></i> Enviar Denuncia';
     }
 }
+
+
