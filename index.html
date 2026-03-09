@@ -298,9 +298,6 @@
     <aside class="sidebar" id="sidebar">
     <div class="sidebar-header">
         <div class="sidebar-logo">
-            <img src="https://res.cloudinary.com/dwzwa3gp0/image/upload/v1771013132/BackgroundEraser_20260213_121333179_r5yzoo.png"
-                 alt="CloudDesk Logo"
-                 class="sidebar-logo-img">
             <span class="sidebar-logo-text">CloudDesk</span>
         </div>
         <button class="sidebar-toggle" id="sidebarToggle" onclick="toggleSidebar()">
@@ -513,10 +510,6 @@
 </section>
             <!-- HTML CHANGE 2 — Sección Chat -->
 <section id="chat" class="section-content" style="display: none;">
-    <div class="header-section header-section-sticky" id="chat-header-section" style="display:none;">
-        <h2><i class="fa-solid fa-comment"></i> Chat</h2>
-        <p>Mensajes con tus contactos.</p>
-    </div>
     <div class="chat-container">
         <div class="chat-sidebar-panel" id="chat-sidebar-panel">
     <div class="chat-panel-topbar">
@@ -1038,6 +1031,12 @@
         </div>
     </div><!-- /modal-content-denuncia -->
 </div><!-- /denunciaModal -->
+  
+  <!-- Modal Foto Estudiante (popup circular) -->
+<div id="fotoEstudianteModal" class="foto-est-overlay" style="display:none;" onclick="cerrarFotoEstudiante()">
+    <div class="foto-est-circulo">
+        <img id="fotoEstudianteImg" src="" alt="">
+    </div>
+</div>
 </body>
 </html>
-
