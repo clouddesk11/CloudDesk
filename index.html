@@ -719,13 +719,35 @@
                     </div>
                     <!-- ══ CONFIRMACIÓN AUTORELLENADA (solo lectura) ══ -->
                     <div id="form-registro" class="form-registro" style="display:none; opacity: 0;">
-                        <!-- Foto del perfil (autorellenada desde auth, no editable aquí) -->
-                        <div class="confirmacion-foto-wrap">
-                            <img id="fotoConfirmacion" src=""
-                                 alt="Tu foto"
-                                 class="confirmacion-foto"
-                                 onerror="this.src='https://ui-avatars.com/api/?name=?&background=3b82f6&color=fff&size=200'">
-                        </div>
+                        <!-- Foto del perfil (obligatoria para unirse) -->
+<div class="confirmacion-foto-wrap">
+    <div class="confirmacion-foto-container" id="confirmacion-foto-container">
+        <!-- Imagen (visible cuando ya hay foto) -->
+        <img id="fotoConfirmacion" src=""
+             alt="Tu foto"
+             class="confirmacion-foto"
+             style="display:none;"
+             onerror="this.src='https://ui-avatars.com/api/?name=?&background=3b82f6&color=fff&size=200'">
+        <!-- Zona de subida (visible cuando NO hay foto) -->
+        <div id="reg-foto-upload-area" class="reg-foto-upload-area"
+             onclick="document.getElementById('fotoInputRegistro').click()">
+            <i class="fa-solid fa-camera"></i>
+            <p>Subir foto <strong style="color:var(--danger);">*</strong></p>
+            <span>Obligatorio</span>
+        </div>
+        <!-- Botón cambiar (overlay sobre la imagen cuando SÍ hay foto) -->
+        <button type="button" id="reg-foto-cambiar-btn"
+                class="reg-foto-cambiar-btn" style="display:none;"
+                onclick="document.getElementById('fotoInputRegistro').click()">
+            <i class="fa-solid fa-camera"></i>
+        </button>
+        <input type="file" id="fotoInputRegistro" accept="image/*"
+               style="display:none;" onchange="previewFotoRegistro(event)">
+    </div>
+    <p id="reg-foto-error" class="reg-foto-error" style="display:none;">
+        <i class="fa-solid fa-exclamation-circle"></i> La foto es obligatoria para unirte
+    </p>
+</div>
                         <!-- Nombre (autorellenado, readonly) -->
                         <div class="form-group">
                             <label>
@@ -1018,4 +1040,3 @@
 </div><!-- /denunciaModal -->
 </body>
 </html>
-
