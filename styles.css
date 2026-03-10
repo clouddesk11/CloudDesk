@@ -16,6 +16,7 @@
     --danger: #ef4444;
     --shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.5), 0 2px 4px -1px rgba(0, 0, 0, 0.3);
     --shadow-lg: 0 10px 25px -5px rgba(0, 0, 0, 0.6), 0 8px 10px -6px rgba(0, 0, 0, 0.4);
+    --loader-icon-color: #FFFFFF;
 }
 
 /* ============================================
@@ -541,23 +542,33 @@ body {
     padding: 3rem;
     max-width: 500px;
 }
-
-.connection-spinner {
-    margin-bottom: 2rem;
+.logo-wrapper-loader {
+    width: 300px;
+    color: var(--loader-icon-color);
+    filter: url(#tentacle-distort);
+    margin: 0 auto 3rem auto;
 }
 
-.connection-spinner i {
-    font-size: 4rem;
-    color: var(--primary-color);
-    animation: spin 1s linear infinite;
+.loading-icon-wrapper {
+    width: 100px;
+    color: var(--loader-icon-color);
+    filter: url(#tentacle-distort);
+    margin: 0 auto 1rem;
 }
 
-@keyframes spin {
-    from {
-        transform: rotate(0deg);
+
+.logo-wrapper-loader svg {
+    width: 100%;
+    height: auto;
+    display: block;
+}
+
+@media (max-width: 768px) {
+    .logo-wrapper-loader {
+        width: 200px;
     }
-    to {
-        transform: rotate(360deg);
+    .connection-loader-content p {
+        font-size: 1.1rem;
     }
 }
 
@@ -570,7 +581,9 @@ body {
 
 .connection-loader-content p {
     color: var(--text-muted);
-    font-size: 1rem;
+    font-size: 1.4rem;
+    font-weight: 500;
+    letter-spacing: 2px;
 }
 
 /* --- Modal de Autenticación --- */
@@ -5413,3 +5426,4 @@ body.tema-inicial .notification-dot {
     animation: shimmer 1.5s infinite;
     z-index: 1;
 }
+
