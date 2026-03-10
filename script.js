@@ -25,16 +25,35 @@ function getDeviceType() {
     return 'desktop';
 }
 
+
 // ============================================
 // ESTADO UI
 // ============================================
+let _loaderAnimFrame = null;
+
 function showConnectionLoader() {
     const el = document.getElementById('connectionLoader');
     if (el) el.style.display = 'flex';
+    const dm = document.getElementById('displacement-map');
+    if (!dm) return;
+  
+  
+    let t = 0;
+    function loop() {
+        t += 0.10;
+        dm.setAttribute('scale', 15 + Math.sin(t * 2) * 1.5);
+        _loaderAnimFrame = requestAnimationFrame(loop);
+    }
+    loop();
 }
+
 function hideConnectionLoader() {
     const el = document.getElementById('connectionLoader');
     if (el) el.style.display = 'none';
+    if (_loaderAnimFrame) {
+        cancelAnimationFrame(_loaderAnimFrame);
+        _loaderAnimFrame = null;
+    }
 }
 function showAuthModal() {
     const el = document.getElementById('authModal');
@@ -2551,3 +2570,78 @@ function previewFotoRegistro(event) {
     };
     reader.readAsDataURL(file);
 }
+
+// ============================================
+// DETECTOR DE CONEXIÓN A INTERNET
+// ============================================
+
+const loaderText = document.querySelector('.connection-loader-content p');
+let _sinConexionTimeout = null;
+
+// Congela la animación del loader
+function freezeLoader() {
+    if (_loaderAnimFrame) {
+        cancelAnimationFrame(_loaderAnimFrame);
+        _loaderAnimFrame = null;
+    }
+    const dm = document.getElementById('displacement-map');
+    if (dm) dm.setAttribute('scale', '0');
+}
+
+// Reactiva la animación del loader
+function unfreezeLoader() {
+    const dm = document.getElementById('displacement-map');
+    if (!dm) return;
+    let t = 0;
+    function loop() {
+        t += 0.10;
+        dm.setAttribute('scale', 15 + Math.sin(t * 2) * 1.5);
+        _loaderAnimFrame = requestAnimationFrame(loop);
+    }
+    loop();
+}
+
+window.addEventListener('offline', () => {
+    // Limpiar timeout previo si existe
+    if (_sinConexionTimeout) {
+        clearTimeout(_sinConexionTimeout);
+        _sinConexionTimeout = null;
+    }
+
+    // Paso 1: mostrar loader CONGELADO con "Has perdido conexión"
+    showConnectionLoader();
+    freezeLoader();
+    loaderText.textContent = 'Has perdido conexión';
+
+    // Paso 2: después de 2 segundos → "Intentando reconectar..." con animación
+    setTimeout(() => {
+        if (!navigator.onLine) {
+            loaderText.textContent = 'Intentando reconectar...';
+            unfreezeLoader();
+
+            // Paso 3: si después de 15 segundos sigue sin internet
+            _sinConexionTimeout = setTimeout(() => {
+                if (!navigator.onLine) {
+                    loaderText.textContent = 'Sin conexión a internet';
+                    freezeLoader();
+                }
+            }, 5000);
+        }
+    }, 2000);
+});
+
+window.addEventListener('online', () => {
+    // Limpiar timeout si estaba corriendo
+    if (_sinConexionTimeout) {
+        clearTimeout(_sinConexionTimeout);
+        _sinConexionTimeout = null;
+    }
+
+    // "Conectando..." con animación y ocultar después de 2 segundos
+    loaderText.textContent = 'Conectando...';
+    unfreezeLoader();
+    setTimeout(() => {
+        hideConnectionLoader();
+        loaderText.textContent = 'Conectando...';
+    }, 2000);
+});
