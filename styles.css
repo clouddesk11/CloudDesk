@@ -5427,3 +5427,14 @@ body.tema-inicial .notification-dot {
     z-index: 1;
 }
 
+.logo-wrapper-auth {
+    width: 150px;
+    color: var(--loader-icon-color);
+    margin: 0 auto 1.5rem auto;
+    /* Sin filter = sin animación */
+}
+.logo-wrapper-auth svg {
+    width: 100%;
+    height: auto;
+    display: block;
+}
