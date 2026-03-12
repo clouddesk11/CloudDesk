@@ -2705,10 +2705,11 @@ footer {
 }
 
 @media (max-width: 768px) {
-    /* Ocultar botones de Repositorio, Estudiantes y Trabajos del sidebar en móvil */
+    /* Ocultar botones del sidebar en móvil (se manejan desde footer) */
     #tab-repositorio,
     #tab-estudiantes,
-    #tab-trabajos {
+    #tab-trabajos,
+    #tab-chat {
         display: none !important;
     }
     
@@ -4587,3 +4588,208 @@ body.tema-inicial .notification-dot {
     box-shadow: 0 4px 15px rgba(16, 185, 129, 0.4);
 }
 
+/* ============================================
+   MI CARD — ESTILOS COMPLETOS DE LA CARD PROPIA
+   ============================================ */
+.mi-card-wrapper {
+    display: flex;
+    align-items: center;
+    gap: 1.2rem;
+    background: linear-gradient(135deg, rgba(59,130,246,0.08), rgba(16,185,129,0.05));
+    border: 1.5px solid rgba(59,130,246,0.25);
+    border-radius: 14px;
+    padding: 1rem 1.4rem;
+    position: relative;
+    flex: 1;
+    min-width: 240px;
+}
+
+.mi-card-foto {
+    width: 64px;
+    height: 64px;
+    min-width: 64px;
+    border-radius: 50%;
+    object-fit: cover;
+    border: 3px solid var(--primary-color);
+    box-shadow: 0 4px 12px rgba(59,130,246,0.3);
+    display: block;
+}
+
+.mi-card-info {
+    display: flex;
+    flex-direction: column;
+    gap: 5px;
+    flex: 1;
+    min-width: 0;
+}
+
+.mi-card-nombre {
+    font-size: 1rem;
+    font-weight: 700;
+    color: var(--text-light);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+.mi-card-badges {
+    display: flex;
+    gap: 6px;
+    flex-wrap: wrap;
+    align-items: center;
+}
+
+.mi-card-badge-esp {
+    font-size: 0.75rem;
+    padding: 3px 9px;
+    background: rgba(59,130,246,0.12);
+    border: 1px solid rgba(59,130,246,0.3);
+    border-radius: 20px;
+    color: #93c5fd;
+    font-weight: 600;
+}
+
+.mi-card-badge-ciclo {
+    font-size: 0.75rem;
+    padding: 3px 9px;
+    background: rgba(16,185,129,0.1);
+    border: 1px solid rgba(16,185,129,0.3);
+    border-radius: 20px;
+    color: var(--success);
+    font-weight: 600;
+}
+
+.mi-card-fecha {
+    font-size: 0.73rem;
+    color: var(--text-muted);
+    display: flex;
+    align-items: center;
+    gap: 5px;
+}
+
+.mi-card-tag {
+    position: absolute;
+    top: 10px;
+    right: 12px;
+    font-size: 0.68rem;
+    background: rgba(16,185,129,0.15);
+    border: 1px solid rgba(16,185,129,0.35);
+    border-radius: 20px;
+    color: var(--success);
+    padding: 3px 9px;
+    font-weight: 700;
+}
+
+@media (max-width: 480px) {
+    .mi-card-wrapper {
+        padding: 0.85rem 1rem;
+        gap: 0.9rem;
+    }
+    .mi-card-foto {
+        width: 50px;
+        height: 50px;
+        min-width: 50px;
+    }
+    .mi-card-nombre { font-size: 0.9rem; }
+    .mi-card-tag { font-size: 0.63rem; padding: 2px 7px; top: 8px; right: 8px; }
+    .mi-card-badge-esp,
+    .mi-card-badge-ciclo { font-size: 0.7rem; padding: 2px 7px; }
+}
+
+/* ============================================
+   UPLOAD AREA — PASO FOTO EN AUTH MODAL
+   ============================================ */
+.upload-area {
+    border: 2px dashed var(--border-color);
+    border-radius: 12px;
+    padding: 1.4rem 1rem;
+    text-align: center;
+    background: rgba(255,255,255,0.03);
+    transition: all 0.3s;
+    cursor: pointer;
+    min-height: 130px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.upload-area:hover {
+    border-color: var(--primary-color);
+    background: rgba(59,130,246,0.06);
+}
+
+.upload-placeholder {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 6px;
+    pointer-events: none;
+}
+
+.upload-placeholder i {
+    font-size: 2.2rem;
+    color: var(--primary-color);
+}
+
+.upload-placeholder p {
+    color: var(--text-light);
+    font-size: 0.9rem;
+    margin: 0;
+}
+
+.upload-placeholder span {
+    color: var(--text-muted);
+    font-size: 0.76rem;
+}
+
+.image-preview {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+    width: 100%;
+}
+
+.image-preview img {
+    width: 110px;
+    height: 110px;
+    border-radius: 50%;
+    object-fit: cover;
+    border: 3px solid var(--primary-color);
+    box-shadow: 0 4px 15px rgba(59,130,246,0.3);
+}
+
+.paso0-foto-ok {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    color: var(--success);
+    font-size: 0.85rem;
+    font-weight: 600;
+    flex-wrap: wrap;
+}
+
+.btn-change-photo {
+    background: transparent;
+    border: 1.5px solid var(--primary-color);
+    color: var(--primary-color);
+    padding: 0.3rem 0.8rem;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 0.8rem;
+    font-weight: 500;
+    transition: background 0.2s;
+    font-family: inherit;
+}
+
+.btn-change-photo:hover { background: rgba(59,130,246,0.1); }
+
+/* ============================================
+   AJUSTES — VINCULAR ESCRITORIO SOLO EN MÓVIL
+   ============================================ */
+@media (min-width: 769px) {
+    #btn-vincular-escritorio {
+        display: none !important;
+    }
+}
