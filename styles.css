@@ -5438,7 +5438,6 @@ body.tema-inicial .notification-dot {
     height: auto;
     display: block;
 }
-
 /* ============================================
    SECCIÓN AJUSTES
    ============================================ */
@@ -5471,19 +5470,20 @@ body.tema-inicial .notification-dot {
     cursor: pointer;
     font-family: inherit;
     transition: background 0.2s;
+    text-align: left;
 }
 
 .ajustes-bloque-header:hover {
     background: rgba(59, 130, 246, 0.06);
 }
 
-.ajustes-bloque-header span {
+.ajustes-bloque-header > span {
     display: flex;
     align-items: center;
     gap: 10px;
 }
 
-.ajustes-bloque-header span i {
+.ajustes-bloque-header > span > i {
     color: var(--primary-color);
 }
 
@@ -5491,6 +5491,7 @@ body.tema-inicial .notification-dot {
     color: var(--text-muted);
     transition: transform 0.3s ease;
     font-size: 0.8rem;
+    flex-shrink: 0;
 }
 
 .ajustes-chevron.abierto {
@@ -5526,7 +5527,7 @@ body.tema-inicial .notification-dot {
     background: rgba(59, 130, 246, 0.07);
 }
 
-.ajustes-opcion i:first-child {
+.ajustes-opcion > i:first-child {
     color: var(--primary-color);
     width: 18px;
     text-align: center;
@@ -5540,11 +5541,11 @@ body.tema-inicial .notification-dot {
 }
 
 .ajustes-opcion-danger {
-    color: var(--danger) !important;
+    color: #ef4444 !important;
 }
 
-.ajustes-opcion-danger i:first-child {
-    color: var(--danger) !important;
+.ajustes-opcion-danger > i:first-child {
+    color: #ef4444 !important;
 }
 
 .ajustes-opcion-danger:hover {
@@ -5575,7 +5576,7 @@ body.tema-inicial .notification-dot {
     max-width: 360px;
     width: 90%;
     position: relative;
-    box-shadow: var(--shadow-lg);
+    box-shadow: 0 20px 60px rgba(0,0,0,0.5);
     animation: popIn 0.25s ease;
 }
 
@@ -5588,6 +5589,7 @@ body.tema-inicial .notification-dot {
     font-size: 1.1rem;
     cursor: pointer;
     transition: color 0.2s;
+    line-height: 1;
 }
 
 .vincular-close:hover { color: var(--text-light); }
@@ -5621,7 +5623,7 @@ body.tema-inicial .notification-dot {
 .vincular-api-row {
     display: flex;
     align-items: center;
-    background: var(--bg-darker);
+    background: var(--bg-darker, #111);
     border: 1px solid var(--border-color);
     border-radius: 10px;
     padding: 0.3rem 0.3rem 0.3rem 1rem;
@@ -5638,6 +5640,7 @@ body.tema-inicial .notification-dot {
     font-family: monospace;
     letter-spacing: 4px;
     outline: none;
+    min-width: 0;
 }
 
 .vincular-ojo-btn {
@@ -5660,7 +5663,7 @@ body.tema-inicial .notification-dot {
 .vincular-copiar-btn {
     width: 100%;
     padding: 0.85rem;
-    background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
+    background: linear-gradient(135deg, var(--primary-color), var(--secondary-color, #2563eb));
     border: none;
     border-radius: 10px;
     color: white;
@@ -5681,5 +5684,8 @@ body.tema-inicial .notification-dot {
 }
 
 .vincular-copiar-btn.copiado {
-    background: linear-gradient(135deg, var(--success), #0d9668);
+    background: linear-gradient(135deg, #10b981, #0d9668);
 }
+
+/* Sidebar gear button en la parte inferior */
+.sidebar-bottom-spacer { flex: 1; min-height: 1rem; }
