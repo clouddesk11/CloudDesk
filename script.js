@@ -416,18 +416,7 @@ async function procesarLoginGoogle(user) {
         const instanceId           = _getOrCreateInstanceId();
         const dispositivoExistente = dispositivos[deviceKey];
 
-        // Bloquear si hay sesión activa en OTRO dispositivo del mismo tipo
-        if (dispositivoExistente && dispositivoExistente.instanceId && dispositivoExistente.instanceId !== instanceId) {
-            await auth.signOut().catch(console.error);
-            if (errEl) {
-                errEl.textContent = deviceType === 'mobile'
-                    ? '📱 Ya tienes sesión activa en otro móvil. Cierra sesión allí primero.'
-                    : '💻 Ya tienes sesión activa en otra laptop. Cierra sesión allí primero.';
-                errEl.style.display = 'block';
-            }
-            if (btn) { btn.disabled = false; btn.innerHTML = googleBtnHTML(); }
-            return;
-        }
+       
 
         if (!dispositivoExistente) {
             await database.ref(`codigos/${codigo}/dispositivos/${deviceKey}`).set({
@@ -2692,17 +2681,20 @@ window.addEventListener('online', () => {
 /* ══════════════════════════════════════════
    AJUSTES
 ══════════════════════════════════════════ */
-function toggleAjustes() {
-    const panel = document.getElementById('ajustes-panel');
-    if (!panel) return;
-    const abierto = panel.style.display !== 'none';
-    panel.style.display = abierto ? 'none' : 'block';
-    if (abierto) {
-        const opciones = document.getElementById('ajustes-opciones');
-        const chevron  = document.getElementById('ajustes-chevron');
-        if (opciones) opciones.style.display = 'none';
-        if (chevron)  chevron.classList.remove('open');
-    }
+function abrirModalAjustes() {
+    const modal = document.getElementById('modal-ajustes');
+    if (!modal) return;
+    // Resetear estado de Seguridad al abrir
+    const opciones = document.getElementById('ajustes-opciones');
+    const chevron  = document.getElementById('ajustes-chevron');
+    if (opciones) opciones.style.display = 'none';
+    if (chevron)  chevron.classList.remove('open');
+    modal.style.display = 'flex';
+}
+
+function cerrarModalAjustes() {
+    const modal = document.getElementById('modal-ajustes');
+    if (modal) modal.style.display = 'none';
 }
 
 function toggleSeguridad() {
@@ -2790,4 +2782,3 @@ async function cerrarSesion() {
     try { await auth.signOut(); } catch (e) { console.error(e); }
     location.reload();
 }
-
