@@ -2395,15 +2395,21 @@ footer {
     }
 
     .header-with-search {
-        flex-direction: column;
-        align-items: flex-start;
+        flex-direction: row;        /* título a la izquierda, lupa a la derecha */
+        align-items: center;
+        flex-wrap: nowrap;
+        gap: 0.5rem;
+    }
+
+    .header-text {
+        min-width: unset;           /* antes era 250px, rompía el layout en móvil */
+        flex: 1;
     }
 
     .search-container-inline {
-        width: 100%;
+        flex-shrink: 0;             /* la lupa no se encoge */
         justify-content: flex-end;
     }
-
     .search-bar-expandable.active {
         width: calc(100% - 60px);
     }
@@ -5566,6 +5572,7 @@ body.tema-inicial .notification-dot {
     .mobile-top-header {
         display: flex;
         align-items: center;
+        justify-content: center; /* ← CENTRADO */
         position: fixed;
         top: 0;
         left: 0;
@@ -5573,7 +5580,7 @@ body.tema-inicial .notification-dot {
         height: 56px;
         background-color: #000000;
         border-bottom: 1px solid rgba(255,255,255,0.08);
-        padding-left: 70px; /* Espacio para el botón hamburguesa */
+        padding: 0; /* ← SIN padding lateral, para que el texto quede exactamente al centro */
         z-index: 998;
         box-shadow: 0 2px 10px rgba(0,0,0,0.6);
     }
@@ -5602,5 +5609,34 @@ body.tema-inicial .notification-dot {
     .mobile-menu-btn {
         top: 3px;  /* Antes era top: 20px */
         left: 10px;
+    }
+}
+
+/* ============================================
+   FIJAR ENCABEZADOS DE SECCIÓN EN MÓVIL
+   ============================================ */
+@media (max-width: 768px) {
+
+    /* El encabezado de cada sección se "pega" justo debajo del header CloudDesk */
+    .header-section-sticky {
+        top: 56px;          /* altura exacta del mobile-top-header */
+        padding: 0.8rem 1rem;
+        z-index: 890;
+    }
+
+    /* El contenido scrollable empieza en el lugar correcto */
+    .main-content {
+        padding-top: 56px;
+    }
+}
+
+@media (max-width: 768px) {
+
+    /* Ocultar los textos descripción debajo de los títulos de cada sección */
+    /* Ejemplo: "Selecciona un área para filtrar los recursos." */
+    .header-section p,
+    .header-text p,
+    .header-section-sticky > p {
+        display: none;
     }
 }
