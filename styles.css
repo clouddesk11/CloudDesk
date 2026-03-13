@@ -2395,21 +2395,15 @@ footer {
     }
 
     .header-with-search {
-        flex-direction: row;        /* título a la izquierda, lupa a la derecha */
-        align-items: center;
-        flex-wrap: nowrap;
-        gap: 0.5rem;
-    }
-
-    .header-text {
-        min-width: unset;           /* antes era 250px, rompía el layout en móvil */
-        flex: 1;
+        flex-direction: column;
+        align-items: flex-start;
     }
 
     .search-container-inline {
-        flex-shrink: 0;             /* la lupa no se encoge */
+        width: 100%;
         justify-content: flex-end;
     }
+
     .search-bar-expandable.active {
         width: calc(100% - 60px);
     }
@@ -5559,84 +5553,70 @@ body.tema-inicial .notification-dot {
 .vincular-copiar-btn:hover { background: #2563eb; }
 .vincular-copiar-btn:active { transform: scale(0.98); }
 .vincular-copiar-btn.copiado { background: #10b981; pointer-events: none; }
+
 /* ============================================
-   MOBILE TOP HEADER FIJO - Solo en móvil
+   TOPBAR FIJA MÓVIL — CLOUDDESK
+   (Solo afecta pantallas de 768px o menos)
    ============================================ */
-.mobile-top-header {
-    display: none; /* Invisible en escritorio */
+
+/* En desktop: completamente invisible */
+.mobile-topbar {
+    display: none;
 }
 
 @media (max-width: 768px) {
 
-    /* El nuevo header fijo con "CloudDesk" */
-    .mobile-top-header {
+    /* ── 1. La nueva barra superior fija ── */
+    .mobile-topbar {
         display: flex;
-        align-items: center;
-        justify-content: center; /* ← CENTRADO */
-        position: fixed;
+        position: fixed;   /* No se mueve NUNCA */
         top: 0;
         left: 0;
-        width: 100%;
+        right: 0;
         height: 56px;
-        background-color: #000000;
-        border-bottom: 1px solid rgba(255,255,255,0.08);
-        padding: 0; /* ← SIN padding lateral, para que el texto quede exactamente al centro */
-        z-index: 998;
-        box-shadow: 0 2px 10px rgba(0,0,0,0.6);
+        background-color: var(--bg-darker);
+        border-bottom: 1px solid var(--border-color);
+        align-items: center;
+        padding: 0 1.2rem;
+        z-index: 1002;     /* Encima de TODO (sidebar=1000, footer=998) */
+        box-shadow: 0 2px 10px rgba(0, 0, 0, 0.4);
     }
 
-    /* Texto "CloudDesk" dentro del nuevo header */
-    .mobile-top-header-title {
-        font-size: 1.5rem;
+    .mobile-topbar-title {
+        font-size: 1.25rem;
         font-weight: 700;
-        color: #ffffff;
-        letter-spacing: 1px;
-        font-family: 'Lucida Console', monospace;
+        color: var(--text-light);
+        letter-spacing: 0.5px;
     }
 
-    /* Ocultar el bloque del sidebar que tenía "CloudDesk" */
-    /* (así los botones Recursos y Docentes suben automáticamente) */
+    /* ── 2. Ocultar "CloudDesk" del sidebar en móvil ──
+       (Ya no necesita estar ahí, está en la topbar) */
     .sidebar-header {
-        display: none;
+        display: none !important;
     }
 
-    /* Bajar el contenido principal para que no quede tapado por el header */
+    /* ── 3. El sidebar empieza debajo de la topbar ──
+       Para que Recursos y Docentes no queden tapados */
+    .sidebar {
+        padding-top: 56px !important;
+    }
+
+    /* ── 4. El contenido principal empieza debajo de la topbar ──
+       Evita que "Archivos Académicos" quede tapado */
     .main-content {
         padding-top: 56px;
     }
 
-    /* Reubicar el botón hamburguesa para que quede centrado en el nuevo header */
-    .mobile-menu-btn {
-        top: 3px;  /* Antes era top: 20px */
-        left: 10px;
-    }
-}
-
-/* ============================================
-   FIJAR ENCABEZADOS DE SECCIÓN EN MÓVIL
-   ============================================ */
-@media (max-width: 768px) {
-
-    /* El encabezado de cada sección se "pega" justo debajo del header CloudDesk */
+    /* ── 5. Los headers de sección se pegan debajo de la topbar ──
+       Antes era top:0, ahora es top:56px
+       Esto evita que "Archivos Académicos", "Gestión de Trabajos",
+       etc. se muevan o queden tapados al hacer scroll */
     .header-section-sticky {
-        top: 56px;          /* altura exacta del mobile-top-header */
-        padding: 0.8rem 1rem;
-        z-index: 890;
+        top: 56px;
     }
 
-    /* El contenido scrollable empieza en el lugar correcto */
-    .main-content {
-        padding-top: 56px;
-    }
-}
-
-@media (max-width: 768px) {
-
-    /* Ocultar los textos descripción debajo de los títulos de cada sección */
-    /* Ejemplo: "Selecciona un área para filtrar los recursos." */
-    .header-section p,
-    .header-text p,
-    .header-section-sticky > p {
-        display: none;
+    /* ── 6. Corregir altura del chat con la nueva topbar ── */
+    .chat-container {
+        height: calc(100dvh - 56px - 60px);
     }
 }
