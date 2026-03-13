@@ -1623,10 +1623,15 @@ function actualizarPerfilSidebar() {
     }
     if (perfil.especialidad) aplicarTemaEspecialidad(perfil.especialidad);
 
-    // Mostrar ajustes solo en móvil
+    // Mostrar ajustes en todos los dispositivos
     const ajustesWrapper = document.getElementById('sidebar-ajustes-wrapper');
     if (ajustesWrapper) {
-        ajustesWrapper.style.display = getDeviceType() === 'mobile' ? 'block' : 'none';
+        ajustesWrapper.style.display = 'block';
+        // "Vincular Escritorio" solo visible en móvil
+        const btnVincular = document.getElementById('btn-vincular-escritorio');
+        if (btnVincular) {
+            btnVincular.style.display = getDeviceType() === 'mobile' ? 'flex' : 'none';
+        }
     }
 }
 
@@ -2785,3 +2790,4 @@ async function cerrarSesion() {
     try { await auth.signOut(); } catch (e) { console.error(e); }
     location.reload();
 }
+
