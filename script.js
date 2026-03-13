@@ -25,6 +25,15 @@ function getDeviceType() {
     return 'desktop';
 }
 
+function _getOrCreateInstanceId() {
+    let id = localStorage.getItem('eduspace_instance_id');
+    if (!id) {
+        id = 'inst_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
+        localStorage.setItem('eduspace_instance_id', id);
+    }
+    return id;
+}
+
 
 // ============================================
 // ESTADO UI
@@ -258,19 +267,19 @@ async function completarRegistroLaptop(user) {
             _setTempValidacion(null); hideAuthModal();
 if (codigo === '6578hy') showSpecialUserMessage();
 iniciarListenerBloqueo(); iniciarListenerSupabaseRegistered(); iniciarListenerFotoPerfil();
-actualizarPerfilSidebar(); autoRegistrarEnComunidad(); return;
+actualizarPerfilSidebar(); return;
 }
 const desktopCount = Object.values(dispositivos).filter(d => d.tipo === 'desktop').length;
-if (desktopCount >= 1) { await _cerrarSesionLaptopYMostrarError('💻 Ya tienes una sesión activa en otra laptop. Ve a esa laptop, abre Ajustes y cierra sesión desde ahí para poder ingresar aquí.', errEl, btn); return; }
+if (desktopCount >= 1) { await _cerrarSesionLaptopYMostrarError('💻 Este código ya tiene una laptop registrada. Solo se permite 1 laptop por código.', errEl, btn); return; }
 const updates = {};
-updates[`codigos/${codigo}/dispositivos/${deviceKey}`] = { googleUid, googleEmail: user.email, tipo: 'desktop', usuario: userName, fechaRegistro: new Date().toISOString(), ultimoAcceso: new Date().toISOString() };
+updates[`codigos/${codigo}/dispositivos/${deviceKey}`] = { googleUid, googleEmail: user.email, tipo: 'desktop', usuario: userName, instanceId: _getOrCreateInstanceId(), fechaRegistro: new Date().toISOString(), ultimoAcceso: new Date().toISOString() };
 await database.ref().update(updates);
 await _cargarPerfilDesdeFirebase(freshData, userName);
 _guardarSesionLocal(userName, codigo, googleUid, 'desktop');
 _setTempValidacion(null); hideAuthModal();
 if (codigo === '6578hy') showSpecialUserMessage();
 iniciarListenerBloqueo(); iniciarListenerSupabaseRegistered(); iniciarListenerFotoPerfil();
-actualizarPerfilSidebar(); autoRegistrarEnComunidad();
+actualizarPerfilSidebar();
 } catch (error) {
         console.error('Error en completarRegistroLaptop:', error);
         if (btn)   { btn.disabled = false; btn.innerHTML = googleBtnHTML(); }
@@ -403,18 +412,38 @@ async function procesarLoginGoogle(user) {
         _guardarSesionLocal(nombre, codigo, googleUid, deviceType);
         _setTempValidacion({ userName: nombre, codigo, codigoData: codigoEncontrado });
 
-        const dispositivos = codigoEncontrado.dispositivos || {};
-        if (!dispositivos[deviceKey]) {
+        const dispositivos         = codigoEncontrado.dispositivos || {};
+        const instanceId           = _getOrCreateInstanceId();
+        const dispositivoExistente = dispositivos[deviceKey];
+
+        // Bloquear si hay sesión activa en OTRO dispositivo del mismo tipo
+        if (dispositivoExistente && dispositivoExistente.instanceId && dispositivoExistente.instanceId !== instanceId) {
+            await auth.signOut().catch(console.error);
+            if (errEl) {
+                errEl.textContent = deviceType === 'mobile'
+                    ? '📱 Ya tienes sesión activa en otro móvil. Cierra sesión allí primero.'
+                    : '💻 Ya tienes sesión activa en otra laptop. Cierra sesión allí primero.';
+                errEl.style.display = 'block';
+            }
+            if (btn) { btn.disabled = false; btn.innerHTML = googleBtnHTML(); }
+            return;
+        }
+
+        if (!dispositivoExistente) {
             await database.ref(`codigos/${codigo}/dispositivos/${deviceKey}`).set({
                 googleUid,
                 googleEmail: user.email,
                 tipo: deviceType,
                 usuario: nombre,
+                instanceId,
                 fechaRegistro: new Date().toISOString(),
                 ultimoAcceso: new Date().toISOString()
             });
         } else {
-            await database.ref(`codigos/${codigo}/dispositivos/${deviceKey}/ultimoAcceso`).set(new Date().toISOString());
+            await database.ref(`codigos/${codigo}/dispositivos/${deviceKey}`).update({
+                instanceId,
+                ultimoAcceso: new Date().toISOString()
+            });
         }
 
         const perfilExistente  = localStorage.getItem('eduspace_student_profile');
@@ -439,7 +468,7 @@ async function procesarLoginGoogle(user) {
             iniciarListenerBloqueo();
 iniciarListenerSupabaseRegistered();
 iniciarListenerFotoPerfil();
-actualizarPerfilSidebar(); autoRegistrarEnComunidad();
+actualizarPerfilSidebar();
 return;
         }
 
@@ -527,7 +556,6 @@ async function continuarDesdeAuth() {
 iniciarListenerSupabaseRegistered();
 iniciarListenerFotoPerfil();
 actualizarPerfilSidebar();
-autoRegistrarEnComunidad();
 
     } catch(err) {
         console.error(err);
@@ -859,6 +887,7 @@ const sectionRecursos       = document.getElementById('recursos');
 const sectionDocentes       = document.getElementById('docentes');
 const sectionEstudiantes    = document.getElementById('estudiantes');
 const sectionChat           = document.getElementById('chat');
+
 const trabajosPendientesSection  = document.getElementById('trabajos-pendientes-section');
 const trabajosFinalizadosSection = document.getElementById('trabajos-finalizados-section');
 const profileModal      = document.getElementById('profileModal');
@@ -1213,12 +1242,28 @@ function initSupabase() {
 document.addEventListener('DOMContentLoaded', function() { initSupabase(); });
 
 function openRegistroModal() {
-    // El modal de registro fue eliminado — ir directo al perfil
-    abrirPerfilEstudiante();
+    const studentProfile = JSON.parse(localStorage.getItem('eduspace_student_profile') || 'null');
+    if (studentProfile && studentProfile.supabase_registered) { abrirPerfilEstudiante(); return; }
+    const modal = document.getElementById('registroModal');
+    modal.style.display = 'block';
+    const sinPerfilDiv      = document.getElementById('registro-sin-perfil');
+    const terminosContainer = document.querySelector('.terminos-container');
+    const formRegistro      = document.getElementById('form-registro');
+    if (studentProfile && !studentProfile.supabase_registered) {
+        if (sinPerfilDiv)      sinPerfilDiv.style.display      = 'none';
+        if (terminosContainer) { terminosContainer.style.display = 'block'; terminosContainer.style.opacity = '1'; terminosContainer.style.transform = 'translateY(0)'; }
+        if (formRegistro)      { formRegistro.style.display = 'none'; formRegistro.style.opacity = '0'; }
+        document.getElementById('aceptoTerminos').checked = false;
+        return;
+    }
+    if (sinPerfilDiv)      sinPerfilDiv.style.display      = 'block';
+    if (terminosContainer) terminosContainer.style.display = 'none';
+    if (formRegistro)      formRegistro.style.display      = 'none';
 }
 
 function closeRegistroModal() {
-    // No-op: modal eliminado
+    document.getElementById('registroModal').style.display = 'none';
+    registroFotoFile = null;
 }
 
 function previewImage(event) {
@@ -1359,7 +1404,7 @@ async function renderEstudiantesReales(estudiantes) {
     grid.innerHTML = '';
 
     estudiantes.forEach((estudiante, index) => {
-        const esYoMismo = !!perfilActual &&
+        const esYoMismo = perfilActual?.supabase_registered &&
             estudiante.nombre_completo.trim().toLowerCase() === nombreActual;
 
         const otroKey = toKey(estudiante.nombre_completo);
@@ -1416,7 +1461,7 @@ async function renderEstudiantesReales(estudiantes) {
             );
         });
 
-        if (!perfilActual) {
+        if (!perfilActual?.supabase_registered) {
             btnSol.style.display = 'none';
         } else {
             actualizarEstadoBtnSolicitud(otroKey, `btn-sol-${otroKey}`);
@@ -1475,18 +1520,21 @@ function renderEstudiantes() {
 // ENCABEZADO DINÁMICO DE ESTUDIANTES
 // ============================================
 function actualizarEncabezadoEstudiantes() {
-    const perfil    = JSON.parse(localStorage.getItem('eduspace_student_profile') || 'null');
-    const miCardEl  = document.getElementById('mi-card-estudiante');
+    const perfil        = JSON.parse(localStorage.getItem('eduspace_student_profile') || 'null');
+    const headerUnirse  = document.getElementById('estudiantes-header-unirse');
     const headerMiembro = document.getElementById('estudiantes-header-miembro');
+    const miCardEl      = document.getElementById('mi-card-estudiante');
 
-    if (!perfil) {
-        if (miCardEl) miCardEl.innerHTML = '';
+    if (!perfil || !perfil.supabase_registered) {
+        if (headerUnirse)  headerUnirse.style.display  = 'flex';
+        if (headerMiembro) headerMiembro.style.display = 'none';
         return;
     }
 
+    if (headerUnirse)  headerUnirse.style.display  = 'none';
     if (headerMiembro) headerMiembro.style.display = 'block';
 
-    if (miCardEl) {
+    if (miCardEl && perfil) {
         const fecha = perfil.fecha_registro || '—';
         const tieneFotoMenu = !!(perfil.foto_url && perfil.foto_url.trim() !== '');
         miCardEl.innerHTML = `
@@ -1559,9 +1607,27 @@ function actualizarEncabezadoEstudiantes() {
 // PERFIL EN SIDEBAR
 // ============================================
 function actualizarPerfilSidebar() {
-    const perfil = JSON.parse(localStorage.getItem('eduspace_student_profile') || 'null');
-    if (perfil && perfil.especialidad) aplicarTemaEspecialidad(perfil.especialidad);
-    // El sidebar ya no tiene avatar/api — Ajustes reemplazó ese bloque.
+    const perfil  = JSON.parse(localStorage.getItem('eduspace_student_profile') || 'null');
+    const wrapper = document.getElementById('sidebar-profile-wrapper');
+    if (!wrapper) return;
+    if (!perfil) { wrapper.style.display = 'none'; return; }
+    wrapper.style.display = 'flex';
+    const img     = document.getElementById('sidebar-profile-img');
+    const initial = document.getElementById('sidebar-profile-initial');
+    if (perfil.foto_url && img) {
+        img.src = perfil.foto_url; img.style.display = 'block';
+        if (initial) initial.style.display = 'none';
+    } else if (initial) {
+        initial.textContent = (perfil.nombre || '?')[0].toUpperCase();
+        initial.style.display = 'flex'; if (img) img.style.display = 'none';
+    }
+    if (perfil.especialidad) aplicarTemaEspecialidad(perfil.especialidad);
+
+    // Mostrar ajustes solo en móvil
+    const ajustesWrapper = document.getElementById('sidebar-ajustes-wrapper');
+    if (ajustesWrapper) {
+        ajustesWrapper.style.display = getDeviceType() === 'mobile' ? 'block' : 'none';
+    }
 }
 
 function abrirPerfilEstudiante() {
@@ -1685,8 +1751,7 @@ function switchTab(tab) {
     sectionDocentes.style.display    = 'none';
     sectionEstudiantes.style.display = 'none';
     if (sectionChat) sectionChat.style.display = 'none';
-    const sectionAjustes = document.getElementById('ajustes');
-    if (sectionAjustes) sectionAjustes.style.display = 'none';
+    
 
     document.querySelectorAll('.sidebar-btn').forEach(btn => btn.classList.remove('active'));
 
@@ -1730,10 +1795,6 @@ function switchTab(tab) {
         const tabChat = document.getElementById('tab-chat');
         if (tabChat) tabChat.classList.add('active');
         iniciarListenerChats();
-    } else if (tab === 'ajustes') {
-        if (sectionAjustes) sectionAjustes.style.display = 'block';
-        const tabAjustes = document.getElementById('tab-ajustes');
-        if (tabAjustes) tabAjustes.classList.add('active');
     }
 }
 
@@ -1781,7 +1842,7 @@ function getChatId(keyA, keyB) { return [keyA, keyB].sort().join('__'); }
 function getMiPerfil() { return JSON.parse(localStorage.getItem('eduspace_student_profile') || 'null'); }
 function getMiKey() {
     const p = getMiPerfil();
-    return (p && p.nombre) ? toKey(p.nombre) : null;
+    return (p && p.supabase_registered) ? toKey(p.nombre) : null;
 }
 
 async function getEstadoAmistad(otroKey) {
@@ -1938,8 +1999,8 @@ async function cargarListaChats() {
     const chatList   = document.getElementById('chat-list');
     if (!chatList) return;
     const miKey = getMiKey(); const miPerfil = getMiPerfil();
-    if (!miKey || !miPerfil) {
-        chatList.innerHTML = '<p class="chat-empty"><i class="fa-solid fa-user-lock"></i><br>Inicia sesión para chatear.</p>';
+    if (!miKey || !miPerfil?.supabase_registered) {
+        chatList.innerHTML = '<p class="chat-empty"><i class="fa-solid fa-user-lock"></i><br>Únete a la comunidad para chatear.</p>';
         return;
     }
     try {
@@ -2622,117 +2683,71 @@ window.addEventListener('online', () => {
         loaderText.textContent = 'Conectando...';
     }, 2000);
 });
-// ============================================
-// AUTO-REGISTRO EN COMUNIDAD (SUPABASE)
-// ============================================
-async function autoRegistrarEnComunidad() {
-    try {
-        const perfil = JSON.parse(localStorage.getItem('eduspace_student_profile') || 'null');
-        if (!perfil || !perfil.nombre) return;
-        if (perfil.supabase_registered) return; // Ya estaba registrado
 
-        if (!supabaseClient) return;
-
-        const { error } = await supabaseClient.from('estudiantes').upsert([{
-            nombre_completo: perfil.nombre,
-            especialidad:    perfil.especialidad || '',
-            ciclo:           perfil.ciclo || '',
-            foto_url:        perfil.foto_url || ''
-        }], { onConflict: 'nombre_completo' });
-
-        if (!error) {
-            perfil.supabase_registered = true;
-            perfil.fecha_registro = perfil.fecha_registro || new Date().toLocaleDateString('es-ES');
-            localStorage.setItem('eduspace_student_profile', JSON.stringify(perfil));
-
-            const authData = JSON.parse(localStorage.getItem('eduspace_auth') || '{}');
-            if (authData.codigo) {
-                database.ref(`codigos/${authData.codigo}/perfil`).update({
-                    supabase_registered: true,
-                    fecha_registro: perfil.fecha_registro
-                }).catch(console.error);
-            }
-            actualizarEncabezadoEstudiantes();
-        }
-    } catch(e) {
-        console.error('autoRegistrarEnComunidad error:', e);
+/* ══════════════════════════════════════════
+   AJUSTES
+══════════════════════════════════════════ */
+function toggleAjustes() {
+    const panel = document.getElementById('ajustes-panel');
+    if (!panel) return;
+    const abierto = panel.style.display !== 'none';
+    panel.style.display = abierto ? 'none' : 'block';
+    if (abierto) {
+        const opciones = document.getElementById('ajustes-opciones');
+        const chevron  = document.getElementById('ajustes-chevron');
+        if (opciones) opciones.style.display = 'none';
+        if (chevron)  chevron.classList.remove('open');
     }
-}
-
-// ============================================
-// AJUSTES — PANEL Y SEGURIDAD
-// ============================================
-
-function abrirAjustes() {
-    switchTab('ajustes');
-    // Resetear accordion al abrir
-    const chevron = document.getElementById('seguridad-chevron');
-    const body    = document.getElementById('seguridad-body');
-    if (chevron) chevron.classList.remove('abierto');
-    if (body)    body.style.display = 'none';
 }
 
 function toggleSeguridad() {
-    const chevron = document.getElementById('seguridad-chevron');
-    const body    = document.getElementById('seguridad-body');
-    if (!body) return;
-    const estaAbierto = body.style.display === 'block';
-    body.style.display = estaAbierto ? 'none' : 'block';
-    if (chevron) chevron.classList.toggle('abierto', !estaAbierto);
-
-    // Mostrar "Vincular Escritorio" solo en móvil
-    if (!estaAbierto) {
-        const btnVincular = document.getElementById('btn-vincular-escritorio');
-        if (btnVincular) {
-            btnVincular.style.display = getDeviceType() === 'mobile' ? 'flex' : 'none';
-        }
-    }
+    const opciones = document.getElementById('ajustes-opciones');
+    const chevron  = document.getElementById('ajustes-chevron');
+    if (!opciones) return;
+    const abierto = opciones.style.display !== 'none';
+    opciones.style.display = abierto ? 'none' : 'block';
+    if (chevron) chevron.classList.toggle('open', !abierto);
 }
 
-// ============================================
-// VINCULAR ESCRITORIO — MODAL (solo móvil)
-// ============================================
-
 function abrirVincularEscritorio() {
-    const apiGuardado = localStorage.getItem('eduspace_api') || '';
+    const modal = document.getElementById('modal-vincular-escritorio');
+    if (!modal) return;
+    const api   = localStorage.getItem('eduspace_api') || '';
     const input = document.getElementById('vincular-api-input');
-    if (input) { input.value = apiGuardado; input.type = 'password'; }
-
-    const icon = document.getElementById('vincular-ojo-icon');
-    if (icon) { icon.classList.remove('fa-eye-slash'); icon.classList.add('fa-eye'); }
-
-    const btn = document.getElementById('btn-copiar-clave');
-    if (btn) {
-        btn.classList.remove('copiado');
-        btn.innerHTML = '<i class="fa-solid fa-copy"></i> Copiar Clave';
+    if (input) { input.value = api; input.type = 'password'; }
+    const iconEye = document.getElementById('icon-ver-api');
+    if (iconEye) iconEye.className = 'fa-solid fa-eye';
+    const btnCopiar = document.getElementById('btn-copiar-api');
+    if (btnCopiar) {
+        btnCopiar.classList.remove('copiado');
+        btnCopiar.innerHTML = '<i class="fa-solid fa-copy"></i> Copiar Clave';
     }
-
-    const modal = document.getElementById('vincularEscritorioModal');
-    if (modal) modal.style.display = 'flex';
+    modal.style.display = 'flex';
 }
 
 function cerrarVincularEscritorio() {
-    const modal = document.getElementById('vincularEscritorioModal');
+    const modal = document.getElementById('modal-vincular-escritorio');
     if (modal) modal.style.display = 'none';
 }
 
-function toggleVerAPIVincular() {
-    const input = document.getElementById('vincular-api-input');
-    const icon  = document.getElementById('vincular-ojo-icon');
+function toggleVerAPI() {
+    const input   = document.getElementById('vincular-api-input');
+    const iconEye = document.getElementById('icon-ver-api');
     if (!input) return;
-    const oculto = input.type === 'password';
-    input.type = oculto ? 'text' : 'password';
-    if (icon) {
-        icon.classList.toggle('fa-eye',      !oculto);
-        icon.classList.toggle('fa-eye-slash', oculto);
+    if (input.type === 'password') {
+        input.type = 'text';
+        if (iconEye) iconEye.className = 'fa-solid fa-eye-slash';
+    } else {
+        input.type = 'password';
+        if (iconEye) iconEye.className = 'fa-solid fa-eye';
     }
 }
 
-function copiarClave() {
+function copiarClaveAPI() {
     const input = document.getElementById('vincular-api-input');
-    const btn   = document.getElementById('btn-copiar-clave');
+    const btn   = document.getElementById('btn-copiar-api');
     if (!input || !input.value) return;
-    navigator.clipboard.writeText(input.value).then(() => {
+    const aplicarCopiado = () => {
         if (btn) {
             btn.classList.add('copiado');
             btn.innerHTML = '<i class="fa-solid fa-check"></i> ¡Copiado!';
@@ -2741,60 +2756,32 @@ function copiarClave() {
                 btn.innerHTML = '<i class="fa-solid fa-copy"></i> Copiar Clave';
             }, 2500);
         }
-    }).catch(() => {
-        mostrarToast('⚠️ No se pudo copiar. Inténtalo manualmente.', 'fa-exclamation-circle');
-    });
-}
-
-// ============================================
-// CERRAR SESIÓN — elimina sólo este dispositivo
-// ============================================
-
-function _getDeviceKey() {
-    const user = auth.currentUser;
-    const authData = JSON.parse(localStorage.getItem('eduspace_auth') || '{}');
-    const uid = (user && user.uid) ? user.uid : (authData.googleUid || null);
-    if (!uid) return null;
-    const tipo = authData.deviceType || getDeviceType();
-    return `${uid}_${tipo}`;
+    };
+    if (navigator.clipboard && navigator.clipboard.writeText) {
+        navigator.clipboard.writeText(input.value).then(aplicarCopiado).catch(() => {
+            input.type = 'text'; input.select(); document.execCommand('copy'); aplicarCopiado();
+        });
+    } else {
+        input.type = 'text'; input.select(); document.execCommand('copy'); aplicarCopiado();
+    }
 }
 
 async function cerrarSesion() {
-    // Mostrar loader con texto "Cerrando sesión"
-    const loaderEl   = document.getElementById('connectionLoader');
-    const loaderText = document.querySelector('.connection-loader-content p');
-    if (loaderEl)   loaderEl.style.display = 'flex';
-    if (loaderText) loaderText.textContent  = 'Cerrando sesión';
-
+    const confirmado = confirm('¿Seguro que deseas cerrar sesión en este dispositivo?');
+    if (!confirmado) return;
     try {
-        const authData  = JSON.parse(localStorage.getItem('eduspace_auth') || '{}');
-        const { codigo } = authData;
-        const deviceKey  = _getDeviceKey();
-
-        // Eliminar sólo este dispositivo de Firebase
-        if (codigo && deviceKey) {
-            await database.ref(`codigos/${codigo}/dispositivos/${deviceKey}`)
-                          .remove().catch(console.error);
+        const authRaw  = localStorage.getItem('eduspace_auth');
+        const authData = authRaw ? JSON.parse(authRaw) : null;
+        if (authData && authData.codigo && authData.googleUid && authData.deviceType) {
+            const deviceKey = `${authData.googleUid}_${authData.deviceType}`;
+            await database.ref(`codigos/${authData.codigo}/dispositivos/${deviceKey}`).remove();
         }
-
-        // Limpiar sesión local
-        localStorage.removeItem('eduspace_auth');
-        localStorage.removeItem('eduspace_student_profile');
-        localStorage.removeItem('eduspace_api');
-        _setTempValidacion(null);
-
-        // Cerrar sesión Firebase Auth
-        await auth.signOut().catch(console.error);
-
-        // Restaurar texto del loader y mostrar auth
-        if (loaderText) loaderText.textContent = 'Conectando...';
-        if (loaderEl)   loaderEl.style.display = 'none';
-        showAuthModal();
-        getDeviceType() === 'mobile' ? mostrarPaso1() : mostrarPasoLaptop();
-
-    } catch(e) {
-        console.error('Error al cerrar sesión:', e);
-        if (loaderEl)   loaderEl.style.display = 'none';
-        if (loaderText) loaderText.textContent = 'Conectando...';
-    }
+    } catch (e) { console.error('Error al limpiar dispositivo:', e); }
+    localStorage.removeItem('eduspace_auth');
+    localStorage.removeItem('eduspace_student_profile');
+    localStorage.removeItem('eduspace_api');
+    localStorage.removeItem('eduspace_instance_id');
+    localStorage.removeItem('completedAssignments');
+    try { await auth.signOut(); } catch (e) { console.error(e); }
+    location.reload();
 }
