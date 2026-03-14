@@ -98,32 +98,6 @@ body {
     transform: translateX(0);
 }
 
-/* Botón hamburguesa - ESTILO "VER DETALLE" + MÁS PEQUEÑO */
-.sidebar-toggle {
-    width: 32px;  /* Reducido aún más */
-    height: 32px;
-    min-width: 32px;
-    /* ESTILO DEL BOTÓN "VER DETALLE" */
-    background-color: transparent;
-    border: 1px solid var(--primary-color);
-    color: var(--primary-color);
-    border-radius: 6px;
-    font-size: 1rem;
-    cursor: pointer;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    transition: all 0.3s ease;
-    flex-shrink: 0;
-}
-
-.sidebar-toggle:hover {
-    background-color: rgba(59, 130, 246, 0.1);
-}
-
-.sidebar-toggle:active {
-    transform: scale(0.95);
-}
 
 /* ============================================
    NAVEGACIÓN DEL SIDEBAR - ESTILO "VER DETALLE"
@@ -377,10 +351,6 @@ body {
         display: flex;
         align-items: center;
         justify-content: center;
-    }
-    
-    .sidebar-toggle {
-        display: none; /* Ocultar el que está dentro del sidebar */
     }
 }
 
@@ -3442,11 +3412,11 @@ footer {
     align-items: center;
     gap: 10px;
     width: 100%;
-    padding: 0.5rem 1rem;
+    padding: 0.6rem 1.2rem;       /* ← igual que .sidebar-btn */
     cursor: pointer;
     border-radius: 8px;
     transition: background 0.25s ease;
-    justify-content: center; /* centrado cuando sidebar está cerrado */
+    justify-content: flex-start;  /* ← igual que .sidebar-btn cerrado */
 }
 
 .sidebar.open .sidebar-profile {
@@ -3460,7 +3430,7 @@ footer {
 .sidebar-profile-avatar {
     width: 34px;
     height: 34px;
-    min-width: 34px;
+    min-width: 35px;
     border-radius: 50%;
     background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
     display: flex;
@@ -3472,6 +3442,7 @@ footer {
     font-weight: 700;
     color: white;
     flex-shrink: 0;
+    cursor: pointer; 
 }
 
 .sidebar-profile-avatar img {
@@ -4738,10 +4709,6 @@ body.tema-inicial .sidebar-btn:hover {
     color: #ec4899;
 }
 
-body.tema-inicial .sidebar-toggle {
-    border-color: #ec4899;
-    color: #ec4899;
-}
 
 body.tema-inicial .chat-send-btn {
     background: #ec4899;
@@ -5715,3 +5682,19 @@ body.tema-inicial .notification-dot {
         margin: 0.5rem auto;
         max-height: calc(95vh - 56px);
     }
+
+/* ============================================
+   HAMBURGER ALINEADO — SOLO DESKTOP CERRADO
+   ============================================ */
+@media (min-width: 769px) {
+    .sidebar:not(.open) .sidebar-header {
+        justify-content: flex-start;
+        padding-left: 1.2rem;        /* mismo que sidebar-btn */
+    }
+
+    .sidebar:not(.open) .sidebar-logo {
+        flex: 0 0 0px;
+        width: 0;
+        overflow: hidden;
+    }
+}
