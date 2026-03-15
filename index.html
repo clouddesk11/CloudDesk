@@ -342,10 +342,15 @@
         <i class="fa-solid fa-book"></i>
         <span class="sidebar-btn-text">Recursos</span>
     </button>
-    <button id="tab-docentes" class="sidebar-btn" onclick="switchTab('docentes')">
-        <i class="fa-solid fa-chalkboard-user"></i>
-        <span class="sidebar-btn-text">Docentes</span>
-    </button>
+    <button id="tab-libros" class="sidebar-btn" onclick="switchTab('libros')">
+    <i class="fa-solid fa-book-open"></i>
+    <span class="sidebar-btn-text">Libros</span>
+</button>
+
+<button id="tab-docentes" class="sidebar-btn" onclick="switchTab('docentes')">
+    <i class="fa-solid fa-chalkboard-user"></i>
+    <span class="sidebar-btn-text">Docentes</span>
+</button>
     <button id="tab-estudiantes" class="sidebar-btn" onclick="switchTab('estudiantes')">
         <i class="fa-solid fa-user-graduate"></i>
         <span class="sidebar-btn-text">Estudiantes</span>
@@ -450,61 +455,107 @@
     <div class="header-section header-section-sticky">
         <div class="header-with-search">
             <div class="header-text">
-                <h2><i class="fa-solid fa-book"></i> Recursos del Área de la Especialidad de Comunicación</h2>
+                <h2><i class="fa-solid fa-book"></i> Recursos Académicos</h2>
             </div>
             <div class="search-container-inline">
                 <button class="search-toggle" onclick="toggleSearch('recursos')">
                     <i class="fa-solid fa-search"></i>
                 </button>
                 <div class="search-bar-expandable" id="searchBarRecursos">
-                    <input type="text" id="searchInputRecursos" placeholder="Buscar recursos..." onkeyup="searchRecursos()">
+                    <input type="text" id="searchInputRecursos"
+                           placeholder="Buscar recursos..."
+                           onkeyup="searchRecursos()">
                     <button class="search-close" onclick="toggleSearch('recursos')">
                         <i class="fa-solid fa-times"></i>
                     </button>
                 </div>
             </div>
         </div>
-        <div class="recursos-filter-buttons">
-            <button class="recursos-filter-btn active" onclick="filterRecursos('Materiales')" data-category="Materiales">
-                <i class="fa-solid fa-folder"></i> Materiales
-                <i class="fa-solid fa-bars recursos-hamburger" onclick="toggleRecursosMenu(event, 'Materiales')"></i>
-            </button>
-            <button class="recursos-filter-btn" onclick="filterRecursos('Cuentos')" data-category="Cuentos">
-                <i class="fa-solid fa-book-open"></i> Cuentos
-                <i class="fa-solid fa-bars recursos-hamburger" onclick="toggleRecursosMenu(event, 'Cuentos')"></i>
-            </button>
-            <button class="recursos-filter-btn" onclick="filterRecursos('Historias')" data-category="Historias">
-                <i class="fa-solid fa-scroll"></i> Historias
-                <i class="fa-solid fa-bars recursos-hamburger" onclick="toggleRecursosMenu(event, 'Historias')"></i>
-            </button>
-            <button class="recursos-filter-btn" onclick="filterRecursos('Leyendas')" data-category="Leyendas">
-                <i class="fa-solid fa-dragon"></i> Leyendas
-                <i class="fa-solid fa-bars recursos-hamburger" onclick="toggleRecursosMenu(event, 'Leyendas')"></i>
-            </button>
-            <button class="recursos-filter-btn" onclick="filterRecursos('Poemas')" data-category="Poemas">
-                <i class="fa-solid fa-feather"></i> Poemas
-                <i class="fa-solid fa-bars recursos-hamburger" onclick="toggleRecursosMenu(event, 'Poemas')"></i>
-            </button>
-            <button class="recursos-filter-btn" onclick="filterRecursos('Libros')" data-category="Libros">
-                <i class="fa-solid fa-book"></i> Libros
-            </button>
-        </div>
-        <div id="recursosSubMenu" class="recursos-submenu" style="display: none;">
-            <button class="submenu-btn active" onclick="filterRecursosType('Documentos')">
+
+        <!-- Solo estos 3 botones, siempre visibles -->
+        <div class="recursos-tipo-buttons">
+            <button class="recursos-tipo-btn active"
+                    id="rtbtn-Documentos"
+                    onclick="filterRecursosTipo('Documentos')">
                 <i class="fa-solid fa-file-lines"></i> Documentos
             </button>
-            <button class="submenu-btn" onclick="filterRecursosType('Videos')">
+            <button class="recursos-tipo-btn"
+                    id="rtbtn-Videos"
+                    onclick="filterRecursosTipo('Videos')">
                 <i class="fa-solid fa-video"></i> Videos
             </button>
-            <button class="submenu-btn" onclick="filterRecursosType('Imágenes')">
+            <button class="recursos-tipo-btn"
+                    id="rtbtn-Imágenes"
+                    onclick="filterRecursosTipo('Imágenes')">
                 <i class="fa-solid fa-image"></i> Imágenes
             </button>
         </div>
     </div>
+
     <div class="recursos-list">
         <div id="recursos-container" class="recursos-grid"></div>
     </div>
 </section>
+          
+          <!-- Sección de Libros -->
+<section id="libros" class="section-content" style="display: none;">
+    <div class="header-section header-section-sticky">
+        <div class="header-text">
+            <h2><i class="fa-solid fa-book-open"></i> Biblioteca</h2>
+            <p>Explora nuestra colección de textos y lecturas.</p>
+        </div>
+
+        <!-- Botones de categoría con scroll horizontal (sin hamburguesa) -->
+        <div class="libros-filter-buttons">
+            <button class="libros-filter-btn active"
+                    id="lbtn-Todo"
+                    onclick="filterLibros('Todo')">
+                <i class="fa-solid fa-border-all"></i> Todo
+            </button>
+            <button class="libros-filter-btn"
+                    id="lbtn-Cuentos"
+                    onclick="filterLibros('Cuentos')">
+                <i class="fa-solid fa-book-open"></i> Cuentos
+            </button>
+            <button class="libros-filter-btn"
+                    id="lbtn-Historias"
+                    onclick="filterLibros('Historias')">
+                <i class="fa-solid fa-scroll"></i> Historias
+            </button>
+            <button class="libros-filter-btn"
+                    id="lbtn-Leyendas"
+                    onclick="filterLibros('Leyendas')">
+                <i class="fa-solid fa-dragon"></i> Leyendas
+            </button>
+            <button class="libros-filter-btn"
+                    id="lbtn-Poemas"
+                    onclick="filterLibros('Poemas')">
+                <i class="fa-solid fa-feather"></i> Poemas
+            </button>
+        </div>
+    </div>
+
+    <!-- Aquí se renderizan las tarjetas de libros -->
+    <div id="libros-grid" class="libros-grid-container"></div>
+</section>
+
+<!-- Modal "Contexto del Libro" -->
+<div id="modalContextoLibro" class="modal">
+    <div class="modal-content-contexto">
+        <button class="contexto-close-btn" onclick="cerrarContextoLibro()">
+            <i class="fa-solid fa-times"></i>
+        </button>
+        <div class="contexto-portada-wrap">
+            <img id="contexto-portada-img" src="" alt="">
+        </div>
+        <div class="contexto-info">
+            <h3 id="contexto-titulo"></h3>
+            <span id="contexto-categoria-badge" class="contexto-categoria"></span>
+            <div class="contexto-texto" id="contexto-texto"></div>
+        </div>
+    </div>
+</div>
+          
             <!-- Sección de Docentes -->
 <section id="docentes" class="section-content" style="display: none;">
     <div class="header-section header-section-sticky">
