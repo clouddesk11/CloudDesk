@@ -721,7 +721,8 @@ function iniciarListenerBloqueo() {
                     const motivo = motivoSnapshot.val() || 'Tu acceso ha sido bloqueado por el administrador.';
                     await auth.signOut().catch(e => console.error(e));
                     localStorage.removeItem('eduspace_auth'); _setTempValidacion(null);
-                    showAuthModal(); mostrarPaso1();
+                  
+                showAuthModal(); mostrarPaso1();
                     const errorDiv = document.getElementById('authError');
                     if (errorDiv) { errorDiv.textContent = `🚫 ACCESO BLOQUEADO: ${motivo}`; errorDiv.style.display = 'block'; }
                     hideSpecialUserMessage();
@@ -839,25 +840,56 @@ const assignmentsDB = [
     { id:103, task:"Línea de tiempo S.XIX", teacher:"Prof. Diana Prince", deadline:"2025-05-10", status:"Pendiente", description:"Crear una línea de tiempo interactiva que muestre los eventos más importantes del siglo XIX a nivel mundial.", requirements:["Mínimo 20 eventos históricos relevantes","Incluir imágenes representativas de cada evento","Descripción de 50-100 palabras por evento","Formato digital (PowerPoint, Prezi o similar)","Presentación visual atractiva y organizada"], attachments:[{ name:"Plantilla Línea de Tiempo.pptx", size:"512 KB", type:"PowerPoint", downloadUrl:"enlace de google drive" },{ name:"Lista de Eventos Sugeridos.pdf", size:"198 KB", type:"PDF", downloadUrl:"enlace desde github" }] }
 ];
 
+// ============================================
+// RECURSOS DB — Solo Documentos, Videos, Imágenes
+// ============================================
 const recursosDB = {
-    Materiales: {
-        Documentos: [
-            { id:'mat-doc-1', title:"Manual de Redacción Periodística", description:"Guía completa sobre técnicas de redacción para medios de comunicación", type:"PDF", coverImage:"https://via.placeholder.com/400x250/3b82f6/ffffff?text=Manual+Redaccion", urlView:"https://drive.google.com/file/d/EJEMPLO1/preview", urlDownload:"https://drive.google.com/uc?export=download&id=EJEMPLO1" },
-            { id:'mat-doc-2', title:"Teorías de la Comunicación", description:"Documento académico sobre las principales teorías comunicativas", type:"PDF", coverImage:"https://via.placeholder.com/400x250/2563eb/ffffff?text=Teorias+Comunicacion", urlView:"https://drive.google.com/file/d/EJEMPLO2/preview", urlDownload:"https://drive.google.com/uc?export=download&id=EJEMPLO2" }
-        ],
-        Videos:   [{ id:'mat-vid-1', title:"Introducción a la Comunicación Digital", description:"Video tutorial sobre fundamentos de comunicación en medios digitales", type:"Video", videoUrl:"https://www.youtube.com/embed/dQw4w9WgXcQ" }],
-        Imágenes: [{ id:'mat-img-1', title:"Infografía: Proceso Comunicativo", description:"Representación visual del modelo de comunicación de Shannon y Weaver", type:"Imagen", imageUrl:"https://via.placeholder.com/600x400/10b981/ffffff?text=Proceso+Comunicativo" }]
-    },
-    Cuentos: {
-        Documentos: [{ id:'cue-doc-1', title:"Antología de Cuentos Latinoamericanos", description:"Colección de cuentos clásicos de autores latinoamericanos", type:"PDF", coverImage:"https://via.placeholder.com/400x250/f59e0b/ffffff?text=Cuentos+Latinoamericanos", urlView:"https://drive.google.com/file/d/EJEMPLO3/preview", urlDownload:"https://drive.google.com/uc?export=download&id=EJEMPLO3" }],
-        Videos: [], Imágenes: [{ id:'cue-img-1', title:"Ilustraciones de Cuentos", description:"Colección de imágenes ilustrativas de cuentos clásicos", type:"Imagen", imageUrl:"https://res.cloudinary.com/dwzwa3gp0/image/upload/v1769784312/image_89_anqelh.jpg" }]
-    },
-    Historias: { Documentos: [{ id:'his-doc-1', title:"Historias de la Comunicación Peruana", description:"Recopilación de historias sobre el desarrollo de los medios en Perú", type:"DOCX", coverImage:"https://via.placeholder.com/400x250/ef4444/ffffff?text=Historias+Peruanas", urlView:"https://docs.google.com/document/d/EJEMPLO4/preview", urlDownload:"https://docs.google.com/document/d/EJEMPLO4/export?format=docx" }], Videos: [], Imágenes: [] },
-    Leyendas:  { Documentos: [{ id:'ley-doc-1', title:"Leyendas Peruanas Ilustradas", description:"Compilación de leyendas tradicionales del Perú con ilustraciones", type:"PDF", coverImage:"https://via.placeholder.com/400x250/8b5cf6/ffffff?text=Leyendas+Peruanas", urlView:"https://drive.google.com/file/d/EJEMPLO5/preview", urlDownload:"https://drive.google.com/uc?export=download&id=EJEMPLO5" }], Videos: [], Imágenes: [] },
-    Poemas:    { Documentos: [{ id:'poe-doc-1', title:"Poesía Contemporánea Peruana", description:"Selección de poemas de autores peruanos contemporáneos", type:"PDF", coverImage:"https://via.placeholder.com/400x250/ec4899/ffffff?text=Poesia+Peruana", urlView:"https://drive.google.com/file/d/EJEMPLO6/preview", urlDownload:"https://drive.google.com/uc?export=download&id=EJEMPLO6" }], Videos: [], Imágenes: [] },
-    Libros: [
-        { id:'lib-1', title:"Comunicación Organizacional Moderna", description:"Libro completo sobre estrategias de comunicación en organizaciones del siglo XXI", type:"PDF", coverImage:"https://via.placeholder.com/400x250/06b6d4/ffffff?text=Comunicacion+Organizacional", urlView:"https://drive.google.com/file/d/EJEMPLO7/preview", urlDownload:"https://drive.google.com/uc?export=download&id=EJEMPLO7" },
-        { id:'lib-2', title:"Semiótica y Análisis del Discurso", description:"Texto académico sobre análisis semiótico aplicado a la comunicación", type:"PDF", coverImage:"https://via.placeholder.com/400x250/14b8a6/ffffff?text=Semiotica", urlView:"https://drive.google.com/file/d/EJEMPLO8/preview", urlDownload:"https://drive.google.com/uc?export=download&id=EJEMPLO8" }
+    Documentos: [
+        {
+            id: 'doc-1',
+            title: "Manual de Redacción Periodística",
+            description: "Guía completa sobre técnicas de redacción para medios de comunicación",
+            type: "PDF",
+            coverImage: "https://via.placeholder.com/400x250/3b82f6/ffffff?text=Manual+Redaccion",
+            urlView: "https://drive.google.com/file/d/EJEMPLO1/preview",
+            urlDownload: "https://drive.google.com/uc?export=download&id=EJEMPLO1"
+        },
+        {
+            id: 'doc-2',
+            title: "Teorías de la Comunicación",
+            description: "Documento académico sobre las principales teorías comunicativas",
+            type: "PDF",
+            coverImage: "https://via.placeholder.com/400x250/2563eb/ffffff?text=Teorias+Comunicacion",
+            urlView: "https://drive.google.com/file/d/EJEMPLO2/preview",
+            urlDownload: "https://drive.google.com/uc?export=download&id=EJEMPLO2"
+        },
+        {
+            id: 'doc-3',
+            title: "Antología de Cuentos Latinoamericanos",
+            description: "Colección de cuentos clásicos de autores latinoamericanos",
+            type: "PDF",
+            coverImage: "https://via.placeholder.com/400x250/f59e0b/ffffff?text=Cuentos",
+            urlView: "https://drive.google.com/file/d/EJEMPLO3/preview",
+            urlDownload: "https://drive.google.com/uc?export=download&id=EJEMPLO3"
+        }
+    ],
+    Videos: [
+        {
+            id: 'vid-1',
+            title: "Introducción a la Comunicación Digital",
+            description: "Video tutorial sobre fundamentos de comunicación en medios digitales",
+            type: "Video",
+            videoUrl: "https://www.youtube.com/embed/dQw4w9WgXcQ"
+        }
+    ],
+    Imágenes: [
+        {
+            id: 'img-1',
+            title: "Infografía: Proceso Comunicativo",
+            description: "Representación visual del modelo de comunicación de Shannon y Weaver",
+            type: "Imagen",
+            imageUrl: "https://via.placeholder.com/600x400/10b981/ffffff?text=Proceso+Comunicativo"
+        }
     ]
 };
 
@@ -873,6 +905,7 @@ const docentesGrid          = document.getElementById('docentes-grid');
 const sectionRepositorio    = document.getElementById('repositorio');
 const sectionTrabajos       = document.getElementById('trabajos');
 const sectionRecursos       = document.getElementById('recursos');
+const sectionLibros         = document.getElementById('libros');
 const sectionDocentes       = document.getElementById('docentes');
 const sectionEstudiantes    = document.getElementById('estudiantes');
 const sectionChat           = document.getElementById('chat');
@@ -966,66 +999,291 @@ function searchRecursos() {
 }
 
 // ============================================
-// RECURSOS
+// RECURSOS — VERSIÓN SIMPLIFICADA
 // ============================================
-function filterRecursos(category) {
-    currentRecursosCategory = category; currentRecursosType = 'Documentos';
-    document.querySelectorAll('.recursos-filter-btn').forEach(btn => btn.classList.remove('active'));
-    event.target.closest('.recursos-filter-btn').classList.add('active');
-    const subMenu = document.getElementById('recursosSubMenu');
-    if (category === 'Libros') { subMenu.style.display = 'none'; }
-    else { subMenu.style.display = 'flex'; const sb = subMenu.querySelectorAll('.submenu-btn'); sb.forEach(b => b.classList.remove('active')); sb[0].classList.add('active'); }
-    renderRecursosContent();
-}
 
-function toggleRecursosMenu(event, category) {
-    event.stopPropagation();
-    const subMenu = document.getElementById('recursosSubMenu');
-    if (subMenu.style.display !== 'flex') {
-        currentRecursosCategory = category; currentRecursosType = 'Documentos';
-        document.querySelectorAll('.recursos-filter-btn').forEach(btn => btn.classList.remove('active'));
-        event.target.closest('.recursos-filter-btn').classList.add('active');
-        subMenu.style.display = 'flex';
-        const sb = subMenu.querySelectorAll('.submenu-btn'); sb.forEach(b => b.classList.remove('active')); sb[0].classList.add('active');
-        renderRecursosContent();
-    }
-}
+let currentRecursosTipo = 'Documentos';
 
-function filterRecursosType(type) {
-    currentRecursosType = type;
-    document.querySelectorAll('.submenu-btn').forEach(btn => btn.classList.remove('active'));
-    event.target.classList.add('active');
+function filterRecursosTipo(tipo) {
+    currentRecursosTipo = tipo;
+
+    // Actualizar botones activos
+    document.querySelectorAll('.recursos-tipo-btn').forEach(btn => {
+        btn.classList.remove('active');
+    });
+    const btnActivo = document.getElementById(`rtbtn-${tipo}`);
+    if (btnActivo) btnActivo.classList.add('active');
+
     renderRecursosContent();
 }
 
 function renderRecursosContent() {
+    if (!recursosContainer) return;
     recursosContainer.innerHTML = '';
-    let recursos = [];
-    if (currentRecursosCategory === 'Libros') { recursos = recursosDB.Libros; }
-    else { const cd = recursosDB[currentRecursosCategory]; if (cd && cd[currentRecursosType]) recursos = cd[currentRecursosType]; }
-    if (recursos.length === 0) { recursosContainer.innerHTML = '<p style="grid-column:1/-1;text-align:center;color:var(--text-muted);padding:2rem;">No hay recursos disponibles en esta categoría.</p>'; return; }
-    recursos.forEach(recurso => { if (recurso.type === 'Video') renderVideoCard(recurso); else if (recurso.type === 'Imagen') renderImageCard(recurso); else renderDocumentCard(recurso); });
+
+    const lista = recursosDB[currentRecursosTipo] || [];
+
+    if (lista.length === 0) {
+        recursosContainer.innerHTML = `
+            <p style="grid-column:1/-1;text-align:center;
+                      color:var(--text-muted);padding:3rem;">
+                No hay ${currentRecursosTipo} disponibles aún.
+            </p>`;
+        return;
+    }
+
+    lista.forEach(recurso => {
+        if (recurso.type === 'Video')  renderVideoCard(recurso);
+        else if (recurso.type === 'Imagen') renderImageCard(recurso);
+        else renderDocumentCard(recurso);
+    });
 }
 
 function renderDocumentCard(recurso) {
-    const card = document.createElement('div'); card.classList.add('recurso-card');
+    const card = document.createElement('div');
+    card.classList.add('recurso-card');
+
     let icon = 'fa-file-pdf';
-    if (recurso.type === 'DOCX' || recurso.type === 'DOC')      icon = 'fa-file-word';
-    else if (recurso.type === 'PPTX' || recurso.type === 'PPT') icon = 'fa-file-powerpoint';
-    card.innerHTML = `<div class="recurso-cover">${recurso.coverImage ? `<img src="${recurso.coverImage}" alt="${recurso.title}">` : `<i class="fa-solid ${icon}"></i>`}</div><div class="recurso-card-content"><span class="recurso-card-type">${recurso.type}</span><h3 class="recurso-card-title">${recurso.title}</h3><p class="recurso-card-description">${recurso.description}</p><div class="recurso-card-actions"><button onclick="viewFile('${recurso.urlView}')" class="btn btn-view"><i class="fa-regular fa-eye"></i> Ver</button><a href="${recurso.urlDownload}" download class="btn btn-download"><i class="fa-solid fa-download"></i> Descargar</a></div></div>`;
+    if (recurso.type === 'DOCX' || recurso.type === 'DOC')       icon = 'fa-file-word';
+    else if (recurso.type === 'PPTX' || recurso.type === 'PPT')  icon = 'fa-file-powerpoint';
+
+    card.innerHTML = `
+        <div class="recurso-cover">
+            ${recurso.coverImage
+                ? `<img src="${recurso.coverImage}" alt="${recurso.title}">`
+                : `<i class="fa-solid ${icon}"></i>`}
+        </div>
+        <div class="recurso-card-content">
+            <span class="recurso-card-type">${recurso.type}</span>
+            <h3 class="recurso-card-title">${recurso.title}</h3>
+            <p class="recurso-card-description">${recurso.description}</p>
+            <div class="recurso-card-actions">
+                <button onclick="viewFile('${recurso.urlView}')"
+                        class="btn btn-view">
+                    <i class="fa-regular fa-eye"></i> Ver
+                </button>
+                <a href="${recurso.urlDownload}" download
+                   class="btn btn-download">
+                    <i class="fa-solid fa-download"></i> Descargar
+                </a>
+            </div>
+        </div>`;
     recursosContainer.appendChild(card);
 }
 
 function renderVideoCard(recurso) {
-    const card = document.createElement('div'); card.classList.add('recurso-multimedia-card');
-    card.innerHTML = `<div class="recurso-multimedia-content"><iframe src="${recurso.videoUrl}" frameborder="0" allowfullscreen></iframe></div><div class="recurso-multimedia-description"><h3 style="color:var(--text-light);margin-bottom:.5rem;">${recurso.title}</h3><p>${recurso.description}</p></div>`;
+    const card = document.createElement('div');
+    card.classList.add('recurso-multimedia-card');
+    card.innerHTML = `
+        <div class="recurso-multimedia-content">
+            <iframe src="${recurso.videoUrl}" frameborder="0" allowfullscreen></iframe>
+        </div>
+        <div class="recurso-multimedia-description">
+            <h3 style="color:var(--text-light);margin-bottom:.5rem;">${recurso.title}</h3>
+            <p>${recurso.description}</p>
+        </div>`;
     recursosContainer.appendChild(card);
 }
 
 function renderImageCard(recurso) {
-    const card = document.createElement('div'); card.classList.add('recurso-multimedia-card');
-    card.innerHTML = `<div class="recurso-multimedia-content"><img src="${recurso.imageUrl}" alt="${recurso.title}"></div><div class="recurso-multimedia-description"><h3 style="color:var(--text-light);margin-bottom:.5rem;">${recurso.title}</h3><p>${recurso.description}</p></div>`;
+    const card = document.createElement('div');
+    card.classList.add('recurso-multimedia-card');
+    card.innerHTML = `
+        <div class="recurso-multimedia-content">
+            <img src="${recurso.imageUrl}" alt="${recurso.title}">
+        </div>
+        <div class="recurso-multimedia-description">
+            <h3 style="color:var(--text-light);margin-bottom:.5rem;">${recurso.title}</h3>
+            <p>${recurso.description}</p>
+        </div>`;
     recursosContainer.appendChild(card);
+}
+
+// ============================================
+// BÚSQUEDA EN RECURSOS — VERSIÓN SIMPLIFICADA
+// ============================================
+
+function searchRecursos() {
+    const searchTerm = document.getElementById('searchInputRecursos').value.toLowerCase().trim();
+    if (searchTerm === '') { renderRecursosContent(); return; }
+
+    const searchTerms = normalizeText(searchTerm).split(/\s+/);
+    const lista = recursosDB[currentRecursosTipo] || [];
+
+    const filtrados = lista
+        .map(r => ({ ...r, relevance: calculateRelevance(r, searchTerms, ['title','description']) }))
+        .filter(r => r.relevance > 0)
+        .sort((a, b) => b.relevance - a.relevance);
+
+    recursosContainer.innerHTML = '';
+
+    if (filtrados.length === 0) {
+        recursosContainer.innerHTML = `
+            <p style="grid-column:1/-1;text-align:center;
+                      color:var(--text-muted);padding:2rem;">
+                No se encontraron resultados.
+            </p>`;
+        return;
+    }
+
+    filtrados.forEach(r => {
+        if (r.type === 'Video')        renderVideoCard(r);
+        else if (r.type === 'Imagen')  renderImageCard(r);
+        else                           renderDocumentCard(r);
+    });
+}
+
+// ============================================
+// LIBROS — FUNCIONES COMPLETAS
+// ============================================
+
+let currentLibrosCategoria = 'Todo';
+
+function filterLibros(categoria) {
+    currentLibrosCategoria = categoria;
+
+    // Actualizar botones activos
+    document.querySelectorAll('.libros-filter-btn').forEach(btn => {
+        btn.classList.remove('active');
+    });
+    const btnActivo = document.getElementById(`lbtn-${categoria}`);
+    if (btnActivo) btnActivo.classList.add('active');
+
+    cargarLibros();
+}
+
+let _librosRealtimeRef = null;
+
+async function cargarLibros() {
+    const grid = document.getElementById('libros-grid');
+    if (!grid) return;
+
+    grid.innerHTML = `
+        <div class="libros-loading">
+            <i class="fa-solid fa-spinner fa-spin"></i>
+            <p>Cargando libros...</p>
+        </div>`;
+
+    // Desconectar listener anterior si existe
+    if (_librosRealtimeRef) {
+        _librosRealtimeRef.off('value');
+        _librosRealtimeRef = null;
+    }
+
+    _librosRealtimeRef = database.ref('libros');
+
+    _librosRealtimeRef.on('value', (snap) => {
+        const val = snap.val();
+
+        let lista = [];
+
+        if (val) {
+            lista = Object.entries(val)
+                .map(([key, data]) => ({ _key: key, ...data }))
+                .sort((a, b) => (b.created_at || 0) - (a.created_at || 0));
+        }
+
+        // Filtrar por categoría si no es "Todo"
+        if (currentLibrosCategoria !== 'Todo') {
+            lista = lista.filter(l => l.categoria === currentLibrosCategoria);
+        }
+
+        renderLibros(lista);
+    }, (error) => {
+        console.error('Error cargando libros:', error);
+        grid.innerHTML = `
+            <div class="libros-empty">
+                <i class="fa-solid fa-triangle-exclamation"></i>
+                <p>Error al cargar los libros.</p>
+            </div>`;
+    });
+}
+
+function renderLibros(libros) {
+    const grid = document.getElementById('libros-grid');
+    if (!grid) return;
+
+    grid.innerHTML = '';
+
+    if (!libros || libros.length === 0) {
+        grid.innerHTML = `
+            <div class="libros-empty">
+                <i class="fa-solid fa-book-open"></i>
+                <p>No hay libros en esta categoría aún.</p>
+            </div>`;
+        return;
+    }
+
+    libros.forEach((libro, idx) => {
+        const card = document.createElement('div');
+        card.className = 'libro-card';
+        card.style.animation      = 'fadeIn 0.4s ease';
+        card.style.animationDelay = `${idx * 0.06}s`;
+
+        const fallbackPortada = `https://ui-avatars.com/api/?name=${encodeURIComponent(libro.titulo || 'Libro')}&background=3b82f6&color=fff&size=400&font-size=0.25`;
+
+        card.innerHTML = `
+            <div class="libro-card-portada">
+                ${libro.portada_url
+                    ? `<img src="${libro.portada_url}"
+                            alt="${libro.titulo}"
+                            onerror="this.style.display='none';
+                                     this.parentElement.querySelector('.libro-card-portada-fallback').style.display='flex'">
+                       <i class="fa-solid fa-book libro-card-portada-fallback"
+                          style="display:none;font-size:3.5rem;color:rgba(255,255,255,.6);"></i>`
+                    : `<i class="fa-solid fa-book libro-card-portada-fallback"></i>`}
+                <span class="libro-card-categoria-badge">
+                    ${libro.categoria || 'Sin categoría'}
+                </span>
+            </div>
+            <div class="libro-card-body">
+                <h3 class="libro-card-titulo">${libro.titulo || 'Sin título'}</h3>
+                <p class="libro-card-descripcion">
+                    ${libro.descripcion || 'Sin descripción disponible.'}
+                </p>
+                <div class="libro-card-acciones">
+                    <button class="btn-contexto"
+                            onclick="abrirContextoLibro(
+                                '${(libro.titulo || '').replace(/'/g,"\\'")}',
+                                '${(libro.contexto || '').replace(/'/g,"\\'").replace(/\n/g,'\\n')}',
+                                '${libro.portada_url || ''}',
+                                '${libro.categoria || ''}'
+                            )">
+                        <i class="fa-solid fa-circle-info"></i> Contexto
+                    </button>
+                    <a href="${libro.archivo_url || '#'}"
+                       target="_blank"
+                       rel="noopener noreferrer"
+                       class="btn-descargar-libro"
+                       ${!libro.archivo_url ? 'style="opacity:.5;pointer-events:none;"' : ''}>
+                        <i class="fa-solid fa-download"></i> Descargar
+                    </a>
+                </div>
+            </div>`;
+
+        grid.appendChild(card);
+    });
+}
+
+function abrirContextoLibro(titulo, contexto, portadaUrl, categoria) {
+    document.getElementById('contexto-titulo').textContent    = titulo;
+    document.getElementById('contexto-texto').textContent     = contexto || 'No hay contexto disponible para este libro.';
+    document.getElementById('contexto-categoria-badge').textContent = categoria || '';
+
+    const img = document.getElementById('contexto-portada-img');
+    if (portadaUrl) {
+        img.src     = portadaUrl;
+        img.style.display = 'block';
+        img.onerror = function() { this.style.display = 'none'; };
+    } else {
+        img.style.display = 'none';
+    }
+
+    document.getElementById('modalContextoLibro').style.display = 'block';
+}
+
+function cerrarContextoLibro() {
+    document.getElementById('modalContextoLibro').style.display = 'none';
 }
 
 // ============================================
@@ -1203,7 +1461,10 @@ window.onclick = function(event) {
     if (event.target === detailsModal)    closeDetailsModal();
     if (event.target === fileViewerModal) closeFileViewerModal();
     if (event.target === completedModal)  closeCompletedModal();
+    const modalContexto = document.getElementById('modalContextoLibro');
+    if (event.target === modalContexto)   cerrarContextoLibro();
 };
+
 
 // ============================================
 // SISTEMA DE REGISTRO DE ESTUDIANTES
@@ -1220,6 +1481,7 @@ const SUPABASE_CONFIG   = {
     KEY: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBhdWFxZ2Zxc2l0bmpzaWtyam5zIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzEwOTMxODYsImV4cCI6MjA4NjY2OTE4Nn0.Jz-rCRPQkgm9wXicGRoCP4xP-NotY-YEQXUyxgU7HeM'
 };
 
+
 let supabaseClient      = null;
 let estudiantesListener = null;
 
@@ -1228,7 +1490,9 @@ function initSupabase() {
     catch(error) { console.error('Error al inicializar Supabase:', error); return false; }
 }
 
-document.addEventListener('DOMContentLoaded', function() { initSupabase(); });
+document.addEventListener('DOMContentLoaded', function() {
+    initSupabase();
+});
 
 function openRegistroModal() {
     const studentProfile = JSON.parse(localStorage.getItem('eduspace_student_profile') || 'null');
@@ -1282,6 +1546,7 @@ function mostrarToast(mensaje, icono = 'fa-check-circle', duracion = 3000) {
     toast.innerHTML = `<i class="fa-solid ${icono}"></i><span>${mensaje}</span>`;
     document.body.appendChild(toast); setTimeout(() => toast.remove(), duracion);
 }
+
 
 // ============================================
 // REGISTRO DE ESTUDIANTE EN SUPABASE
@@ -1742,6 +2007,7 @@ function switchTab(tab) {
     sectionRepositorio.style.display = 'none';
     sectionTrabajos.style.display    = 'none';
     sectionRecursos.style.display    = 'none';
+    if (sectionLibros)  sectionLibros.style.display  = 'none';
     sectionDocentes.style.display    = 'none';
     sectionEstudiantes.style.display = 'none';
     if (sectionChat) sectionChat.style.display = 'none';
@@ -1771,10 +2037,26 @@ function switchTab(tab) {
             btn.classList.remove('showing-finalizados');
         }
         renderAssignments();
-    } else if (tab === 'recursos') {
-        sectionRecursos.style.display = 'block';
-        document.getElementById('tab-recursos').classList.add('active');
-        renderRecursosContent();
+   } else if (tab === 'recursos') {
+    sectionRecursos.style.display = 'block';
+    document.getElementById('tab-recursos').classList.add('active');
+    // Asegurar que el primer botón esté activo
+    currentRecursosTipo = 'Documentos';
+    document.querySelectorAll('.recursos-tipo-btn').forEach(b => b.classList.remove('active'));
+    const rtbtn = document.getElementById('rtbtn-Documentos');
+    if (rtbtn) rtbtn.classList.add('active');
+    renderRecursosContent();
+
+} else if (tab === 'libros') {
+    if (sectionLibros) sectionLibros.style.display = 'block';
+    const tabLibros = document.getElementById('tab-libros');
+    if (tabLibros) tabLibros.classList.add('active');
+    // Resetear filtro a "Todo" cada vez que entras
+    currentLibrosCategoria = 'Todo';
+    document.querySelectorAll('.libros-filter-btn').forEach(b => b.classList.remove('active'));
+    const lbtnTodo = document.getElementById('lbtn-Todo');
+    if (lbtnTodo) lbtnTodo.classList.add('active');
+    cargarLibros();
     } else if (tab === 'docentes') {
         sectionDocentes.style.display = 'block';
         document.getElementById('tab-docentes').classList.add('active');
