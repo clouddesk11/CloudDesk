@@ -814,8 +814,8 @@ body {
 
 .header-section {
     margin-bottom: 2rem;
-    padding-bottom: 0; /* Eliminar padding */
-    border-bottom: none; /* Eliminar borde */
+    padding-bottom: 0; 
+    border-bottom: none; 
 }
 
 /* Header fijo para repositorio */
@@ -3212,12 +3212,11 @@ footer {
     padding-bottom: 0.5rem;
 }
 
-/* Eliminar borde del subsection-title cuando está dentro del sticky */
 .header-section-sticky .subsection-title {
     margin-top: 1.5rem;
     margin-bottom: 0;
     padding-bottom: 0.5rem;
-    border-bottom: none; /* ← ELIMINAR borde duplicado */
+    border-bottom: none; 
 }
 
 /* Separar contenedores de trabajos de la raya del header */
