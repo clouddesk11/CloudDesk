@@ -686,9 +686,11 @@ document.addEventListener('DOMContentLoaded', async () => {
                     getDeviceType() === 'mobile' ? mostrarPaso1() : mostrarPasoLaptop();
                 }
             } else {
-                if (_registrandoAhora) { _authValidating = false; return; }
-                await procesarLoginGoogle(user);
-            }
+    if (_registrandoAhora) { _authValidating = false; return; }
+    hideConnectionLoader();
+    showAuthModal();
+    await procesarLoginGoogle(user);
+}
         } else {
             showAuthModal();
             getDeviceType() === 'mobile' ? mostrarPaso1() : mostrarPasoLaptop();
