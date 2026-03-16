@@ -250,7 +250,7 @@ async function signInWithGoogleLaptop() {
         const { error } = await supabaseClient.auth.signInWithOAuth({
             provider: 'google',
             options: {
-                redirectTo: window.location.origin,
+                redirectTo: 'https://clouddesk11.github.io/FILCLOUD/',
                 queryParams: { prompt: 'select_account' }
             }
         });
@@ -400,7 +400,7 @@ async function signInWithGoogle() {
         const { error } = await supabaseClient.auth.signInWithOAuth({
             provider: 'google',
             options: {
-                redirectTo: window.location.origin,
+                redirectTo: 'https://clouddesk11.github.io/FILCLOUD/',
                 queryParams: { prompt: 'select_account' }
             }
         });
