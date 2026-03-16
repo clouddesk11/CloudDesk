@@ -697,11 +697,13 @@ document.addEventListener('DOMContentLoaded', async () => {
         }
 
         if (!_appInicializada) {
-            _appInicializada = true;
-            updatePendingBadge();
-            actualizarPerfilSidebar();
-            switchTab('repositorio');
-        }
+    _appInicializada = true;
+    updatePendingBadge();
+    actualizarPerfilSidebar();
+    actualizarEncabezadoEstudiantes();
+    iniciarListeners();
+    switchTab('repositorio');
+}
         setTimeout(() => { _authValidating = false; }, 1500);
     });
 
@@ -3071,16 +3073,42 @@ if ('visualViewport' in window) {
     });
 }
 
-window.addEventListener('pageshow', (event) => {
-    if (event.persisted) {
-        _authValidating  = false;
-        _appInicializada = false;
+window.addEventListener('pageshow', async (event) => {
+    if (!event.persisted) return;
 
-        hideConnectionLoader();
-        actualizarPerfilSidebar();
-        actualizarEncabezadoEstudiantes();
-        updatePendingBadge();
-        iniciarListeners();
-        switchTab(currentTab || 'repositorio');
+    // 1. Resetear flags
+    _authValidating  = false;
+    _appInicializada = false;
+
+    // 2. Matar canales muertos
+    [_canalUsuario, _canalSolicitudes, _canalChats, 
+     _canalMensajes, _librosChannel].forEach(c => {
+        try { c?.unsubscribe(); } catch(e) {}
+    });
+    _canalUsuario     = null;
+    _canalSolicitudes = null;
+    _canalChats       = null;
+    _canalMensajes    = null;
+    _librosChannel    = null;
+
+    hideConnectionLoader();
+
+    // 3. Verificar sesión activa
+    try {
+        const { data: { session } } = await supabaseClient.auth.getSession();
+        if (session?.user) {
+            const authData = localStorage.getItem('eduspace_auth');
+            if (authData) {
+                actualizarPerfilSidebar();
+                actualizarEncabezadoEstudiantes();
+                updatePendingBadge();
+                iniciarListeners();
+                switchTab(currentTab || 'repositorio');
+            }
+        }
+    } catch(e) {
+        console.error('Error al restaurar sesión:', e);
     }
+
+    _appInicializada = true;
 });
