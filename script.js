@@ -657,56 +657,58 @@ document.addEventListener('DOMContentLoaded', async () => {
         });
     }
 
-    supabaseClient.auth.onAuthStateChange(async (event, session) => {
-        if (_authValidating) { hideConnectionLoader(); return; }
-        _authValidating = true;
-        hideConnectionLoader();
+    // REEMPLAZA CON ESTO:
+let _ultimoUid = null;
 
-        const user = session?.user ?? null;
-
-        if (user) {
-            const authData = localStorage.getItem('eduspace_auth');
-            if (authData) {
-                const ok = await validateAuthWithSupabase(user.id);
-                if (ok) {
-                    // ¿Venimos del flujo laptop?
-                    const tempVal = _getTempValidacion();
-                    if (tempVal && tempVal.requiredGoogleUid && event === 'SIGNED_IN') {
-                        await completarRegistroLaptop(user);
-                        _authValidating = false;
-                        return;
-                    }
-                    const apiRevealStep = document.getElementById('auth-step-api-reveal');
-                    if (!apiRevealStep || apiRevealStep.style.display === 'none') hideAuthModal();
-                    iniciarListeners();
-                    actualizarPerfilSidebar();
-                } else {
-                    await supabaseClient.auth.signOut();
-                    showAuthModal();
-                    getDeviceType() === 'mobile' ? mostrarPaso1() : mostrarPasoLaptop();
-                }
-            } else {
-    if (_registrandoAhora) { _authValidating = false; return; }
+supabaseClient.auth.onAuthStateChange(async (event, session) => {
     hideConnectionLoader();
-    showAuthModal();
-    await procesarLoginGoogle(user);
-}
+
+    // Ignorar eventos repetidos del mismo usuario
+    const uid = session?.user?.id ?? null;
+    if (uid && uid === _ultimoUid && _appInicializada) return;
+    _ultimoUid = uid;
+
+    const user = session?.user ?? null;
+
+    if (user) {
+        const authData = localStorage.getItem('eduspace_auth');
+        if (authData) {
+            const ok = await validateAuthWithSupabase(user.id);
+            if (ok) {
+                const tempVal = _getTempValidacion();
+                if (tempVal && tempVal.requiredGoogleUid && event === 'SIGNED_IN') {
+                    await completarRegistroLaptop(user);
+                    return;
+                }
+                const apiRevealStep = document.getElementById('auth-step-api-reveal');
+                if (!apiRevealStep || apiRevealStep.style.display === 'none') hideAuthModal();
+                iniciarListeners();
+                actualizarPerfilSidebar();
+            } else {
+                await supabaseClient.auth.signOut();
+                showAuthModal();
+                getDeviceType() === 'mobile' ? mostrarPaso1() : mostrarPasoLaptop();
+            }
         } else {
+            if (_registrandoAhora) return;
             showAuthModal();
-            getDeviceType() === 'mobile' ? mostrarPaso1() : mostrarPasoLaptop();
+            await procesarLoginGoogle(user);
         }
+    } else {
+        _ultimoUid = null;
+        showAuthModal();
+        getDeviceType() === 'mobile' ? mostrarPaso1() : mostrarPasoLaptop();
+    }
 
-        if (!_appInicializada) {
-    _appInicializada = true;
-    updatePendingBadge();
-    actualizarPerfilSidebar();
-    actualizarEncabezadoEstudiantes();
-    iniciarListeners();
-    switchTab('repositorio');
-}
-        setTimeout(() => { _authValidating = false; }, 1500);
-    });
-
+    if (!_appInicializada) {
+        _appInicializada = true;
+        updatePendingBadge();
+        actualizarPerfilSidebar();
+        actualizarEncabezadoEstudiantes();
+        iniciarListeners();
+        switchTab('repositorio');
+    }
+});
     const checkbox = document.getElementById('aceptoTerminos');
     if (checkbox) {
         checkbox.addEventListener('change', function() {
@@ -3076,12 +3078,10 @@ if ('visualViewport' in window) {
 window.addEventListener('pageshow', async (event) => {
     if (!event.persisted) return;
 
-    // 1. Resetear flags
-    _authValidating  = false;
     _appInicializada = false;
+    _ultimoUid       = null;
 
-    // 2. Matar canales muertos
-    [_canalUsuario, _canalSolicitudes, _canalChats, 
+    [_canalUsuario, _canalSolicitudes, _canalChats,
      _canalMensajes, _librosChannel].forEach(c => {
         try { c?.unsubscribe(); } catch(e) {}
     });
@@ -3093,7 +3093,6 @@ window.addEventListener('pageshow', async (event) => {
 
     hideConnectionLoader();
 
-    // 3. Verificar sesión activa
     try {
         const { data: { session } } = await supabaseClient.auth.getSession();
         if (session?.user) {
@@ -3104,11 +3103,11 @@ window.addEventListener('pageshow', async (event) => {
                 updatePendingBadge();
                 iniciarListeners();
                 switchTab(currentTab || 'repositorio');
+                _appInicializada = true;
+                _ultimoUid       = session.user.id;
             }
         }
     } catch(e) {
-        console.error('Error al restaurar sesión:', e);
+        console.error('pageshow error:', e);
     }
-
-    _appInicializada = true;
 });
