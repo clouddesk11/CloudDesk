@@ -1,19 +1,14 @@
 // ============================================
-// CONFIGURACIÓN DE FIREBASE
+// CONFIGURACIÓN GLOBAL
 // ============================================
-const firebaseConfig = { 
-    apiKey: "AIzaSyBKiq_t-gZj_l1Bzj9Y1Jpft03b60pyyuQ",
-    authDomain: "eduspace-auth-d7577.firebaseapp.com",
-    databaseURL: "https://eduspace-auth-d7577-default-rtdb.firebaseio.com",
-    projectId: "eduspace-auth-d7577",
-    storageBucket: "eduspace-auth-d7577.firebasestorage.app",
-    messagingSenderId: "49398558176",
-    appId: "1:49398558176:web:e1c5f750543d5a4d6b4f85"
+const SUPABASE_CONFIG = {
+    URL: 'https://pauaqgfqsitnjsikrjns.supabase.co',
+    KEY: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBhdWFxZ2Zxc2l0bmpzaWtyam5zIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzEwOTMxODYsImV4cCI6MjA4NjY2OTE4Nn0.Jz-rCRPQkgm9wXicGRoCP4xP-NotY-YEQXUyxgU7HeM'
 };
+const CLOUDINARY_CONFIG = { CLOUD_NAME: "dwzwa3gp0", UPLOAD_PRESET: "hfqqxu13" };
 
-firebase.initializeApp(firebaseConfig);
-const database = firebase.database();
-const auth     = firebase.auth();
+// Cliente Supabase único y global
+const supabaseClient = supabase.createClient(SUPABASE_CONFIG.URL, SUPABASE_CONFIG.KEY);
 
 // ============================================
 // TIPO DE DISPOSITIVO
@@ -45,8 +40,6 @@ function showConnectionLoader() {
     if (el) el.style.display = 'flex';
     const dm = document.getElementById('displacement-map');
     if (!dm) return;
-  
-  
     let t = 0;
     function loop() {
         t += 0.10;
@@ -115,7 +108,6 @@ function _ocultarTodosLosSteps() {
 // FLUJO MÓVIL: PASOS
 // ============================================
 
-// ── PASO 1: Solo muestra el botón de Google ──
 function mostrarPaso1() {
     _ocultarTodosLosSteps();
     document.getElementById('auth-step-code').style.display = 'block';
@@ -181,30 +173,54 @@ async function validarAPI() {
     const errEl    = document.getElementById('laptopApiError');
     const btn      = document.getElementById('laptopApiSubmit');
     if (errEl) { errEl.style.display = 'none'; errEl.textContent = ''; }
-    if (!apiInput) { if (errEl) { errEl.textContent = '⚠️ Por favor ingresa tu API numérica.'; errEl.style.display = 'block'; } return; }
-    if (!/^\d+$/.test(apiInput)) { if (errEl) { errEl.textContent = '⚠️ El API debe ser un número (solo dígitos).'; errEl.style.display = 'block'; } return; }
+    if (!apiInput) { if (errEl) { errEl.textContent = '⚠️ Ingresa tu API numérica.'; errEl.style.display = 'block'; } return; }
+    if (!/^\d+$/.test(apiInput)) { if (errEl) { errEl.textContent = '⚠️ El API debe ser numérico.'; errEl.style.display = 'block'; } return; }
     btn.disabled = true; btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Verificando...';
+
     try {
-        const snapshot = await database.ref('codigos').once('value');
-        const codigos  = snapshot.val();
-        if (!codigos) { if (errEl) { errEl.textContent = '❌ API no encontrada. Verifica el número.'; errEl.style.display = 'block'; } btn.disabled = false; btn.innerHTML = '<i class="fa-solid fa-arrow-right"></i> Continuar'; return; }
-        let codigoEncontrado = null, codigoKey = null;
-        for (const [key, data] of Object.entries(codigos)) {
-            if (data.api && String(data.api) === String(apiInput)) { codigoEncontrado = data; codigoKey = key; break; }
+        const { data: usuario, error } = await supabaseClient
+            .from('usuarios')
+            .select('*')
+            .eq('api', apiInput)
+            .single();
+
+        if (error || !usuario) {
+            if (errEl) { errEl.textContent = '❌ API no encontrada.'; errEl.style.display = 'block'; }
+            btn.disabled = false; btn.innerHTML = '<i class="fa-solid fa-arrow-right"></i> Continuar';
+            return;
         }
-        if (!codigoEncontrado) { if (errEl) { errEl.textContent = '❌ API no encontrada. Verifica el número.'; errEl.style.display = 'block'; } btn.disabled = false; btn.innerHTML = '<i class="fa-solid fa-arrow-right"></i> Continuar'; return; }
-        if (codigoEncontrado.bloqueado === true) { if (errEl) { errEl.textContent = `🚫 ACCESO BLOQUEADO: ${codigoEncontrado.motivoBloqueo || 'Tu acceso ha sido bloqueado.'}`; errEl.style.display = 'block'; } btn.disabled = false; btn.innerHTML = '<i class="fa-solid fa-arrow-right"></i> Continuar'; return; }
-        const dispositivos = codigoEncontrado.dispositivos || {};
-        const mobileDevice = Object.values(dispositivos).find(d => d.tipo === 'mobile');
-        if (!mobileDevice) { if (errEl) { errEl.textContent = '📱 Primero debes registrarte desde tu dispositivo móvil con este código.'; errEl.style.display = 'block'; } btn.disabled = false; btn.innerHTML = '<i class="fa-solid fa-arrow-right"></i> Continuar'; return; }
-        if (!codigoEncontrado.api) { if (errEl) { errEl.textContent = '❌ Este código no tiene API asignada. Contacta al administrador.'; errEl.style.display = 'block'; } btn.disabled = false; btn.innerHTML = '<i class="fa-solid fa-arrow-right"></i> Continuar'; return; }
-        const userName = codigoEncontrado.perfil?.nombre || mobileDevice.usuario || '';
-        _setTempValidacion({ api: apiInput, codigo: codigoKey, codigoData: codigoEncontrado, userName, requiredGoogleUid: mobileDevice.googleUid });
+        if (usuario.bloqueado === true) {
+            if (errEl) { errEl.textContent = `🚫 ACCESO BLOQUEADO: ${usuario.motivo_bloqueo || ''}`; errEl.style.display = 'block'; }
+            btn.disabled = false; btn.innerHTML = '<i class="fa-solid fa-arrow-right"></i> Continuar';
+            return;
+        }
+
+        const { data: mobileDevice } = await supabaseClient
+            .from('dispositivos')
+            .select('google_uid, usuario')
+            .eq('codigo', usuario.codigo)
+            .eq('tipo', 'mobile')
+            .maybeSingle();
+
+        if (!mobileDevice) {
+            if (errEl) { errEl.textContent = '📱 Primero regístrate desde tu móvil.'; errEl.style.display = 'block'; }
+            btn.disabled = false; btn.innerHTML = '<i class="fa-solid fa-arrow-right"></i> Continuar';
+            return;
+        }
+
+        const userName = usuario.nombre || mobileDevice.usuario || '';
+        _setTempValidacion({
+            api: apiInput, codigo: usuario.codigo,
+            codigoData: usuario, userName,
+            requiredGoogleUid: mobileDevice.google_uid
+        });
+
         btn.disabled = false; btn.innerHTML = '<i class="fa-solid fa-arrow-right"></i> Continuar';
         mostrarPasoGoogleLaptop();
-    } catch (error) {
-        console.error('Error validando API:', error);
-        if (errEl) { errEl.textContent = '❌ Error de conexión. Intenta nuevamente.'; errEl.style.display = 'block'; }
+
+    } catch(e) {
+        console.error('Error validando API:', e);
+        if (errEl) { errEl.textContent = '❌ Error de conexión.'; errEl.style.display = 'block'; }
         btn.disabled = false; btn.innerHTML = '<i class="fa-solid fa-arrow-right"></i> Continuar';
     }
 }
@@ -224,106 +240,146 @@ function mostrarPasoGoogleLaptop() {
 async function signInWithGoogleLaptop() {
     const btn   = document.getElementById('googleSignInBtnLaptop');
     const errEl = document.getElementById('googleErrorLaptop');
-    if (!_getTempValidacion()) { if (errEl) { errEl.textContent = '⚠️ Error interno. Recarga e intenta de nuevo.'; errEl.style.display = 'block'; } return; }
-    btn.disabled = true; btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Conectando...';
-    if (errEl) errEl.style.display = 'none';
+    if (!_getTempValidacion()) {
+        if (errEl) { errEl.textContent = '⚠️ Error interno. Recarga e intenta de nuevo.'; errEl.style.display = 'block'; }
+        return;
+    }
+    btn.disabled = true;
+    btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Conectando...';
     try {
-        const provider = new firebase.auth.GoogleAuthProvider();
-        provider.setCustomParameters({ prompt: 'select_account' });
-        _registrandoAhora = true;
-        const result = await auth.signInWithPopup(provider);
-        await completarRegistroLaptop(result.user);
+        const { error } = await supabaseClient.auth.signInWithOAuth({
+            provider: 'google',
+            options: {
+                redirectTo: window.location.origin,
+                queryParams: { prompt: 'select_account' }
+            }
+        });
+        if (error) throw error;
+        // onAuthStateChange detecta SIGNED_IN y revisa _getTempValidacion()
     } catch (error) {
-        console.error('Error Google Laptop Sign-In:', error);
-        let mensaje = '❌ Error al iniciar sesión. Intenta nuevamente.';
-        if (error.code === 'auth/popup-closed-by-user') mensaje = '⚠️ Cerraste la ventana de Google. Intenta nuevamente.';
-        if (error.code === 'auth/popup-blocked')         mensaje = '⚠️ Permite las ventanas emergentes e intenta de nuevo.';
-        if (errEl) { errEl.textContent = mensaje; errEl.style.display = 'block'; }
-        btn.disabled = false; btn.innerHTML = googleBtnHTML();
-    } finally { _registrandoAhora = false; }
+        btn.disabled = false;
+        btn.innerHTML = googleBtnHTML();
+        if (errEl) { errEl.textContent = '❌ Error al conectar.'; errEl.style.display = 'block'; }
+    }
 }
 
 async function completarRegistroLaptop(user) {
     const tempVal = _getTempValidacion();
-    if (!tempVal) { console.warn('completarRegistroLaptop sin datos temp.'); await auth.signOut().catch(console.error); showAuthModal(); mostrarPasoLaptop(); return; }
+    if (!tempVal) {
+        await supabaseClient.auth.signOut();
+        showAuthModal(); mostrarPasoLaptop();
+        return;
+    }
     const { codigo, userName, requiredGoogleUid } = tempVal;
-    const googleUid = user.uid;
-    const deviceKey = `${googleUid}_desktop`;
+    const uid   = user.id;
     const errEl = document.getElementById('googleErrorLaptop');
     const btn   = document.getElementById('googleSignInBtnLaptop');
-    if (btn) { btn.disabled = true; btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Verificando...'; }
-    if (errEl) errEl.style.display = 'none';
+
+    if (uid !== requiredGoogleUid) {
+        await supabaseClient.auth.signOut();
+        if (errEl) {
+            errEl.textContent = '🚫 La cuenta de Google no corresponde al propietario de este API.';
+            errEl.style.display = 'block';
+        }
+        if (btn) { btn.disabled = false; btn.innerHTML = googleBtnHTML(); }
+        return;
+    }
+
     try {
-        const snapshot  = await database.ref(`codigos/${codigo}`).once('value');
-        const freshData = snapshot.val();
-        if (!freshData) { await _cerrarSesionLaptopYMostrarError('❌ El código ya no existe en el sistema.', errEl, btn); return; }
-        if (freshData.bloqueado === true) { await _cerrarSesionLaptopYMostrarError(`🚫 ACCESO BLOQUEADO: ${freshData.motivoBloqueo || 'Acceso bloqueado.'}`, errEl, btn); return; }
-        if (googleUid !== requiredGoogleUid) { await _cerrarSesionLaptopYMostrarError('🚫 La cuenta de Google ingresada no pertenece al propietario de este API. Debes usar la misma cuenta de Google con la que te registraste en el móvil.', errEl, btn); return; }
-        const dispositivos = freshData.dispositivos || {};
-        if (dispositivos[deviceKey]) {
-            await database.ref(`codigos/${codigo}/dispositivos/${deviceKey}/ultimoAcceso`).set(new Date().toISOString());
-            await _cargarPerfilDesdeFirebase(freshData, userName);
-            _guardarSesionLocal(userName, codigo, googleUid, 'desktop');
-            _setTempValidacion(null); hideAuthModal();
-if (codigo === '6578hy') showSpecialUserMessage();
-iniciarListenerBloqueo(); iniciarListenerSupabaseRegistered(); iniciarListenerFotoPerfil();
-actualizarPerfilSidebar(); return;
-}
-const desktopCount = Object.values(dispositivos).filter(d => d.tipo === 'desktop').length;
-if (desktopCount >= 1) { await _cerrarSesionLaptopYMostrarError('💻 Este código ya tiene una laptop registrada. Solo se permite 1 laptop por código.', errEl, btn); return; }
-const updates = {};
-updates[`codigos/${codigo}/dispositivos/${deviceKey}`] = { googleUid, googleEmail: user.email, tipo: 'desktop', usuario: userName, instanceId: _getOrCreateInstanceId(), fechaRegistro: new Date().toISOString(), ultimoAcceso: new Date().toISOString() };
-await database.ref().update(updates);
-await _cargarPerfilDesdeFirebase(freshData, userName);
-_guardarSesionLocal(userName, codigo, googleUid, 'desktop');
-_setTempValidacion(null); hideAuthModal();
-if (codigo === '6578hy') showSpecialUserMessage();
-iniciarListenerBloqueo(); iniciarListenerSupabaseRegistered(); iniciarListenerFotoPerfil();
-actualizarPerfilSidebar();
-} catch (error) {
-        console.error('Error en completarRegistroLaptop:', error);
-        if (btn)   { btn.disabled = false; btn.innerHTML = googleBtnHTML(); }
+        const { data: usuario } = await supabaseClient
+            .from('usuarios')
+            .select('*')
+            .eq('codigo', codigo)
+            .single();
+
+        if (!usuario || usuario.bloqueado) {
+            await supabaseClient.auth.signOut();
+            return;
+        }
+
+        const { count: desktopCount } = await supabaseClient
+            .from('dispositivos')
+            .select('id', { count: 'exact', head: true })
+            .eq('codigo', codigo)
+            .eq('tipo', 'desktop');
+
+        const { data: dispExistente } = await supabaseClient
+            .from('dispositivos')
+            .select('id')
+            .eq('codigo', codigo)
+            .eq('google_uid', uid)
+            .eq('tipo', 'desktop')
+            .maybeSingle();
+
+        if (!dispExistente && desktopCount >= 1) {
+            if (errEl) {
+                errEl.textContent = '💻 Este código ya tiene una laptop registrada.';
+                errEl.style.display = 'block';
+            }
+            await supabaseClient.auth.signOut();
+            if (btn) { btn.disabled = false; btn.innerHTML = googleBtnHTML(); }
+            return;
+        }
+
+        if (!dispExistente) {
+            await supabaseClient.from('dispositivos').insert({
+                codigo, google_uid: uid, google_email: user.email,
+                tipo: 'desktop', usuario: userName,
+                instance_id: _getOrCreateInstanceId(),
+                fecha_registro: new Date().toISOString(),
+                ultimo_acceso: new Date().toISOString()
+            });
+        } else {
+            await supabaseClient.from('dispositivos')
+                .update({ instance_id: _getOrCreateInstanceId(), ultimo_acceso: new Date().toISOString() })
+                .eq('id', dispExistente.id);
+        }
+
+        await _cargarPerfilDesdeSupabase(usuario, userName);
+        _guardarSesionLocal(userName, codigo, uid, 'desktop');
+        _setTempValidacion(null);
+        hideAuthModal();
+        if (codigo === '6578hy') showSpecialUserMessage();
+        iniciarListeners();
+        actualizarPerfilSidebar();
+
+    } catch(e) {
+        console.error('Error completarRegistroLaptop:', e);
+        if (btn) { btn.disabled = false; btn.innerHTML = googleBtnHTML(); }
     }
 }
 
+async function _cerrarSesionLaptopYMostrarError(msg, errEl, btn) {
+    await supabaseClient.auth.signOut().catch(console.error);
+    if (errEl) { errEl.textContent = msg; errEl.style.display = 'block'; }
+    if (btn)   { btn.disabled = false; btn.innerHTML = googleBtnHTML(); }
+}
 
-async function _cargarPerfilDesdeFirebase(codigoData, userName) {
-    const perfil = codigoData.perfil;
-    let profileData;
-    if (perfil && perfil.foto_url) {
-        profileData = {
-            nombre:              perfil.nombre              || userName,
-            especialidad:        perfil.especialidad        || codigoData.especialidad || '',
-            ciclo:               perfil.ciclo               || codigoData.ciclo        || '',
-            foto_url:            perfil.foto_url,
-            supabase_registered: perfil.supabase_registered === true,
-            fecha_registro:      perfil.fecha_registro || ''
-        };
-    } else {
-        profileData = {
-            nombre:              perfil?.nombre             || userName,
-            especialidad:        perfil?.especialidad       || codigoData.especialidad || '',
-            ciclo:               perfil?.ciclo              || codigoData.ciclo        || '',
-            foto_url:            '',
-            supabase_registered: perfil?.supabase_registered === true || false,
-            fecha_registro:      perfil?.fecha_registro || ''
-        };
-    }
+async function _cargarPerfilDesdeSupabase(usuarioData, userName) {
+    const profileData = {
+        nombre:              usuarioData.nombre              || userName,
+        especialidad:        usuarioData.especialidad        || '',
+        ciclo:               usuarioData.ciclo               || '',
+        foto_url:            usuarioData.foto_url            || '',
+        supabase_registered: usuarioData.supabase_registered === true,
+        fecha_registro:      usuarioData.fecha_registro      || ''
+    };
     localStorage.setItem('eduspace_student_profile', JSON.stringify(profileData));
 }
 
-async function _savePerfilToFirebase(codigo, perfil) {
+async function _savePerfilToSupabase(codigo, perfil) {
     if (!codigo) return;
     try {
-        await database.ref(`codigos/${codigo}/perfil`).set({
-            nombre:              perfil.nombre              || '',
-            especialidad:        perfil.especialidad        || '',
-            ciclo:               perfil.ciclo               || '',
-            foto_url:            perfil.foto_url            || '',
-            supabase_registered: perfil.supabase_registered || false,
-            fecha_registro:      perfil.fecha_registro      || ''
-        });
-    } catch(e) { console.error('Error guardando perfil en Firebase:', e); }
+        await supabaseClient
+            .from('usuarios')
+            .update({
+                nombre:              perfil.nombre              || '',
+                foto_url:            perfil.foto_url            || '',
+                supabase_registered: perfil.supabase_registered || false,
+                fecha_registro:      perfil.fecha_registro      || ''
+            })
+            .eq('codigo', codigo);
+    } catch(e) { console.error('Error guardando perfil:', e); }
 }
 
 function googleBtnHTML() {
@@ -331,7 +387,7 @@ function googleBtnHTML() {
 }
 
 // ============================================
-// NUEVA AUTENTICACIÓN — GOOGLE + EMAIL PANEL
+// AUTENTICACIÓN CON GOOGLE
 // ============================================
 
 async function signInWithGoogle() {
@@ -341,29 +397,34 @@ async function signInWithGoogle() {
     btn.disabled = true;
     btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Conectando...';
     try {
-        const provider = new firebase.auth.GoogleAuthProvider();
-        provider.setCustomParameters({ prompt: 'select_account' });
-        _registrandoAhora = true;
-        const result = await auth.signInWithPopup(provider);
-        await procesarLoginGoogle(result.user);
+        const { error } = await supabaseClient.auth.signInWithOAuth({
+            provider: 'google',
+            options: {
+                redirectTo: window.location.origin,
+                queryParams: { prompt: 'select_account' }
+            }
+        });
+        if (error) throw error;
+        // La página redirige a Google y vuelve sola.
+        // onAuthStateChange maneja el resto al regresar.
     } catch (error) {
         let mensaje = '❌ Error al iniciar sesión con Google.';
-        if (error.code === 'auth/popup-closed-by-user') mensaje = '⚠️ Cerraste la ventana de Google.';
-        if (error.code === 'auth/popup-blocked')         mensaje = '⚠️ Permite las ventanas emergentes.';
         if (errEl) { errEl.textContent = mensaje; errEl.style.display = 'block'; }
-        btn.disabled = false; btn.innerHTML = googleBtnHTML();
-    } finally { _registrandoAhora = false; }
+        btn.disabled = false;
+        btn.innerHTML = googleBtnHTML();
+    }
 }
 
 async function buscarCodigoPorEmail(email) {
-    const snap = await database.ref('codigos').once('value');
-    const codigos = snap.val() || {};
-    for (const [key, data] of Object.entries(codigos)) {
-        if (data.email && data.email.toLowerCase() === email.toLowerCase()) {
-            return { codigoKey: key, ...data };
-        }
-    }
-    return null;
+    try {
+        const { data, error } = await supabaseClient
+            .from('usuarios')
+            .select('*')
+            .eq('email', email.toLowerCase())
+            .single();
+        if (error || !data) return null;
+        return { ...data, codigoKey: data.codigo };
+    } catch(e) { return null; }
 }
 
 async function procesarLoginGoogle(user) {
@@ -375,72 +436,64 @@ async function procesarLoginGoogle(user) {
         const codigoEncontrado = await buscarCodigoPorEmail(user.email);
 
         if (!codigoEncontrado) {
-            try {
-                const u = auth.currentUser;
-                if (u) await u.delete();
-            } catch(e) { await auth.signOut().catch(console.error); }
-           if (errEl) {
-    errEl.innerHTML = '🚫 Tu cuenta de Google no está registrada en el sistema. <span class="saber-mas-link" onclick="mostrarSaberMas()">Saber más</span>';
-    errEl.style.display = 'block';
-}
-            if (btn) { btn.disabled = false; btn.innerHTML = googleBtnHTML(); }
-            return;
-        }
-
-        if (codigoEncontrado.bloqueado === true) {
-            try {
-                const u = auth.currentUser;
-                if (u) await u.delete();
-            } catch(e) { await auth.signOut().catch(console.error); }
+            await supabaseClient.auth.signOut();
             if (errEl) {
-                errEl.textContent = `🚫 ACCESO BLOQUEADO: ${codigoEncontrado.motivoBloqueo || 'Tu acceso ha sido bloqueado.'}`;
+                errEl.innerHTML = '🚫 Tu cuenta de Google no está registrada en el sistema. <span class="saber-mas-link" onclick="mostrarSaberMas()">Saber más</span>';
                 errEl.style.display = 'block';
             }
             if (btn) { btn.disabled = false; btn.innerHTML = googleBtnHTML(); }
             return;
         }
 
-        const codigo     = codigoEncontrado.codigoKey;
+        if (codigoEncontrado.bloqueado === true) {
+            await supabaseClient.auth.signOut();
+            if (errEl) {
+                errEl.textContent = `🚫 ACCESO BLOQUEADO: ${codigoEncontrado.motivo_bloqueo || 'Tu acceso ha sido bloqueado.'}`;
+                errEl.style.display = 'block';
+            }
+            if (btn) { btn.disabled = false; btn.innerHTML = googleBtnHTML(); }
+            return;
+        }
+
+        const codigo     = codigoEncontrado.codigo;
         const nombre     = codigoEncontrado.propietario || '';
         const esp        = codigoEncontrado.especialidad || '';
         const ciclo      = codigoEncontrado.ciclo || '';
         const apiNum     = codigoEncontrado.api || '';
-        const googleUid  = user.uid;
+        const uid        = user.id;  // Supabase usa .id (UUID)
         const deviceType = getDeviceType();
-        const deviceKey  = `${googleUid}_${deviceType}`;
 
-        _guardarSesionLocal(nombre, codigo, googleUid, deviceType);
+        _guardarSesionLocal(nombre, codigo, uid, deviceType);
         _setTempValidacion({ userName: nombre, codigo, codigoData: codigoEncontrado });
 
-        const dispositivos         = codigoEncontrado.dispositivos || {};
-        const instanceId           = _getOrCreateInstanceId();
-        const dispositivoExistente = dispositivos[deviceKey];
+        const instanceId = _getOrCreateInstanceId();
+        const { data: dispExistente } = await supabaseClient
+            .from('dispositivos')
+            .select('id')
+            .eq('codigo', codigo)
+            .eq('google_uid', uid)
+            .eq('tipo', deviceType)
+            .maybeSingle();
 
-       
-
-        if (!dispositivoExistente) {
-            await database.ref(`codigos/${codigo}/dispositivos/${deviceKey}`).set({
-                googleUid,
-                googleEmail: user.email,
-                tipo: deviceType,
-                usuario: nombre,
-                instanceId,
-                fechaRegistro: new Date().toISOString(),
-                ultimoAcceso: new Date().toISOString()
+        if (!dispExistente) {
+            await supabaseClient.from('dispositivos').insert({
+                codigo, google_uid: uid, google_email: user.email,
+                tipo: deviceType, usuario: nombre, instance_id: instanceId,
+                fecha_registro: new Date().toISOString(),
+                ultimo_acceso: new Date().toISOString()
             });
         } else {
-            await database.ref(`codigos/${codigo}/dispositivos/${deviceKey}`).update({
-                instanceId,
-                ultimoAcceso: new Date().toISOString()
-            });
+            await supabaseClient.from('dispositivos')
+                .update({ instance_id: instanceId, ultimo_acceso: new Date().toISOString() })
+                .eq('id', dispExistente.id);
         }
 
-        const perfilExistente  = localStorage.getItem('eduspace_student_profile');
-        const perfilEnFirebase = codigoEncontrado.perfil?.nombre;
+        const perfilLocal   = localStorage.getItem('eduspace_student_profile');
+        const tienePerfilDB = codigoEncontrado.nombre;
 
-      if (perfilExistente || perfilEnFirebase) {
-            if (perfilEnFirebase && !perfilExistente) {
-                await _cargarPerfilDesdeFirebase(codigoEncontrado, nombre);
+        if (perfilLocal || tienePerfilDB) {
+            if (tienePerfilDB && !perfilLocal) {
+                await _cargarPerfilDesdeSupabase(codigoEncontrado, nombre);
             }
             const perfilSyncRaw = localStorage.getItem('eduspace_student_profile');
             if (perfilSyncRaw) {
@@ -454,11 +507,9 @@ async function procesarLoginGoogle(user) {
             _setTempValidacion(null);
             hideAuthModal();
             if (codigo === '6578hy') showSpecialUserMessage();
-            iniciarListenerBloqueo();
-iniciarListenerSupabaseRegistered();
-iniciarListenerFotoPerfil();
-actualizarPerfilSidebar();
-return;
+            iniciarListeners();
+            actualizarPerfilSidebar();
+            return;
         }
 
         mostrarPasoRegistroNuevo(nombre, esp, ciclo, apiNum);
@@ -499,14 +550,14 @@ function mostrarPasoRegistroNuevo(nombre, especialidad, ciclo, api) {
 }
 
 async function continuarDesdeAuth() {
-    const errEl  = document.getElementById('authRegistroError');
+    const errEl = document.getElementById('authRegistroError');
     if (errEl) { errEl.style.display = 'none'; errEl.textContent = ''; }
 
     const tempVal = _getTempValidacion();
     if (!tempVal) { mostrarPaso1(); return; }
 
     const { userName, codigo, codigoData } = tempVal;
-    const user = auth.currentUser;
+    const { data: { user } } = await supabaseClient.auth.getUser();
     if (!user) { mostrarPaso1(); return; }
 
     const apiNum = codigoData.api || '';
@@ -534,17 +585,15 @@ async function continuarDesdeAuth() {
             fecha_registro:      ''
         };
         localStorage.setItem('eduspace_student_profile', JSON.stringify(perfil));
-        if (codigo) await _savePerfilToFirebase(codigo, perfil);
+        if (codigo) await _savePerfilToSupabase(codigo, perfil);
 
         if (apiNum && getDeviceType() === 'mobile') localStorage.setItem('eduspace_api', String(apiNum));
 
         _setTempValidacion(null);
         hideAuthModal();
         if (codigo === '6578hy') showSpecialUserMessage();
-        iniciarListenerBloqueo();
-iniciarListenerSupabaseRegistered();
-iniciarListenerFotoPerfil();
-actualizarPerfilSidebar();
+        iniciarListeners();
+        actualizarPerfilSidebar();
 
     } catch(err) {
         console.error(err);
@@ -567,32 +616,28 @@ function _guardarSesionLocal(userName, codigo, googleUid, deviceType) {
 }
 
 // ============================================
-// VALIDAR AUTH CON FIREBASE
+// VALIDAR AUTH CON SUPABASE
 // ============================================
-async function validateAuthWithFirebase(googleUid) {
+async function validateAuthWithSupabase(supabaseUid) {
     try {
         const authData = localStorage.getItem('eduspace_auth');
         if (!authData) return false;
         const parsed = JSON.parse(authData);
-        const { codigo, userName } = parsed;
-        if (parsed.googleUid !== googleUid) { localStorage.removeItem('eduspace_auth'); return false; }
-
-        // Verificar que el email sigue siendo válido en el sistema
-        const user = auth.currentUser;
-        if (user?.email) {
-            const codigoDelEmail = await buscarCodigoPorEmail(user.email);
-            if (!codigoDelEmail || codigoDelEmail.codigoKey !== codigo) {
-                localStorage.removeItem('eduspace_auth'); return false;
-            }
+        const { codigo } = parsed;
+        if (parsed.googleUid !== supabaseUid) {
+            localStorage.removeItem('eduspace_auth');
+            return false;
         }
-
-        const snapshot   = await database.ref(`codigos/${codigo}`).once('value');
-        const codigoData = snapshot.val();
-        if (!codigoData) { localStorage.removeItem('eduspace_auth'); return false; }
-        if (codigoData.bloqueado === true) { localStorage.removeItem('eduspace_auth'); return false; }
+        const { data, error } = await supabaseClient
+            .from('usuarios')
+            .select('bloqueado')
+            .eq('codigo', codigo)
+            .single();
+        if (error || !data) { localStorage.removeItem('eduspace_auth'); return false; }
+        if (data.bloqueado === true) { localStorage.removeItem('eduspace_auth'); return false; }
         return true;
     } catch(e) {
-        console.error('Error validateAuthWithFirebase:', e);
+        console.error('Error validateAuthWithSupabase:', e);
         return false;
     }
 }
@@ -601,48 +646,59 @@ async function validateAuthWithFirebase(googleUid) {
 // INICIALIZACIÓN
 // ============================================
 let _appInicializada = false;
-let _authValidating = false;
+let _authValidating  = false;
 
 document.addEventListener('DOMContentLoaded', async () => {
     showConnectionLoader();
 
-    // Laptop: input API
     if (getDeviceType() === 'desktop') {
         document.getElementById('laptopApiInput')?.addEventListener('keypress', (e) => {
             if (e.key === 'Enter') validarAPI();
         });
     }
 
-    auth.onAuthStateChanged(async (user) => {
+    supabaseClient.auth.onAuthStateChange(async (event, session) => {
         if (_authValidating) { hideConnectionLoader(); return; }
         _authValidating = true;
         hideConnectionLoader();
 
+        const user = session?.user ?? null;
+
         if (user) {
             const authData = localStorage.getItem('eduspace_auth');
             if (authData) {
-                const ok = await validateAuthWithFirebase(user.uid);
+                const ok = await validateAuthWithSupabase(user.id);
                 if (ok) {
+                    // ¿Venimos del flujo laptop?
+                    const tempVal = _getTempValidacion();
+                    if (tempVal && tempVal.requiredGoogleUid && event === 'SIGNED_IN') {
+                        await completarRegistroLaptop(user);
+                        _authValidating = false;
+                        return;
+                    }
                     const apiRevealStep = document.getElementById('auth-step-api-reveal');
                     if (!apiRevealStep || apiRevealStep.style.display === 'none') hideAuthModal();
-                    iniciarListenerBloqueo();
-iniciarListenerSupabaseRegistered();
-iniciarListenerFotoPerfil();
-actualizarPerfilSidebar();
+                    iniciarListeners();
+                    actualizarPerfilSidebar();
                 } else {
-                    showAuthModal(); getDeviceType() === 'mobile' ? mostrarPaso1() : mostrarPasoLaptop();
+                    await supabaseClient.auth.signOut();
+                    showAuthModal();
+                    getDeviceType() === 'mobile' ? mostrarPaso1() : mostrarPasoLaptop();
                 }
             } else {
                 if (_registrandoAhora) { _authValidating = false; return; }
-                await auth.signOut().catch(console.error);
-                showAuthModal(); getDeviceType() === 'mobile' ? mostrarPaso1() : mostrarPasoLaptop();
+                await procesarLoginGoogle(user);
             }
         } else {
-            showAuthModal(); getDeviceType() === 'mobile' ? mostrarPaso1() : mostrarPasoLaptop();
+            showAuthModal();
+            getDeviceType() === 'mobile' ? mostrarPaso1() : mostrarPasoLaptop();
         }
 
         if (!_appInicializada) {
-            _appInicializada = true; updatePendingBadge(); actualizarPerfilSidebar(); switchTab('repositorio');
+            _appInicializada = true;
+            updatePendingBadge();
+            actualizarPerfilSidebar();
+            switchTab('repositorio');
         }
         setTimeout(() => { _authValidating = false; }, 4000);
     });
@@ -661,23 +717,23 @@ actualizarPerfilSidebar();
                 const dispCiclo = document.getElementById('displayCiclo');
                 if (dispEsp)   dispEsp.textContent   = perfil.especialidad || '—';
                 if (dispCiclo) dispCiclo.textContent = perfil.ciclo ? `Ciclo ${perfil.ciclo}` : '—';
-               const fotoConfirm = document.getElementById('fotoConfirmacion');
-const uploadArea  = document.getElementById('reg-foto-upload-area');
-const cambiarBtn  = document.getElementById('reg-foto-cambiar-btn');
-const tieneFoto   = !!(perfil.foto_url && perfil.foto_url.trim() !== '');
-registroFotoFile  = null;
-if (fotoConfirm) {
-    if (tieneFoto) {
-        fotoConfirm.src          = perfil.foto_url;
-        fotoConfirm.style.display = 'block';
-        if (uploadArea) uploadArea.style.display = 'none';
-        if (cambiarBtn) cambiarBtn.style.display = 'flex';
-    } else {
-        fotoConfirm.style.display = 'none';
-        if (uploadArea) uploadArea.style.display = 'flex';
-        if (cambiarBtn) cambiarBtn.style.display = 'none';
-    }
-}
+                const fotoConfirm = document.getElementById('fotoConfirmacion');
+                const uploadArea  = document.getElementById('reg-foto-upload-area');
+                const cambiarBtn  = document.getElementById('reg-foto-cambiar-btn');
+                const tieneFoto   = !!(perfil.foto_url && perfil.foto_url.trim() !== '');
+                registroFotoFile  = null;
+                if (fotoConfirm) {
+                    if (tieneFoto) {
+                        fotoConfirm.src           = perfil.foto_url;
+                        fotoConfirm.style.display = 'block';
+                        if (uploadArea) uploadArea.style.display = 'none';
+                        if (cambiarBtn) cambiarBtn.style.display = 'flex';
+                    } else {
+                        fotoConfirm.style.display = 'none';
+                        if (uploadArea) uploadArea.style.display = 'flex';
+                        if (cambiarBtn) cambiarBtn.style.display = 'none';
+                    }
+                }
                 terminosContainer.style.transition = 'opacity .3s ease, transform .3s ease';
                 terminosContainer.style.opacity    = '0';
                 terminosContainer.style.transform  = 'translateY(-20px)';
@@ -699,67 +755,73 @@ if (fotoConfirm) {
 });
 
 // ============================================
-// LISTENER DE BLOQUEO EN TIEMPO REAL
+// LISTENERS EN TIEMPO REAL — SUPABASE
 // ============================================
-let bloqueoListener = null;
-let supabaseRegistradoListener = null;
-let fotoPerfilListener = null;
+let _canalUsuario     = null;
+let _canalSolicitudes = null;
+let _canalChats       = null;
+let _canalMensajes    = null;
+let _librosChannel    = null;
 
-function iniciarListenerBloqueo() {
-    const authData = localStorage.getItem('eduspace_auth');
-    if (!authData) return;
-    try {
-        const parsed = JSON.parse(authData);
-        const { codigo } = parsed;
-        if (bloqueoListener) database.ref(`codigos/${codigo}/bloqueado`).off('value', bloqueoListener);
-        let primeraLlamada = true;
-        bloqueoListener = database.ref(`codigos/${codigo}/bloqueado`).on('value', (snapshot) => {
-            if (primeraLlamada) { primeraLlamada = false; return; }
-            const estaBloqueado = snapshot.val();
-            if (estaBloqueado === true) {
-                database.ref(`codigos/${codigo}/motivoBloqueo`).once('value', async (motivoSnapshot) => {
-                    const motivo = motivoSnapshot.val() || 'Tu acceso ha sido bloqueado por el administrador.';
-                    await auth.signOut().catch(e => console.error(e));
-                    localStorage.removeItem('eduspace_auth'); _setTempValidacion(null);
-                  
-                showAuthModal(); mostrarPaso1();
-                    const errorDiv = document.getElementById('authError');
-                    if (errorDiv) { errorDiv.textContent = `🚫 ACCESO BLOQUEADO: ${motivo}`; errorDiv.style.display = 'block'; }
-                    hideSpecialUserMessage();
-                });
-            } else if (estaBloqueado === false) {
-                const authDataNow = localStorage.getItem('eduspace_auth');
-                const user        = auth.currentUser;
-                if (authDataNow && user) {
-                    validateAuthWithFirebase(user.uid).then(isValid => {
-                        if (isValid) {
-                            hideAuthModal();
-                            const parsed2 = JSON.parse(authDataNow);
-                            if (parsed2.codigo === '6578hy') showSpecialUserMessage();
-                            mostrarNotificacionDesbloqueo();
-                        }
-                    });
-                }
-            }
-        });
-    } catch(e) { console.error('Error iniciando listener de bloqueo:', e); }
+function iniciarListeners() {
+    iniciarListenerUsuario();
+    iniciarListenerSolicitudes();
 }
 
-// ============================================
-// LISTENER SUPABASE_REGISTERED EN TIEMPO REAL
-// ============================================
-function iniciarListenerSupabaseRegistered() {
+function iniciarListenerUsuario() {
     const authData = localStorage.getItem('eduspace_auth');
     if (!authData) return;
-    try {
-        const parsed = JSON.parse(authData);
-        const { codigo } = parsed;
-        if (supabaseRegistradoListener) {
-            database.ref(`codigos/${codigo}/perfil/supabase_registered`).off('value', supabaseRegistradoListener);
-        }
-        supabaseRegistradoListener = database.ref(`codigos/${codigo}/perfil/supabase_registered`).on('value', (snapshot) => {
-            const estaRegistrado = snapshot.val();
-            if (estaRegistrado === true) {
+    const { codigo } = JSON.parse(authData);
+    if (_canalUsuario) _canalUsuario.unsubscribe();
+
+    _canalUsuario = supabaseClient
+        .channel(`usuario-${codigo}`)
+        .on('postgres_changes', {
+            event: 'UPDATE', schema: 'public', table: 'usuarios',
+            filter: `codigo=eq.${codigo}`
+        }, async (payload) => {
+            const nuevo    = payload.new;
+            const anterior = payload.old;
+
+            // ── Bloqueo ──
+            if (nuevo.bloqueado === true && anterior.bloqueado === false) {
+                await supabaseClient.auth.signOut();
+                localStorage.removeItem('eduspace_auth');
+                _setTempValidacion(null);
+                showAuthModal(); mostrarPaso1();
+                const errorDiv = document.getElementById('authError');
+                if (errorDiv) {
+                    errorDiv.textContent = `🚫 ACCESO BLOQUEADO: ${nuevo.motivo_bloqueo || 'Tu acceso ha sido bloqueado.'}`;
+                    errorDiv.style.display = 'block';
+                }
+                hideSpecialUserMessage();
+            }
+            if (nuevo.bloqueado === false && anterior.bloqueado === true) {
+                const { data: { user } } = await supabaseClient.auth.getUser();
+                if (user) {
+                    const isValid = await validateAuthWithSupabase(user.id);
+                    if (isValid) {
+                        hideAuthModal();
+                        if (codigo === '6578hy') showSpecialUserMessage();
+                        mostrarNotificacionDesbloqueo();
+                    }
+                }
+            }
+
+            // ── Foto de perfil ──
+            if (nuevo.foto_url !== anterior.foto_url) {
+                const perfilLocal = JSON.parse(localStorage.getItem('eduspace_student_profile') || 'null');
+                if (perfilLocal) {
+                    perfilLocal.foto_url = nuevo.foto_url;
+                    localStorage.setItem('eduspace_student_profile', JSON.stringify(perfilLocal));
+                    actualizarPerfilSidebar();
+                    actualizarEncabezadoEstudiantes();
+                    if (currentTab === 'estudiantes') cargarEstudiantes();
+                }
+            }
+
+            // ── Registro en comunidad ──
+            if (nuevo.supabase_registered === true && !anterior.supabase_registered) {
                 const perfilLocal = JSON.parse(localStorage.getItem('eduspace_student_profile') || 'null');
                 if (perfilLocal && !perfilLocal.supabase_registered) {
                     perfilLocal.supabase_registered = true;
@@ -769,31 +831,36 @@ function iniciarListenerSupabaseRegistered() {
                 if (btnRegistrarme) btnRegistrarme.style.display = 'none';
                 actualizarEncabezadoEstudiantes();
             }
-        });
-    } catch(e) { console.error('Error listener supabase_registered:', e); }
+        })
+        .subscribe();
 }
 
-function iniciarListenerFotoPerfil() {
-    const authData = localStorage.getItem('eduspace_auth');
-    if (!authData) return;
-    try {
-        const parsed = JSON.parse(authData);
-        const { codigo } = parsed;
-        if (fotoPerfilListener) {
-            database.ref(`codigos/${codigo}/perfil/foto_url`).off('value', fotoPerfilListener);
-        }
-        fotoPerfilListener = database.ref(`codigos/${codigo}/perfil/foto_url`).on('value', (snapshot) => {
-            const nuevaFoto = snapshot.val() || '';
-            const perfilLocal = JSON.parse(localStorage.getItem('eduspace_student_profile') || 'null');
-            if (!perfilLocal) return;
-            if (nuevaFoto === perfilLocal.foto_url) return;
-            perfilLocal.foto_url = nuevaFoto;
-            localStorage.setItem('eduspace_student_profile', JSON.stringify(perfilLocal));
-            actualizarPerfilSidebar();
-            actualizarEncabezadoEstudiantes();
-            if (currentTab === 'estudiantes') cargarEstudiantes();
-        });
-    } catch(e) { console.error('Error listener foto perfil:', e); }
+function iniciarListenerSolicitudes() {
+    const miKey = getMiKey();
+    if (!miKey) return;
+    if (_canalSolicitudes) _canalSolicitudes.unsubscribe();
+
+    _canalSolicitudes = supabaseClient
+        .channel(`solicitudes-${miKey}`)
+        .on('postgres_changes', {
+            event: '*', schema: 'public', table: 'solicitudes',
+            filter: `to_key=eq.${miKey}`
+        }, async () => {
+            const { count } = await supabaseClient
+                .from('solicitudes')
+                .select('id', { count: 'exact', head: true })
+                .eq('to_key', miKey);
+            const btnSol = document.getElementById('btn-solicitudes');
+            if (!btnSol) return;
+            const dotExistente = btnSol.querySelector('.notif-dot');
+            if (dotExistente) dotExistente.remove();
+            if (count > 0) {
+                const nd = document.createElement('span');
+                nd.className = 'notif-dot';
+                btnSol.appendChild(nd);
+            }
+        })
+        .subscribe();
 }
 
 function mostrarNotificacionDesbloqueo() {
@@ -805,19 +872,11 @@ function mostrarNotificacionDesbloqueo() {
 }
 
 window.addEventListener('beforeunload', () => {
-    const authData = localStorage.getItem('eduspace_auth');
-    if (authData) {
-        try {
-            const parsed = JSON.parse(authData);
-            if (bloqueoListener) database.ref(`codigos/${parsed.codigo}/bloqueado`).off('value', bloqueoListener);
-          if (supabaseRegistradoListener) database.ref(`codigos/${parsed.codigo}/perfil/supabase_registered`).off('value', supabaseRegistradoListener);
-            if (fotoPerfilListener) database.ref(`codigos/${parsed.codigo}/perfil/foto_url`).off('value', fotoPerfilListener);
-        } catch(e) { console.error(e); }
-    }
+    [_canalUsuario, _canalSolicitudes, _canalChats, _canalMensajes, _librosChannel].forEach(c => c?.unsubscribe());
 });
 
 // ============================================
-// BASE DE DATOS
+// BASE DE DATOS LOCAL
 // ============================================
 const teachersDB = {
     "Prof. Alejandro Ruiz": { name:"Prof. Alejandro Ruiz", title:"Profesor de Matemáticas",    photo:"https://i.pravatar.cc/150?img=12", email:"alejandro.ruiz@eduspace.com",  phone:"+51 987 654 321" },
@@ -987,42 +1046,42 @@ function searchRecursos() {
     const searchTerm = document.getElementById('searchInputRecursos').value.toLowerCase().trim();
     if (searchTerm === '') { renderRecursosContent(); return; }
     const searchTerms = normalizeText(searchTerm).split(/\s+/);
-    let allRecursos   = [];
-    Object.keys(recursosDB).forEach(category => {
-        if (category === 'Libros') { allRecursos = allRecursos.concat(recursosDB[category].map(r => ({ ...r, category }))); }
-        else { Object.keys(recursosDB[category]).forEach(type => { allRecursos = allRecursos.concat(recursosDB[category][type].map(r => ({ ...r, category, type }))); }); }
-    });
-    const filteredRecursos = allRecursos.map(r => ({ ...r, relevance: calculateRelevance(r, searchTerms, ['title','description']) })).filter(r => r.relevance > 0).sort((a, b) => b.relevance - a.relevance);
+    const lista = recursosDB[currentRecursosTipo] || [];
+    const filtrados = lista
+        .map(r => ({ ...r, relevance: calculateRelevance(r, searchTerms, ['title','description']) }))
+        .filter(r => r.relevance > 0)
+        .sort((a, b) => b.relevance - a.relevance);
     recursosContainer.innerHTML = '';
-    if (filteredRecursos.length === 0) { recursosContainer.innerHTML = '<p style="grid-column:1/-1;text-align:center;color:var(--text-muted);padding:2rem;">No se encontraron recursos.</p>'; return; }
-    filteredRecursos.forEach(r => { if (r.type === 'Video') renderVideoCard(r); else if (r.type === 'Imagen') renderImageCard(r); else renderDocumentCard(r); });
+    if (filtrados.length === 0) {
+        recursosContainer.innerHTML = `<p style="grid-column:1/-1;text-align:center;color:var(--text-muted);padding:2rem;">No se encontraron resultados.</p>`;
+        return;
+    }
+    filtrados.forEach(r => {
+        if (r.type === 'Video')       renderVideoCard(r);
+        else if (r.type === 'Imagen') renderImageCard(r);
+        else                          renderDocumentCard(r);
+    });
 }
 
 // ============================================
 // RECURSOS — VERSIÓN SIMPLIFICADA
 // ============================================
-
 let currentRecursosTipo = 'Documentos';
 
 function filterRecursosTipo(tipo) {
     currentRecursosTipo = tipo;
-
-    // Actualizar botones activos
     document.querySelectorAll('.recursos-tipo-btn').forEach(btn => {
         btn.classList.remove('active');
     });
     const btnActivo = document.getElementById(`rtbtn-${tipo}`);
     if (btnActivo) btnActivo.classList.add('active');
-
     renderRecursosContent();
 }
 
 function renderRecursosContent() {
     if (!recursosContainer) return;
     recursosContainer.innerHTML = '';
-
     const lista = recursosDB[currentRecursosTipo] || [];
-
     if (lista.length === 0) {
         recursosContainer.innerHTML = `
             <p style="grid-column:1/-1;text-align:center;
@@ -1031,9 +1090,8 @@ function renderRecursosContent() {
             </p>`;
         return;
     }
-
     lista.forEach(recurso => {
-        if (recurso.type === 'Video')  renderVideoCard(recurso);
+        if (recurso.type === 'Video')       renderVideoCard(recurso);
         else if (recurso.type === 'Imagen') renderImageCard(recurso);
         else renderDocumentCard(recurso);
     });
@@ -1042,11 +1100,9 @@ function renderRecursosContent() {
 function renderDocumentCard(recurso) {
     const card = document.createElement('div');
     card.classList.add('recurso-card');
-
     let icon = 'fa-file-pdf';
     if (recurso.type === 'DOCX' || recurso.type === 'DOC')       icon = 'fa-file-word';
     else if (recurso.type === 'PPTX' || recurso.type === 'PPT')  icon = 'fa-file-powerpoint';
-
     card.innerHTML = `
         <div class="recurso-cover">
             ${recurso.coverImage
@@ -1100,111 +1156,62 @@ function renderImageCard(recurso) {
 }
 
 // ============================================
-// BÚSQUEDA EN RECURSOS — VERSIÓN SIMPLIFICADA
-// ============================================
-
-function searchRecursos() {
-    const searchTerm = document.getElementById('searchInputRecursos').value.toLowerCase().trim();
-    if (searchTerm === '') { renderRecursosContent(); return; }
-
-    const searchTerms = normalizeText(searchTerm).split(/\s+/);
-    const lista = recursosDB[currentRecursosTipo] || [];
-
-    const filtrados = lista
-        .map(r => ({ ...r, relevance: calculateRelevance(r, searchTerms, ['title','description']) }))
-        .filter(r => r.relevance > 0)
-        .sort((a, b) => b.relevance - a.relevance);
-
-    recursosContainer.innerHTML = '';
-
-    if (filtrados.length === 0) {
-        recursosContainer.innerHTML = `
-            <p style="grid-column:1/-1;text-align:center;
-                      color:var(--text-muted);padding:2rem;">
-                No se encontraron resultados.
-            </p>`;
-        return;
-    }
-
-    filtrados.forEach(r => {
-        if (r.type === 'Video')        renderVideoCard(r);
-        else if (r.type === 'Imagen')  renderImageCard(r);
-        else                           renderDocumentCard(r);
-    });
-}
-
-// ============================================
 // LIBROS — FUNCIONES COMPLETAS
 // ============================================
-
 let currentLibrosCategoria = 'Todo';
 
 function filterLibros(categoria) {
     currentLibrosCategoria = categoria;
-
-    // Actualizar botones activos
     document.querySelectorAll('.libros-filter-btn').forEach(btn => {
         btn.classList.remove('active');
     });
     const btnActivo = document.getElementById(`lbtn-${categoria}`);
     if (btnActivo) btnActivo.classList.add('active');
-
     cargarLibros();
 }
-
-let _librosRealtimeRef = null;
 
 async function cargarLibros() {
     const grid = document.getElementById('libros-grid');
     if (!grid) return;
-
     grid.innerHTML = `
         <div class="libros-loading">
             <i class="fa-solid fa-spinner fa-spin"></i>
             <p>Cargando libros...</p>
         </div>`;
 
-    // Desconectar listener anterior si existe
-    if (_librosRealtimeRef) {
-        _librosRealtimeRef.off('value');
-        _librosRealtimeRef = null;
-    }
+    if (_librosChannel) { _librosChannel.unsubscribe(); _librosChannel = null; }
 
-    _librosRealtimeRef = database.ref('libros');
-
-    _librosRealtimeRef.on('value', (snap) => {
-        const val = snap.val();
-
-        let lista = [];
-
-        if (val) {
-            lista = Object.entries(val)
-                .map(([key, data]) => ({ _key: key, ...data }))
-                .sort((a, b) => (b.created_at || 0) - (a.created_at || 0));
-        }
-
-        // Filtrar por categoría si no es "Todo"
+    try {
+        let query = supabaseClient.from('libros').select('*').order('created_at', { ascending: false });
         if (currentLibrosCategoria !== 'Todo') {
-            lista = lista.filter(l => l.categoria === currentLibrosCategoria);
+            query = query.eq('categoria', currentLibrosCategoria);
         }
-
-        renderLibros(lista);
-    }, (error) => {
-        console.error('Error cargando libros:', error);
+        const { data: libros, error } = await query;
+        if (error) throw error;
+        renderLibros(libros || []);
+    } catch(e) {
+        console.error('Error cargando libros:', e);
         grid.innerHTML = `
             <div class="libros-empty">
                 <i class="fa-solid fa-triangle-exclamation"></i>
                 <p>Error al cargar los libros.</p>
             </div>`;
-    });
+        return;
+    }
+
+    // Realtime para actualizaciones
+    _librosChannel = supabaseClient
+        .channel('libros-live')
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'libros' }, () => {
+            cargarLibros();
+        })
+        .subscribe();
 }
 
 function renderLibros(libros) {
     const grid = document.getElementById('libros-grid');
     if (!grid) return;
-
     grid.innerHTML = '';
-
     if (!libros || libros.length === 0) {
         grid.innerHTML = `
             <div class="libros-empty">
@@ -1213,15 +1220,11 @@ function renderLibros(libros) {
             </div>`;
         return;
     }
-
     libros.forEach((libro, idx) => {
         const card = document.createElement('div');
         card.className = 'libro-card';
         card.style.animation      = 'fadeIn 0.4s ease';
         card.style.animationDelay = `${idx * 0.06}s`;
-
-        const fallbackPortada = `https://ui-avatars.com/api/?name=${encodeURIComponent(libro.titulo || 'Libro')}&background=3b82f6&color=fff&size=400&font-size=0.25`;
-
         card.innerHTML = `
             <div class="libro-card-portada">
                 ${libro.portada_url
@@ -1260,7 +1263,6 @@ function renderLibros(libros) {
                     </a>
                 </div>
             </div>`;
-
         grid.appendChild(card);
     });
 }
@@ -1269,7 +1271,6 @@ function abrirContextoLibro(titulo, contexto, portadaUrl, categoria) {
     document.getElementById('contexto-titulo').textContent    = titulo;
     document.getElementById('contexto-texto').textContent     = contexto || 'No hay contexto disponible para este libro.';
     document.getElementById('contexto-categoria-badge').textContent = categoria || '';
-
     const img = document.getElementById('contexto-portada-img');
     if (portadaUrl) {
         img.src     = portadaUrl;
@@ -1278,7 +1279,6 @@ function abrirContextoLibro(titulo, contexto, portadaUrl, categoria) {
     } else {
         img.style.display = 'none';
     }
-
     document.getElementById('modalContextoLibro').style.display = 'block';
 }
 
@@ -1465,7 +1465,6 @@ window.onclick = function(event) {
     if (event.target === modalContexto)   cerrarContextoLibro();
 };
 
-
 // ============================================
 // SISTEMA DE REGISTRO DE ESTUDIANTES
 // ============================================
@@ -1473,26 +1472,8 @@ let selectedEspecialidad = '';
 let selectedCiclo        = '';
 let selectedImageDataUrl = '';
 let selectedImageFile    = null;
-let registroFotoFile = null;
-
-const CLOUDINARY_CONFIG = { CLOUD_NAME: "dwzwa3gp0", UPLOAD_PRESET: "hfqqxu13" };
-const SUPABASE_CONFIG   = {
-    URL: 'https://pauaqgfqsitnjsikrjns.supabase.co',
-    KEY: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBhdWFxZ2Zxc2l0bmpzaWtyam5zIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzEwOTMxODYsImV4cCI6MjA4NjY2OTE4Nn0.Jz-rCRPQkgm9wXicGRoCP4xP-NotY-YEQXUyxgU7HeM'
-};
-
-
-let supabaseClient      = null;
-let estudiantesListener = null;
-
-function initSupabase() {
-    try { if (typeof supabase !== 'undefined') { supabaseClient = supabase.createClient(SUPABASE_CONFIG.URL, SUPABASE_CONFIG.KEY); return true; } return false; }
-    catch(error) { console.error('Error al inicializar Supabase:', error); return false; }
-}
-
-document.addEventListener('DOMContentLoaded', function() {
-    initSupabase();
-});
+let registroFotoFile     = null;
+let estudiantesListener  = null;
 
 function openRegistroModal() {
     const studentProfile = JSON.parse(localStorage.getItem('eduspace_student_profile') || 'null');
@@ -1547,7 +1528,6 @@ function mostrarToast(mensaje, icono = 'fa-check-circle', duracion = 3000) {
     document.body.appendChild(toast); setTimeout(() => toast.remove(), duracion);
 }
 
-
 // ============================================
 // REGISTRO DE ESTUDIANTE EN SUPABASE
 // ============================================
@@ -1560,7 +1540,6 @@ async function registrarEstudiante() {
     if (!perfil) { alert('❌ No se encontró tu perfil. Cierra sesión e inicia nuevamente.'); return; }
     if (!nombreCompleto || nombreCompleto.length < 3) { alert('⚠️ El nombre es muy corto o está vacío.'); return; }
 
-    // Validar foto obligatoria
     const tieneFotoActual = !!(perfil.foto_url && perfil.foto_url.trim() !== '');
     if (!tieneFotoActual && !registroFotoFile) {
         if (errFotoEl) errFotoEl.style.display = 'flex';
@@ -1574,7 +1553,6 @@ async function registrarEstudiante() {
     try {
         let fotoUrl = perfil.foto_url || '';
 
-        // Subir nueva foto si se seleccionó en el modal
         if (registroFotoFile) {
             const formData = new FormData();
             formData.append('file', registroFotoFile);
@@ -1603,11 +1581,14 @@ async function registrarEstudiante() {
 
         const authDataReg = JSON.parse(localStorage.getItem('eduspace_auth') || '{}');
         if (authDataReg.codigo) {
-            await database.ref(`codigos/${authDataReg.codigo}/perfil`).update({
-                supabase_registered: true,
-                fecha_registro:      perfil.fecha_registro,
-                foto_url:            fotoUrl
-            }).catch(console.error);
+            await supabaseClient
+                .from('usuarios')
+                .update({
+                    supabase_registered: true,
+                    fecha_registro:      perfil.fecha_registro,
+                    foto_url:            fotoUrl
+                })
+                .eq('codigo', authDataReg.codigo);
         }
 
         const btnRegistrarme = document.getElementById('btn-registrarme');
@@ -1650,8 +1631,11 @@ async function renderEstudiantesReales(estudiantes) {
     let amigosKeys = [];
     if (miKey) {
         try {
-            const snapAmigos = await database.ref(`amigos/${miKey}`).once('value');
-            if (snapAmigos.val()) amigosKeys = Object.keys(snapAmigos.val());
+            const { data: amigosData } = await supabaseClient
+                .from('amigos')
+                .select('amigo_key')
+                .eq('user_key', miKey);
+            if (amigosData) amigosKeys = amigosData.map(a => a.amigo_key);
         } catch(e) { console.error('Error cargando amigos:', e); }
     }
 
@@ -1706,7 +1690,6 @@ async function renderEstudiantesReales(estudiantes) {
             );
         });
 
-        // Click en la tarjeta para ver la foto ampliada
         card.addEventListener('click', function(e) {
             if (e.target.closest('.btn-solicitud')) return;
             abrirFotoEstudiante(
@@ -1730,12 +1713,6 @@ async function cargarEstudiantes() {
     const loading = document.getElementById('loading-estudiantes');
     if (!grid) return;
     if (loading) loading.style.display = 'flex';
-
-    if (!supabaseClient) {
-        grid.innerHTML = '<p style="grid-column:1/-1;text-align:center;color:var(--danger);padding:2rem;">Error de conexión con Supabase.</p>';
-        if (loading) loading.style.display = 'none';
-        return;
-    }
 
     try {
         const { data, error } = await supabaseClient
@@ -1761,13 +1738,8 @@ function inicializarRealtimeEstudiantes() {
 }
 
 function renderEstudiantes() {
-    if (supabaseClient) { cargarEstudiantes(); inicializarRealtimeEstudiantes(); }
-    else {
-        setTimeout(() => {
-            if (supabaseClient) { cargarEstudiantes(); inicializarRealtimeEstudiantes(); }
-            else { document.getElementById('estudiantes-grid').innerHTML = '<p style="grid-column:1/-1;text-align:center;color:var(--danger);padding:2rem;">Error de conexión con Supabase.</p>'; }
-        }, 1500);
-    }
+    cargarEstudiantes();
+    inicializarRealtimeEstudiantes();
 }
 
 // ============================================
@@ -1877,11 +1849,9 @@ function actualizarPerfilSidebar() {
     }
     if (perfil.especialidad) aplicarTemaEspecialidad(perfil.especialidad);
 
-    // Mostrar ajustes en todos los dispositivos
     const ajustesWrapper = document.getElementById('sidebar-ajustes-wrapper');
     if (ajustesWrapper) {
         ajustesWrapper.style.display = 'block';
-        // "Vincular Escritorio" solo visible en móvil
         const btnVincular = document.getElementById('btn-vincular-escritorio');
         if (btnVincular) {
             btnVincular.style.display = getDeviceType() === 'mobile' ? 'flex' : 'none';
@@ -1903,7 +1873,7 @@ function abrirPerfilEstudiante() {
         img.src     = perfil.foto_url || fallback;
         img.onerror = function() { this.src = fallback; this.onerror = null; };
     }
-   modal.style.display = 'flex';
+    modal.style.display = 'flex';
 
     const btnCambiarFoto = document.getElementById('btn-cambiar-foto-sidebar');
     if (btnCambiarFoto) {
@@ -1933,7 +1903,6 @@ async function procesarNuevaFotoPerfil(event) {
         if (imgModal)   { imgModal.src = e.target.result; }
         if (imgSidebar) { imgSidebar.src = e.target.result; imgSidebar.style.display = 'block'; }
         if (initial)    { initial.style.display = 'none'; }
-        // mostrarSkeletonFoto() ← ELIMINAR esta línea que estaba aquí
     };
     reader.readAsDataURL(file);
 
@@ -1941,12 +1910,13 @@ async function procesarNuevaFotoPerfil(event) {
     if (btnCambiar) { btnCambiar.disabled = true; btnCambiar.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Subiendo...'; }
     try {
         const formData = new FormData();
-        formData.append('file', file); formData.append('upload_preset', CLOUDINARY_CONFIG.UPLOAD_PRESET); formData.append('folder', 'estudiantes_clouddesk');
+        formData.append('file', file);
+        formData.append('upload_preset', CLOUDINARY_CONFIG.UPLOAD_PRESET);
+        formData.append('folder', 'estudiantes_clouddesk');
         const res = await fetch(`https://api.cloudinary.com/v1_1/${CLOUDINARY_CONFIG.CLOUD_NAME}/image/upload`, { method:'POST', body:formData });
         if (!res.ok) throw new Error('Error al subir la imagen');
         const data = await res.json(); const nuevaUrl = data.secure_url;
 
-        // ocultarSkeletonFoto() ← ELIMINAR esta línea que estaba aquí
         const imgMiCard = document.querySelector('.mi-card-foto');
         if (imgMiCard) imgMiCard.src = nuevaUrl;
 
@@ -1964,7 +1934,12 @@ async function procesarNuevaFotoPerfil(event) {
         }
 
         const authData = JSON.parse(localStorage.getItem('eduspace_auth') || '{}');
-        if (authData.codigo) await _savePerfilToFirebase(authData.codigo, { ...perfil, foto_url: nuevaUrl }).catch(console.error);
+        if (authData.codigo) {
+            await supabaseClient
+                .from('usuarios')
+                .update({ foto_url: nuevaUrl })
+                .eq('codigo', authData.codigo);
+        }
 
         perfil.foto_url = nuevaUrl;
         localStorage.setItem('eduspace_student_profile', JSON.stringify(perfil));
@@ -1975,7 +1950,6 @@ async function procesarNuevaFotoPerfil(event) {
         mostrarToast('✅ Foto actualizada correctamente');
     } catch(err) {
         ocultarSkeletonFoto();
-        // ocultarSkeletonFoto() ← ELIMINAR esta línea que estaba aquí
         console.error(err); alert('❌ Error al actualizar la foto: ' + err.message);
     } finally {
         if (btnCambiar) { btnCambiar.disabled = false; btnCambiar.innerHTML = '<i class="fa-solid fa-camera"></i> Cambiar foto'; }
@@ -2011,7 +1985,6 @@ function switchTab(tab) {
     sectionDocentes.style.display    = 'none';
     sectionEstudiantes.style.display = 'none';
     if (sectionChat) sectionChat.style.display = 'none';
-    
 
     document.querySelectorAll('.sidebar-btn').forEach(btn => btn.classList.remove('active'));
 
@@ -2037,26 +2010,23 @@ function switchTab(tab) {
             btn.classList.remove('showing-finalizados');
         }
         renderAssignments();
-   } else if (tab === 'recursos') {
-    sectionRecursos.style.display = 'block';
-    document.getElementById('tab-recursos').classList.add('active');
-    // Asegurar que el primer botón esté activo
-    currentRecursosTipo = 'Documentos';
-    document.querySelectorAll('.recursos-tipo-btn').forEach(b => b.classList.remove('active'));
-    const rtbtn = document.getElementById('rtbtn-Documentos');
-    if (rtbtn) rtbtn.classList.add('active');
-    renderRecursosContent();
-
-} else if (tab === 'libros') {
-    if (sectionLibros) sectionLibros.style.display = 'block';
-    const tabLibros = document.getElementById('tab-libros');
-    if (tabLibros) tabLibros.classList.add('active');
-    // Resetear filtro a "Todo" cada vez que entras
-    currentLibrosCategoria = 'Todo';
-    document.querySelectorAll('.libros-filter-btn').forEach(b => b.classList.remove('active'));
-    const lbtnTodo = document.getElementById('lbtn-Todo');
-    if (lbtnTodo) lbtnTodo.classList.add('active');
-    cargarLibros();
+    } else if (tab === 'recursos') {
+        sectionRecursos.style.display = 'block';
+        document.getElementById('tab-recursos').classList.add('active');
+        currentRecursosTipo = 'Documentos';
+        document.querySelectorAll('.recursos-tipo-btn').forEach(b => b.classList.remove('active'));
+        const rtbtn = document.getElementById('rtbtn-Documentos');
+        if (rtbtn) rtbtn.classList.add('active');
+        renderRecursosContent();
+    } else if (tab === 'libros') {
+        if (sectionLibros) sectionLibros.style.display = 'block';
+        const tabLibros = document.getElementById('tab-libros');
+        if (tabLibros) tabLibros.classList.add('active');
+        currentLibrosCategoria = 'Todo';
+        document.querySelectorAll('.libros-filter-btn').forEach(b => b.classList.remove('active'));
+        const lbtnTodo = document.getElementById('lbtn-Todo');
+        if (lbtnTodo) lbtnTodo.classList.add('active');
+        cargarLibros();
     } else if (tab === 'docentes') {
         sectionDocentes.style.display = 'block';
         document.getElementById('tab-docentes').classList.add('active');
@@ -2103,6 +2073,7 @@ async function eliminarImagenCloudinary(url) {
         console.error('Error eliminando imagen de Cloudinary:', e);
     }
 }
+
 // ============================================
 // CHAT Y SOLICITUDES — SISTEMA COMPLETO
 // ============================================
@@ -2125,14 +2096,14 @@ async function getEstadoAmistad(otroKey) {
     const miKey = getMiKey();
     if (!miKey || miKey === otroKey) return null;
     try {
-        const [amigoSnap, enviadaSnap, recibidaSnap] = await Promise.all([
-            database.ref(`amigos/${miKey}/${otroKey}`).once('value'),
-            database.ref(`solicitudes_enviadas/${miKey}/${otroKey}`).once('value'),
-            database.ref(`solicitudes/${miKey}/pendientes/${otroKey}`).once('value')
+        const [{ data: amigo }, { data: enviada }, { data: recibida }] = await Promise.all([
+            supabaseClient.from('amigos').select('id').eq('user_key', miKey).eq('amigo_key', otroKey).maybeSingle(),
+            supabaseClient.from('solicitudes').select('id').eq('from_key', miKey).eq('to_key', otroKey).maybeSingle(),
+            supabaseClient.from('solicitudes').select('id').eq('from_key', otroKey).eq('to_key', miKey).maybeSingle()
         ]);
-        if (amigoSnap.exists())    return 'amigo';
-        if (enviadaSnap.exists())  return 'enviada';
-        if (recibidaSnap.exists()) return 'recibida';
+        if (amigo)    return 'amigo';
+        if (enviada)  return 'enviada';
+        if (recibida) return 'recibida';
     } catch(e) { console.error('getEstadoAmistad:', e); }
     return null;
 }
@@ -2173,11 +2144,13 @@ async function manejarBtnSolicitud(otroKey, otroNombre, otroFoto, otroEsp, otroC
     }
     try {
         const miPerfil = getMiPerfil();
-        await database.ref(`solicitudes/${otroKey}/pendientes/${miKey}`).set({
+        await supabaseClient.from('solicitudes').insert({
+            from_key: miKey, to_key: otroKey,
             nombre: miPerfil.nombre, foto: miPerfil.foto_url || '',
-            especialidad: miPerfil.especialidad || '', ciclo: miPerfil.ciclo || '', fecha: Date.now()
+            especialidad: miPerfil.especialidad || '',
+            ciclo: miPerfil.ciclo || '',
+            fecha: Date.now()
         });
-        await database.ref(`solicitudes_enviadas/${miKey}/${otroKey}`).set(true);
         btnEl.innerHTML = '<i class="fa-solid fa-user-clock"></i>'; btnEl.style.color = 'var(--primary-color)';
         btnEl.classList.add('enviada'); btnEl.title = 'Solicitud enviada';
         mostrarToast('✅ Solicitud enviada');
@@ -2198,14 +2171,18 @@ async function cargarSolicitudesPanel() {
     const miKey = getMiKey();
     if (!miKey) return;
     try {
-        const snap      = await database.ref(`solicitudes/${miKey}/pendientes`).once('value');
-        const pendientes = snap.val();
-        if (!pendientes || !Object.keys(pendientes).length) {
-            lista.innerHTML = '<p style="text-align:center;color:var(--text-muted);padding:2rem;">Sin solicitudes pendientes.</p>'; return;
+        const { data: pendientes, error } = await supabaseClient
+            .from('solicitudes').select('*').eq('to_key', miKey);
+        if (error) throw error;
+        if (!pendientes?.length) {
+            lista.innerHTML = '<p style="text-align:center;color:var(--text-muted);padding:2rem;">Sin solicitudes pendientes.</p>';
+            return;
         }
         lista.innerHTML = '';
-        for (const [fromKey, data] of Object.entries(pendientes)) {
-            const item = document.createElement('div'); item.className = 'solicitud-item';
+        pendientes.forEach(data => {
+            const fromKey = data.from_key;
+            const item    = document.createElement('div');
+            item.className = 'solicitud-item';
             item.innerHTML = `
                 <img src="${data.foto || ''}" alt="${data.nombre}" class="solicitud-foto"
                      onerror="this.src='https://ui-avatars.com/api/?name=${encodeURIComponent(data.nombre)}&background=3b82f6&color=fff&size=200'">
@@ -2226,178 +2203,37 @@ async function cargarSolicitudesPanel() {
                 if (btnGrid) { btnGrid.innerHTML = '<i class="fa-solid fa-user-check"></i>'; btnGrid.style.color = 'var(--success)'; btnGrid.classList.remove('recibida'); btnGrid.classList.add('amigo'); }
             });
             document.getElementById(`btn-re-${fromKey}`).addEventListener('click', async () => {
-                await database.ref(`solicitudes/${miKey}/pendientes/${fromKey}`).remove();
-                await database.ref(`solicitudes_enviadas/${fromKey}/${miKey}`).remove();
+                await supabaseClient.from('solicitudes').delete().eq('from_key', fromKey).eq('to_key', miKey);
                 cargarSolicitudesPanel();
             });
-        }
-    } catch(e) { console.error('Error cargando solicitudes:', e); lista.innerHTML = '<p style="text-align:center;color:var(--danger);padding:2rem;">Error al cargar.</p>'; }
+        });
+    } catch(e) {
+        console.error('Error cargando solicitudes:', e);
+        lista.innerHTML = '<p style="text-align:center;color:var(--danger);padding:2rem;">Error al cargar.</p>';
+    }
 }
 
 async function _aceptarInternamente(fromKey, fromNombre, fromFoto) {
-    const miKey = getMiKey(); const miPerfil = getMiPerfil();
+    const miKey    = getMiKey();
+    const miPerfil = getMiPerfil();
     if (!miKey || !miPerfil) return;
     const chatId = getChatId(miKey, fromKey);
     try {
-        const updates = {};
-        updates[`amigos/${miKey}/${fromKey}`]      = { nombre: fromNombre, foto: fromFoto };
-        updates[`amigos/${fromKey}/${miKey}`]      = { nombre: miPerfil.nombre, foto: miPerfil.foto_url || '' };
-        updates[`chats/${chatId}/info/${miKey}`]   = { nombre: miPerfil.nombre, foto: miPerfil.foto_url || '' };
-        updates[`chats/${chatId}/info/${fromKey}`] = { nombre: fromNombre, foto: fromFoto };
-        updates[`solicitudes/${miKey}/pendientes/${fromKey}`]  = null;
-        updates[`solicitudes_enviadas/${fromKey}/${miKey}`]    = null;
-        await database.ref().update(updates);
+        await supabaseClient.from('amigos').upsert([
+            { user_key: miKey,   amigo_key: fromKey, nombre: fromNombre,      foto: fromFoto },
+            { user_key: fromKey, amigo_key: miKey,   nombre: miPerfil.nombre, foto: miPerfil.foto_url || '' }
+        ], { onConflict: 'user_key,amigo_key' });
+
+        await supabaseClient.from('chats').upsert({
+            chat_id:    chatId,
+            user_key_a: miKey,   nombre_a: miPerfil.nombre, foto_a: miPerfil.foto_url || '',
+            user_key_b: fromKey, nombre_b: fromNombre,       foto_b: fromFoto
+        }, { onConflict: 'chat_id' });
+
+        await supabaseClient.from('solicitudes').delete()
+            .or(`and(from_key.eq.${fromKey},to_key.eq.${miKey}),and(from_key.eq.${miKey},to_key.eq.${fromKey})`);
+
     } catch(e) { console.error('Error en _aceptarInternamente:', e); }
-}
-
-let _solicitudesNotifRef = null;
-
-function iniciarListenerSolicitudes() {
-    const miKey = getMiKey(); if (!miKey) return;
-    if (_solicitudesNotifRef) _solicitudesNotifRef.off('value');
-    _solicitudesNotifRef = database.ref(`solicitudes/${miKey}/pendientes`);
-    _solicitudesNotifRef.on('value', (snap) => {
-        const count  = snap.val() ? Object.keys(snap.val()).length : 0;
-        const btnSol = document.getElementById('btn-solicitudes');
-        if (!btnSol) return;
-        const dotExistente = btnSol.querySelector('.notif-dot');
-        if (dotExistente) dotExistente.remove();
-        if (count > 0) { const nd = document.createElement('span'); nd.className = 'notif-dot'; btnSol.appendChild(nd); }
-    });
-}
-
-let _chatActivoId        = null;
-let _chatActivoOtroKey   = null;
-let _mensajesListenerRef = null;
-let _amigosListenerRef   = null;
-
-async function cargarListaChats() {
-    const chatList   = document.getElementById('chat-list');
-    if (!chatList) return;
-    const miKey = getMiKey(); const miPerfil = getMiPerfil();
-    if (!miKey || !miPerfil?.supabase_registered) {
-        chatList.innerHTML = '<p class="chat-empty"><i class="fa-solid fa-user-lock"></i><br>Únete a la comunidad para chatear.</p>';
-        return;
-    }
-    try {
-        const snap   = await database.ref(`amigos/${miKey}`).once('value');
-        const amigos = snap.val();
-        if (!amigos || !Object.keys(amigos).length) {
-            chatList.innerHTML = '<p class="chat-empty"><i class="fa-solid fa-comment-slash"></i><br>No tienes contactos aún.<br>Acepta solicitudes en Comunidad.</p>';
-            return;
-        }
-        chatList.innerHTML = '';
-        for (const [amigoKey, amigoData] of Object.entries(amigos)) {
-            const chatId = getChatId(miKey, amigoKey);
-            let ultimoTxt = 'Sin mensajes aún';
-            try { const ultSnap = await database.ref(`chats/${chatId}/ultimo_mensaje`).once('value'); if (ultSnap.val()) ultimoTxt = ultSnap.val().texto; } catch(e) {}
-            const item = document.createElement('div'); item.className = 'chat-item'; item.id = `chat-item-${amigoKey}`;
-            item.innerHTML = `
-                <img src="${amigoData.foto || ''}" alt="${amigoData.nombre}" class="chat-item-foto"
-                     onerror="this.src='https://ui-avatars.com/api/?name=${encodeURIComponent(amigoData.nombre)}&background=3b82f6&color=fff&size=200'">
-                <div class="chat-item-info">
-                    <span class="chat-item-nombre">${amigoData.nombre}</span>
-                    <span class="chat-item-ultimo">${ultimoTxt}</span>
-                </div>`;
-            item.addEventListener('click', () => { abrirChatConAmigo(chatId, amigoKey, amigoData.nombre, amigoData.foto || ''); });
-            chatList.appendChild(item);
-        }
-    } catch(e) { console.error('Error cargando lista chats:', e); }
-}
-
-function iniciarListenerChats() {
-    const miKey = getMiKey(); if (!miKey) return;
-    if (_amigosListenerRef) _amigosListenerRef.off('value');
-    _amigosListenerRef = database.ref(`amigos/${miKey}`);
-    _amigosListenerRef.on('value', () => { if (currentTab === 'chat') cargarListaChats(); });
-}
-
-function abrirChatConAmigo(chatId, otroKey, otroNombre, otroFoto) {
-    _chatActivoId = chatId; _chatActivoOtroKey = otroKey;
-    document.querySelectorAll('.chat-item').forEach(i => i.classList.remove('active'));
-    const item = document.getElementById(`chat-item-${otroKey}`);
-    if (item) item.classList.add('active');
-    if (window.innerWidth <= 768) {
-        const sp = document.getElementById('chat-sidebar-panel');
-        const cm = document.getElementById('chat-main');
-        if (sp) sp.style.display = 'none';
-        if (cm) { cm.style.display = 'flex'; cm.classList.add('mobile-visible'); }
-    }
-    const placeholder = document.getElementById('chat-placeholder');
-    const chatWindow  = document.getElementById('chat-window');
-    if (placeholder) placeholder.style.display = 'none';
-    if (chatWindow)  chatWindow.style.display   = 'flex';
-
-    const isMobile = window.innerWidth <= 768;
-    const winHeader = document.getElementById('chat-win-header');
-    if (winHeader) {
-        winHeader.innerHTML = `
-            ${isMobile ? `<button class="chat-back-btn" onclick="volverListaChats()"><i class="fa-solid fa-arrow-left"></i></button>` : ''}
-            <img src="${otroFoto}" alt="${otroNombre}" class="chat-header-foto"
-                 onerror="this.src='https://ui-avatars.com/api/?name=${encodeURIComponent(otroNombre)}&background=3b82f6&color=fff&size=200'">
-            <span class="chat-header-nombre">${otroNombre}</span>
-            <button class="btn-denunciar-chat" onclick="abrirDenuncia('${otroNombre.replace(/'/g,"\\'")}')">
-                <i class="fa-solid fa-flag"></i><span class="btn-den-txt"> Denunciar</span>
-            </button>`;
-    }
-
-    if (_mensajesListenerRef) { _mensajesListenerRef.off('child_added'); _mensajesListenerRef = null; }
-    const messagesEl = document.getElementById('chat-messages');
-    if (messagesEl) messagesEl.innerHTML = '';
-
-    const miKey = getMiKey();
-    _mensajesListenerRef = database.ref(`chats/${chatId}/mensajes`);
-    _mensajesListenerRef.on('child_added', (snap) => {
-        const msg = snap.val();
-        if (!msg || !messagesEl) return;
-        const esMio = msg.de_key === miKey;
-        const hora  = msg.fecha ? new Date(msg.fecha).toLocaleTimeString('es-ES', { hour:'2-digit', minute:'2-digit' }) : '';
-        const wrap = document.createElement('div');
-        wrap.className = `chat-bubble-wrapper ${esMio ? 'mio' : 'otro'}`;
-        wrap.innerHTML = `<div class="chat-bubble ${esMio ? 'mio' : 'otro'}">${msg.texto}<div class="chat-bubble-time">${hora}</div></div>`;
-        messagesEl.appendChild(wrap);
-        messagesEl.scrollTop = messagesEl.scrollHeight;
-    });
-    setTimeout(() => document.getElementById('chat-input')?.focus(), 100);
-}
-
-function volverListaChats() {
-    const sp = document.getElementById('chat-sidebar-panel');
-    const cm = document.getElementById('chat-main');
-    if (sp) sp.style.display = 'flex';
-    if (cm) { cm.style.display = 'none'; cm.classList.remove('mobile-visible'); }
-    const placeholder = document.getElementById('chat-placeholder');
-    const chatWindow  = document.getElementById('chat-window');
-    if (chatWindow)  chatWindow.style.display   = 'none';
-    if (placeholder) placeholder.style.display  = 'flex';
-    if (_mensajesListenerRef) { _mensajesListenerRef.off('child_added'); _mensajesListenerRef = null; }
-    _chatActivoId = null; _chatActivoOtroKey = null;
-}
-
-async function enviarMensaje() {
-    const input = document.getElementById('chat-input');
-    const texto = input?.value?.trim();
-    if (!texto || !_chatActivoId) return;
-    const miPerfil = getMiPerfil(); const miKey = getMiKey();
-    if (!miPerfil || !miKey) return;
-    input.value = '';
-    try {
-        const msg = { de_key: miKey, de_nombre: miPerfil.nombre, texto, fecha: Date.now() };
-        await database.ref(`chats/${_chatActivoId}/mensajes`).push(msg);
-        await database.ref(`chats/${_chatActivoId}/ultimo_mensaje`).set({ texto, fecha: Date.now(), de_key: miKey });
-        const itemUlt = document.querySelector(`#chat-item-${_chatActivoOtroKey} .chat-item-ultimo`);
-        if (itemUlt) itemUlt.textContent = texto;
-    } catch(e) { console.error('Error enviando mensaje:', e); }
-}
-
-if ('visualViewport' in window) {
-    window.visualViewport.addEventListener('resize', () => {
-        const chatMain = document.getElementById('chat-main');
-        if (!chatMain || !chatMain.classList.contains('mobile-visible')) return;
-        const vv = window.visualViewport;
-        chatMain.style.height = vv.height + 'px';
-        chatMain.style.top    = vv.offsetTop + 'px';
-    });
 }
 
 function abrirAmigos() { const overlay = document.getElementById('amigos-overlay'); if (overlay) { overlay.style.display = 'flex'; cargarAmigosPanel(); } }
@@ -2408,35 +2244,47 @@ async function cargarAmigosPanel() {
     lista.innerHTML = '<p style="text-align:center;color:var(--text-muted);padding:1rem;"><i class="fa-solid fa-spinner fa-spin"></i> Cargando...</p>';
     const miKey = getMiKey(); if (!miKey) return;
     try {
-        const snap = await database.ref(`amigos/${miKey}`).once('value');
-        const amigos = snap.val();
-        if (!amigos || !Object.keys(amigos).length) { lista.innerHTML = '<p style="text-align:center;color:var(--text-muted);padding:2rem;">Sin amigos aún.</p>'; return; }
+        const { data: amigos, error } = await supabaseClient
+            .from('amigos').select('*').eq('user_key', miKey);
+        if (error) throw error;
+        if (!amigos?.length) {
+            lista.innerHTML = '<p style="text-align:center;color:var(--text-muted);padding:2rem;">Sin amigos aún.</p>';
+            return;
+        }
         lista.innerHTML = '';
-        for (const [amigoKey, amigoData] of Object.entries(amigos)) {
-            const item = document.createElement('div'); item.className = 'amigo-item';
+        amigos.forEach(amigoData => {
+            const amigoKey = amigoData.amigo_key;
+            const item = document.createElement('div');
+            item.className = 'amigo-item';
             item.innerHTML = `
                 <img src="${amigoData.foto || ''}" alt="${amigoData.nombre}" class="amigo-foto"
                      onerror="this.src='https://ui-avatars.com/api/?name=${encodeURIComponent(amigoData.nombre)}&background=10b981&color=fff&size=200'">
                 <div class="amigo-info"><div class="amigo-nombre">${amigoData.nombre}</div></div>
-                <button class="btn-eliminar-amigo" id="btn-del-${amigoKey}"><i class="fa-solid fa-user-minus"></i> Eliminar</button>`;
-            item.querySelector(`#btn-del-${amigoKey}`).addEventListener('click', () => { eliminarAmigo(amigoKey, amigoData.nombre); });
+                <button class="btn-eliminar-amigo" id="btn-del-${amigoKey}">
+                    <i class="fa-solid fa-user-minus"></i> Eliminar
+                </button>`;
             lista.appendChild(item);
-        }
-    } catch(e) { console.error('Error cargando amigos:', e); lista.innerHTML = '<p style="text-align:center;color:var(--danger);padding:2rem;">Error al cargar.</p>'; }
+            document.getElementById(`btn-del-${amigoKey}`).addEventListener('click', () => {
+                eliminarAmigo(amigoKey, amigoData.nombre);
+            });
+        });
+    } catch(e) {
+        console.error('Error cargando amigos:', e);
+        lista.innerHTML = '<p style="text-align:center;color:var(--danger);padding:2rem;">Error al cargar.</p>';
+    }
 }
 
 async function eliminarAmigo(amigoKey, amigoNombre) {
-    const confirmar = confirm(`¿Seguro que quieres eliminar a "${amigoNombre}"?`);
-    if (!confirmar) return;
+    if (!confirm(`¿Seguro que quieres eliminar a "${amigoNombre}"?`)) return;
     const miKey = getMiKey(); if (!miKey) return;
     const chatId = getChatId(miKey, amigoKey);
     try {
-        const updates = {};
-        updates[`amigos/${miKey}/${amigoKey}`] = null; updates[`amigos/${amigoKey}/${miKey}`] = null;
-        updates[`chats/${chatId}`] = null;
-        updates[`solicitudes_enviadas/${miKey}/${amigoKey}`]  = null; updates[`solicitudes_enviadas/${amigoKey}/${miKey}`]  = null;
-        updates[`solicitudes/${miKey}/pendientes/${amigoKey}`] = null; updates[`solicitudes/${amigoKey}/pendientes/${miKey}`] = null;
-        await database.ref().update(updates);
+        await supabaseClient.from('amigos').delete()
+            .or(`and(user_key.eq.${miKey},amigo_key.eq.${amigoKey}),and(user_key.eq.${amigoKey},amigo_key.eq.${miKey})`);
+        await supabaseClient.from('mensajes').delete().eq('chat_id', chatId);
+        await supabaseClient.from('chats').delete().eq('chat_id', chatId);
+        await supabaseClient.from('solicitudes').delete()
+            .or(`and(from_key.eq.${miKey},to_key.eq.${amigoKey}),and(from_key.eq.${amigoKey},to_key.eq.${miKey})`);
         mostrarToast(`✅ "${amigoNombre}" eliminado de tus amigos`);
         if (_chatActivoOtroKey === amigoKey) volverListaChats();
         cargarAmigosPanel(); cargarListaChats(); cargarEstudiantes();
@@ -2622,14 +2470,14 @@ function detenerGrabacion() {
 }
 
 async function enviarDenuncia() {
-    const nombre      = document.getElementById('denuncia-nombre').value.trim();
-    const cargo       = document.getElementById('denuncia-cargo').value;
-    const ciclo       = document.getElementById('denuncia-ciclo').value;
+    const nombre       = document.getElementById('denuncia-nombre').value.trim();
+    const cargo        = document.getElementById('denuncia-cargo').value;
+    const ciclo        = document.getElementById('denuncia-ciclo').value;
     const especialidad = document.getElementById('denuncia-especialidad')?.value || '';
-    const descripcion = document.getElementById('denuncia-descripcion').value.trim();
-    const fecha       = document.getElementById('denuncia-fecha').value;
-    const hora        = document.getElementById('denuncia-hora').value;
-    const btn         = document.getElementById('btn-enviar-denuncia');
+    const descripcion  = document.getElementById('denuncia-descripcion').value.trim();
+    const fecha        = document.getElementById('denuncia-fecha').value;
+    const hora         = document.getElementById('denuncia-hora').value;
+    const btn          = document.getElementById('btn-enviar-denuncia');
     if (!nombre || !cargo || !descripcion) { mostrarToast('⚠️ Completa los campos obligatorios', 'fa-exclamation-circle'); return; }
     if (descripcion.length < 20) { mostrarToast('⚠️ La descripción es muy corta (mín. 20 caracteres)', 'fa-exclamation-circle'); return; }
     btn.disabled = true; btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Enviando…';
@@ -2643,21 +2491,27 @@ async function enviarDenuncia() {
             const resourceType = evidenciaTipo === 'foto' ? 'image' : evidenciaTipo === 'video' ? 'video' : 'raw';
             const endpoint = `https://api.cloudinary.com/v1_1/${CLOUDINARY_CONFIG.CLOUD_NAME}/${resourceType}/upload`;
             const fd = new FormData();
-            fd.append('file', archivoASubir); fd.append('upload_preset', CLOUDINARY_CONFIG.UPLOAD_PRESET); fd.append('folder', 'denuncias_clouddesk');
+            fd.append('file', archivoASubir);
+            fd.append('upload_preset', CLOUDINARY_CONFIG.UPLOAD_PRESET);
+            fd.append('folder', 'denuncias_clouddesk');
             const res = await fetch(endpoint, { method:'POST', body:fd });
             if (res.ok) { const data = await res.json(); evidenciaUrl = data.secure_url; }
         }
-        const idAnonimo = 'DEN-' + Math.random().toString(36).substring(2,8).toUpperCase();
-        await database.ref('denuncias').push({
+        const idAnonimo = 'DEN-' + Math.random().toString(36).substring(2, 8).toUpperCase();
+        const { error } = await supabaseClient.from('denuncias').insert({
+            id_anonimo:        idAnonimo,
             denunciado_nombre: nombre,
-            denunciado_cargo: cargo === 'Estudiante'
+            denunciado_cargo:  cargo === 'Estudiante'
                 ? `${cargo}${especialidad ? ' · ' + especialidad : ''}${ciclo ? ' · Ciclo ' + ciclo : ''}`
                 : cargo,
-            descripcion, evidencia_url: evidenciaUrl, evidencia_tipo: evidenciaTipo,
-            fecha, hora, timestamp: Date.now(), estado: 'pendiente', id_anonimo: idAnonimo
+            descripcion,
+            evidencia_url:  evidenciaUrl,
+            evidencia_tipo: evidenciaTipo,
+            fecha, hora, timestamp: Date.now(),
+            estado: 'pendiente'
         });
+        if (error) throw new Error(error.message);
         _mostrarDenStep(3);
-      
     } catch(e) {
         console.error('Error enviando denuncia:', e);
         mostrarToast('❌ Error al enviar la denuncia. Intenta de nuevo.', 'fa-times-circle');
@@ -2669,83 +2523,53 @@ async function enviarDenuncia() {
 // ============================================
 // PASO "SABER MÁS" — CUENTA NO REGISTRADA
 // ============================================
-
-/**
- * Muestra el paso explicativo cuando la cuenta no está registrada.
- * Oculta todo lo anterior y muestra el diseño con imagen + caja de scroll.
- */
 async function mostrarSaberMas() {
     _ocultarTodosLosSteps();
-
     const step = document.getElementById('auth-step-no-registrado');
     if (step) step.style.display = 'block';
-
-    // Carga las especialidades activas desde Firebase
     await cargarEspecialidadesActivas();
 }
 
-/**
- * Consulta Firebase y muestra solo las especialidades/ciclos
- * que tienen al menos un usuario registrado.
- */
 async function cargarEspecialidadesActivas() {
     const container = document.getElementById('no-reg-especialidades');
     if (!container) return;
-
     try {
-        const snap    = await database.ref('codigos').once('value');
-        const codigos = snap.val() || {};
-
-        // Agrupa por especialidad → conjunto de ciclos
-        // especMap = { "Comunicación": Set(["V", "VII"]), "Inicial": Set(["III"]) }
+        const { data: usuarios, error } = await supabaseClient
+            .from('usuarios')
+            .select('especialidad, ciclo')
+            .not('especialidad', 'is', null)
+            .neq('especialidad', '');
+        if (error) throw error;
         const especMap = {};
-
-        for (const [key, data] of Object.entries(codigos)) {
-            // Solo cuenta si tiene especialidad asignada
-            if (data.especialidad && data.especialidad.trim() !== '') {
-                const esp = data.especialidad.trim();
-                if (!especMap[esp]) {
-                    especMap[esp] = new Set();
-                }
-                if (data.ciclo && data.ciclo.trim() !== '') {
-                    especMap[esp].add(data.ciclo.trim());
-                }
+        for (const u of (usuarios || [])) {
+            const esp   = u.especialidad?.trim();
+            const ciclo = u.ciclo?.trim();
+            if (esp) {
+                if (!especMap[esp]) especMap[esp] = new Set();
+                if (ciclo) especMap[esp].add(ciclo);
             }
         }
-
-        // Si no hay ninguna especialidad, muestra mensaje
-        if (Object.keys(especMap).length === 0) {
+        if (!Object.keys(especMap).length) {
             container.innerHTML = '<p style="color:var(--text-muted);font-size:0.8rem;padding:0.3rem 0;">No hay especialidades disponibles actualmente.</p>';
             return;
         }
-
-        // Construye las tarjetas de cada especialidad
         container.innerHTML = '';
         for (const [esp, ciclosSet] of Object.entries(especMap)) {
-            // Ordena los ciclos alfabéticamente
             const ciclos = Array.from(ciclosSet).sort();
-
-            const div       = document.createElement('div');
-            div.className   = 'no-reg-esp-item';
-
-            const ciclosBadges = ciclos
-                .map(c => `<span class="no-reg-ciclo-badge">Ciclo ${c}</span>`)
-                .join('');
-
+            const div    = document.createElement('div');
+            div.className = 'no-reg-esp-item';
             div.innerHTML = `
                 <div class="no-reg-esp-nombre">
                     <i class="fa-solid fa-book-open"></i> ${esp}
                 </div>
                 <div class="no-reg-ciclos">
-                    ${ciclosBadges || '<span style="color:var(--text-muted);font-size:0.72rem;">Sin ciclos especificados</span>'}
-                </div>
-            `;
+                    ${ciclos.map(c => `<span class="no-reg-ciclo-badge">Ciclo ${c}</span>`).join('') || '<span style="color:var(--text-muted);font-size:.72rem;">Sin ciclos especificados</span>'}
+                </div>`;
             container.appendChild(div);
         }
-
-    } catch (e) {
+    } catch(e) {
         console.error('Error cargando especialidades activas:', e);
-        container.innerHTML = '<p style="color:var(--danger);font-size:0.78rem;">Error al cargar las especialidades.</p>';
+        container.innerHTML = '<p style="color:var(--danger);font-size:.78rem;">Error al cargar las especialidades.</p>';
     }
 }
 
@@ -2823,14 +2647,15 @@ async function eliminarFotoMiPerfil() {
 
     perfil.foto_url = '';
     localStorage.setItem('eduspace_student_profile', JSON.stringify(perfil));
-
     actualizarPerfilSidebar();
 
     await eliminarImagenCloudinary(urlActual).catch(e => console.error('Cloudinary error:', e));
 
     if (authData.codigo) {
-        database.ref(`codigos/${authData.codigo}/perfil/foto_url`)
-            .set('').catch(console.error);
+        await supabaseClient
+            .from('usuarios')
+            .update({ foto_url: '' })
+            .eq('codigo', authData.codigo);
     }
 
     if (supabaseClient && perfil.supabase_registered) {
@@ -2845,7 +2670,6 @@ async function eliminarFotoMiPerfil() {
             .catch(console.error);
     }
 
-    // ocultarSkeletonFoto() ← ELIMINAR esta línea que estaba aquí
     actualizarEncabezadoEstudiantes();
     ocultarSkeletonFoto();
     mostrarToast('✅ Foto eliminada con éxito', 'fa-check-circle');
@@ -2888,11 +2712,9 @@ function previewFotoRegistro(event) {
 // ============================================
 // DETECTOR DE CONEXIÓN A INTERNET
 // ============================================
-
 const loaderText = document.querySelector('.connection-loader-content p');
 let _sinConexionTimeout = null;
 
-// Congela la animación del loader
 function freezeLoader() {
     if (_loaderAnimFrame) {
         cancelAnimationFrame(_loaderAnimFrame);
@@ -2902,7 +2724,6 @@ function freezeLoader() {
     if (dm) dm.setAttribute('scale', '0');
 }
 
-// Reactiva la animación del loader
 function unfreezeLoader() {
     const dm = document.getElementById('displacement-map');
     if (!dm) return;
@@ -2916,24 +2737,17 @@ function unfreezeLoader() {
 }
 
 window.addEventListener('offline', () => {
-    // Limpiar timeout previo si existe
     if (_sinConexionTimeout) {
         clearTimeout(_sinConexionTimeout);
         _sinConexionTimeout = null;
     }
-
-    // Paso 1: mostrar loader CONGELADO con "Has perdido conexión"
     showConnectionLoader();
     freezeLoader();
     loaderText.textContent = 'Has perdido conexión';
-
-    // Paso 2: después de 2 segundos → "Intentando reconectar..." con animación
     setTimeout(() => {
         if (!navigator.onLine) {
             loaderText.textContent = 'Intentando reconectar...';
             unfreezeLoader();
-
-            // Paso 3: si después de 15 segundos sigue sin internet
             _sinConexionTimeout = setTimeout(() => {
                 if (!navigator.onLine) {
                     loaderText.textContent = 'Sin conexión a internet';
@@ -2945,13 +2759,10 @@ window.addEventListener('offline', () => {
 });
 
 window.addEventListener('online', () => {
-    // Limpiar timeout si estaba corriendo
     if (_sinConexionTimeout) {
         clearTimeout(_sinConexionTimeout);
         _sinConexionTimeout = null;
     }
-
-    // "Conectando..." con animación y ocultar después de 2 segundos
     loaderText.textContent = 'Conectando...';
     unfreezeLoader();
     setTimeout(() => {
@@ -2966,7 +2777,6 @@ window.addEventListener('online', () => {
 function abrirModalAjustes() {
     const modal = document.getElementById('modal-ajustes');
     if (!modal) return;
-    // Resetear estado de Seguridad al abrir
     const opciones = document.getElementById('ajustes-opciones');
     const chevron  = document.getElementById('ajustes-chevron');
     if (opciones) opciones.style.display = 'none';
@@ -3046,21 +2856,212 @@ function copiarClaveAPI() {
 }
 
 async function cerrarSesion() {
-    const confirmado = confirm('¿Seguro que deseas cerrar sesión en este dispositivo?');
-    if (!confirmado) return;
+    if (!confirm('¿Seguro que deseas cerrar sesión en este dispositivo?')) return;
     try {
         const authRaw  = localStorage.getItem('eduspace_auth');
         const authData = authRaw ? JSON.parse(authRaw) : null;
-        if (authData && authData.codigo && authData.googleUid && authData.deviceType) {
-            const deviceKey = `${authData.googleUid}_${authData.deviceType}`;
-            await database.ref(`codigos/${authData.codigo}/dispositivos/${deviceKey}`).remove();
+        if (authData?.codigo && authData?.googleUid && authData?.deviceType) {
+            await supabaseClient.from('dispositivos').delete()
+                .eq('codigo',     authData.codigo)
+                .eq('google_uid', authData.googleUid)
+                .eq('tipo',       authData.deviceType);
         }
-    } catch (e) { console.error('Error al limpiar dispositivo:', e); }
+    } catch(e) { console.error('Error limpiando dispositivo:', e); }
+
+    // Desuscribir todos los canales
+    [_canalUsuario, _canalSolicitudes, _canalChats, _canalMensajes, _librosChannel].forEach(c => c?.unsubscribe());
+
     localStorage.removeItem('eduspace_auth');
     localStorage.removeItem('eduspace_student_profile');
     localStorage.removeItem('eduspace_api');
     localStorage.removeItem('eduspace_instance_id');
     localStorage.removeItem('completedAssignments');
-    try { await auth.signOut(); } catch (e) { console.error(e); }
+
+    await supabaseClient.auth.signOut();
     location.reload();
+}
+
+// ============================================
+// SISTEMA DE CHAT
+// ============================================
+let _chatActivoId      = null;
+let _chatActivoOtroKey = null;
+
+function iniciarListenerChats() {
+    const miKey = getMiKey();
+    if (!miKey) return;
+    if (_canalChats) _canalChats.unsubscribe();
+    _canalChats = supabaseClient
+        .channel(`amigos-refresh-${miKey}`)
+        .on('postgres_changes', {
+            event: '*', schema: 'public', table: 'amigos',
+            filter: `user_key=eq.${miKey}`
+        }, () => { if (currentTab === 'chat') cargarListaChats(); })
+        .subscribe();
+    cargarListaChats();
+}
+
+function iniciarListenerMensajes(chatId) {
+    if (_canalMensajes) _canalMensajes.unsubscribe();
+    const miKey = getMiKey();
+    _canalMensajes = supabaseClient
+        .channel(`chat-${chatId}`)
+        .on('postgres_changes', {
+            event: 'INSERT', schema: 'public', table: 'mensajes',
+            filter: `chat_id=eq.${chatId}`
+        }, (payload) => {
+            const msg        = payload.new;
+            const messagesEl = document.getElementById('chat-messages');
+            if (!messagesEl) return;
+            const esMio = msg.de_key === miKey;
+            const hora  = msg.fecha ? new Date(msg.fecha).toLocaleTimeString('es-ES', { hour:'2-digit', minute:'2-digit' }) : '';
+            const wrap  = document.createElement('div');
+            wrap.className = `chat-bubble-wrapper ${esMio ? 'mio' : 'otro'}`;
+            wrap.innerHTML = `<div class="chat-bubble ${esMio ? 'mio' : 'otro'}">${msg.texto}<div class="chat-bubble-time">${hora}</div></div>`;
+            messagesEl.appendChild(wrap);
+            messagesEl.scrollTop = messagesEl.scrollHeight;
+        })
+        .subscribe();
+}
+
+async function cargarListaChats() {
+    const chatList = document.getElementById('chat-list');
+    if (!chatList) return;
+    const miKey    = getMiKey();
+    const miPerfil = getMiPerfil();
+    if (!miKey || !miPerfil?.supabase_registered) {
+        chatList.innerHTML = '<p class="chat-empty"><i class="fa-solid fa-user-lock"></i><br>Únete a la comunidad para chatear.</p>';
+        return;
+    }
+    try {
+        const { data: amigos, error } = await supabaseClient
+            .from('amigos').select('*').eq('user_key', miKey);
+        if (error) throw error;
+        if (!amigos?.length) {
+            chatList.innerHTML = '<p class="chat-empty"><i class="fa-solid fa-comment-slash"></i><br>No tienes contactos aún.<br>Acepta solicitudes en Comunidad.</p>';
+            return;
+        }
+        chatList.innerHTML = '';
+        for (const amigoData of amigos) {
+            const amigoKey = amigoData.amigo_key;
+            const chatId   = getChatId(miKey, amigoKey);
+            let ultimoTxt  = 'Sin mensajes aún';
+            const { data: ult } = await supabaseClient
+                .from('mensajes').select('texto').eq('chat_id', chatId)
+                .order('fecha', { ascending: false }).limit(1).maybeSingle();
+            if (ult) ultimoTxt = ult.texto;
+
+            const item = document.createElement('div');
+            item.className = 'chat-item';
+            item.id = `chat-item-${amigoKey}`;
+            item.innerHTML = `
+                <img src="${amigoData.foto || ''}" alt="${amigoData.nombre}" class="chat-item-foto"
+                     onerror="this.src='https://ui-avatars.com/api/?name=${encodeURIComponent(amigoData.nombre)}&background=3b82f6&color=fff&size=200'">
+                <div class="chat-item-info">
+                    <span class="chat-item-nombre">${amigoData.nombre}</span>
+                    <span class="chat-item-ultimo">${ultimoTxt}</span>
+                </div>`;
+            item.addEventListener('click', () => abrirChatConAmigo(chatId, amigoKey, amigoData.nombre, amigoData.foto || ''));
+            chatList.appendChild(item);
+        }
+    } catch(e) { console.error('Error cargando lista chats:', e); }
+}
+
+async function abrirChatConAmigo(chatId, otroKey, otroNombre, otroFoto) {
+    _chatActivoId = chatId; _chatActivoOtroKey = otroKey;
+    document.querySelectorAll('.chat-item').forEach(i => i.classList.remove('active'));
+    const item = document.getElementById(`chat-item-${otroKey}`);
+    if (item) item.classList.add('active');
+    if (window.innerWidth <= 768) {
+        const sp = document.getElementById('chat-sidebar-panel');
+        const cm = document.getElementById('chat-main');
+        if (sp) sp.style.display = 'none';
+        if (cm) { cm.style.display = 'flex'; cm.classList.add('mobile-visible'); }
+    }
+    const placeholder = document.getElementById('chat-placeholder');
+    const chatWindow  = document.getElementById('chat-window');
+    if (placeholder) placeholder.style.display = 'none';
+    if (chatWindow)  chatWindow.style.display   = 'flex';
+
+    const isMobile  = window.innerWidth <= 768;
+    const winHeader = document.getElementById('chat-win-header');
+    if (winHeader) {
+        winHeader.innerHTML = `
+            ${isMobile ? `<button class="chat-back-btn" onclick="volverListaChats()"><i class="fa-solid fa-arrow-left"></i></button>` : ''}
+            <img src="${otroFoto}" alt="${otroNombre}" class="chat-header-foto"
+                 onerror="this.src='https://ui-avatars.com/api/?name=${encodeURIComponent(otroNombre)}&background=3b82f6&color=fff&size=200'">
+            <span class="chat-header-nombre">${otroNombre}</span>
+            <button class="btn-denunciar-chat" onclick="abrirDenuncia('${otroNombre.replace(/'/g,"\\'")}')">
+                <i class="fa-solid fa-flag"></i><span class="btn-den-txt"> Denunciar</span>
+            </button>`;
+    }
+
+    if (_canalMensajes) { _canalMensajes.unsubscribe(); _canalMensajes = null; }
+    const messagesEl = document.getElementById('chat-messages');
+    if (messagesEl) messagesEl.innerHTML = '';
+
+    const miKey = getMiKey();
+    const { data: mensajes } = await supabaseClient
+        .from('mensajes').select('*').eq('chat_id', chatId)
+        .order('fecha', { ascending: true });
+    if (mensajes) {
+        mensajes.forEach(msg => {
+            const esMio = msg.de_key === miKey;
+            const hora  = msg.fecha ? new Date(msg.fecha).toLocaleTimeString('es-ES', { hour:'2-digit', minute:'2-digit' }) : '';
+            const wrap  = document.createElement('div');
+            wrap.className = `chat-bubble-wrapper ${esMio ? 'mio' : 'otro'}`;
+            wrap.innerHTML = `<div class="chat-bubble ${esMio ? 'mio' : 'otro'}">${msg.texto}<div class="chat-bubble-time">${hora}</div></div>`;
+            messagesEl.appendChild(wrap);
+        });
+        messagesEl.scrollTop = messagesEl.scrollHeight;
+    }
+
+    iniciarListenerMensajes(chatId);
+    setTimeout(() => document.getElementById('chat-input')?.focus(), 100);
+}
+
+function volverListaChats() {
+    const sp = document.getElementById('chat-sidebar-panel');
+    const cm = document.getElementById('chat-main');
+    if (sp) sp.style.display = 'flex';
+    if (cm) { cm.style.display = 'none'; cm.classList.remove('mobile-visible'); }
+    const placeholder = document.getElementById('chat-placeholder');
+    const chatWindow  = document.getElementById('chat-window');
+    if (chatWindow)  chatWindow.style.display  = 'none';
+    if (placeholder) placeholder.style.display = 'flex';
+    if (_canalMensajes) { _canalMensajes.unsubscribe(); _canalMensajes = null; }
+    _chatActivoId = null; _chatActivoOtroKey = null;
+}
+
+async function enviarMensaje() {
+    const input = document.getElementById('chat-input');
+    const texto = input?.value?.trim();
+    if (!texto || !_chatActivoId) return;
+    const miPerfil = getMiPerfil(); const miKey = getMiKey();
+    if (!miPerfil || !miKey) return;
+    input.value = '';
+    try {
+        await supabaseClient.from('mensajes').insert({
+            chat_id:    _chatActivoId,
+            de_key:     miKey,
+            de_nombre:  miPerfil.nombre,
+            texto,
+            fecha:      Date.now()
+        });
+        await supabaseClient.from('chats')
+            .update({ ultimo_texto: texto, ultimo_fecha: Date.now() })
+            .eq('chat_id', _chatActivoId);
+        const itemUlt = document.querySelector(`#chat-item-${_chatActivoOtroKey} .chat-item-ultimo`);
+        if (itemUlt) itemUlt.textContent = texto;
+    } catch(e) { console.error('Error enviando mensaje:', e); }
+}
+
+if ('visualViewport' in window) {
+    window.visualViewport.addEventListener('resize', () => {
+        const chatMain = document.getElementById('chat-main');
+        if (!chatMain || !chatMain.classList.contains('mobile-visible')) return;
+        const vv = window.visualViewport;
+        chatMain.style.height = vv.height + 'px';
+        chatMain.style.top    = vv.offsetTop + 'px';
+    });
 }
