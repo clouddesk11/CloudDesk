@@ -657,58 +657,54 @@ document.addEventListener('DOMContentLoaded', async () => {
         });
     }
 
-    // REEMPLAZA CON ESTO:
-let _ultimoUid = null;
+    supabaseClient.auth.onAuthStateChange(async (event, session) => {
+        if (_authValidating) { hideConnectionLoader(); return; }
+        _authValidating = true;
+        hideConnectionLoader();
 
-supabaseClient.auth.onAuthStateChange(async (event, session) => {
-    hideConnectionLoader();
+        const user = session?.user ?? null;
 
-    // Ignorar eventos repetidos del mismo usuario
-    const uid = session?.user?.id ?? null;
-    if (uid && uid === _ultimoUid && _appInicializada) return;
-    _ultimoUid = uid;
-
-    const user = session?.user ?? null;
-
-    if (user) {
-        const authData = localStorage.getItem('eduspace_auth');
-        if (authData) {
-            const ok = await validateAuthWithSupabase(user.id);
-            if (ok) {
-                const tempVal = _getTempValidacion();
-                if (tempVal && tempVal.requiredGoogleUid && event === 'SIGNED_IN') {
-                    await completarRegistroLaptop(user);
-                    return;
+        if (user) {
+            const authData = localStorage.getItem('eduspace_auth');
+            if (authData) {
+                const ok = await validateAuthWithSupabase(user.id);
+                if (ok) {
+                    // ¿Venimos del flujo laptop?
+                    const tempVal = _getTempValidacion();
+                    if (tempVal && tempVal.requiredGoogleUid && event === 'SIGNED_IN') {
+                        await completarRegistroLaptop(user);
+                        _authValidating = false;
+                        return;
+                    }
+                    const apiRevealStep = document.getElementById('auth-step-api-reveal');
+                    if (!apiRevealStep || apiRevealStep.style.display === 'none') hideAuthModal();
+                    iniciarListeners();
+                    actualizarPerfilSidebar();
+                } else {
+                    await supabaseClient.auth.signOut();
+                    showAuthModal();
+                    getDeviceType() === 'mobile' ? mostrarPaso1() : mostrarPasoLaptop();
                 }
-                const apiRevealStep = document.getElementById('auth-step-api-reveal');
-                if (!apiRevealStep || apiRevealStep.style.display === 'none') hideAuthModal();
-                iniciarListeners();
-                actualizarPerfilSidebar();
             } else {
-                await supabaseClient.auth.signOut();
-                showAuthModal();
-                getDeviceType() === 'mobile' ? mostrarPaso1() : mostrarPasoLaptop();
-            }
+    if (_registrandoAhora) { _authValidating = false; return; }
+    hideConnectionLoader();
+    showAuthModal();
+    await procesarLoginGoogle(user);
+}
         } else {
-            if (_registrandoAhora) return;
             showAuthModal();
-            await procesarLoginGoogle(user);
+            getDeviceType() === 'mobile' ? mostrarPaso1() : mostrarPasoLaptop();
         }
-    } else {
-        _ultimoUid = null;
-        showAuthModal();
-        getDeviceType() === 'mobile' ? mostrarPaso1() : mostrarPasoLaptop();
-    }
 
-    if (!_appInicializada) {
-        _appInicializada = true;
-        updatePendingBadge();
-        actualizarPerfilSidebar();
-        actualizarEncabezadoEstudiantes();
-        iniciarListeners();
-        switchTab('repositorio');
-    }
-});
+        if (!_appInicializada) {
+            _appInicializada = true;
+            updatePendingBadge();
+            actualizarPerfilSidebar();
+            switchTab('repositorio');
+        }
+        setTimeout(() => { _authValidating = false; }, 4000);
+    });
+
     const checkbox = document.getElementById('aceptoTerminos');
     if (checkbox) {
         checkbox.addEventListener('change', function() {
@@ -770,9 +766,6 @@ let _canalMensajes    = null;
 let _librosChannel    = null;
 
 function iniciarListeners() {
-    [_canalUsuario, _canalSolicitudes].forEach(c => c?.unsubscribe());
-    _canalUsuario     = null;
-    _canalSolicitudes = null;
     iniciarListenerUsuario();
     iniciarListenerSolicitudes();
 }
@@ -3074,40 +3067,3 @@ if ('visualViewport' in window) {
         chatMain.style.top    = vv.offsetTop + 'px';
     });
 }
-
-window.addEventListener('pageshow', async (event) => {
-    if (!event.persisted) return;
-
-    _appInicializada = false;
-    _ultimoUid       = null;
-
-    [_canalUsuario, _canalSolicitudes, _canalChats,
-     _canalMensajes, _librosChannel].forEach(c => {
-        try { c?.unsubscribe(); } catch(e) {}
-    });
-    _canalUsuario     = null;
-    _canalSolicitudes = null;
-    _canalChats       = null;
-    _canalMensajes    = null;
-    _librosChannel    = null;
-
-    hideConnectionLoader();
-
-    try {
-        const { data: { session } } = await supabaseClient.auth.getSession();
-        if (session?.user) {
-            const authData = localStorage.getItem('eduspace_auth');
-            if (authData) {
-                actualizarPerfilSidebar();
-                actualizarEncabezadoEstudiantes();
-                updatePendingBadge();
-                iniciarListeners();
-                switchTab(currentTab || 'repositorio');
-                _appInicializada = true;
-                _ultimoUid       = session.user.id;
-            }
-        }
-    } catch(e) {
-        console.error('pageshow error:', e);
-    }
-});
