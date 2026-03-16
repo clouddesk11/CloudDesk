@@ -702,7 +702,7 @@ document.addEventListener('DOMContentLoaded', async () => {
             actualizarPerfilSidebar();
             switchTab('repositorio');
         }
-        setTimeout(() => { _authValidating = false; }, 4000);
+        setTimeout(() => { _authValidating = false; }, 1500);
     });
 
     const checkbox = document.getElementById('aceptoTerminos');
@@ -766,6 +766,9 @@ let _canalMensajes    = null;
 let _librosChannel    = null;
 
 function iniciarListeners() {
+    [_canalUsuario, _canalSolicitudes].forEach(c => c?.unsubscribe());
+    _canalUsuario     = null;
+    _canalSolicitudes = null;
     iniciarListenerUsuario();
     iniciarListenerSolicitudes();
 }
@@ -3067,3 +3070,17 @@ if ('visualViewport' in window) {
         chatMain.style.top    = vv.offsetTop + 'px';
     });
 }
+
+window.addEventListener('pageshow', (event) => {
+    if (event.persisted) {
+        _authValidating  = false;
+        _appInicializada = false;
+
+        hideConnectionLoader();
+        actualizarPerfilSidebar();
+        actualizarEncabezadoEstudiantes();
+        updatePendingBadge();
+        iniciarListeners();
+        switchTab(currentTab || 'repositorio');
+    }
+});
