@@ -436,8 +436,7 @@ async function procesarLoginGoogle(user) {
         const codigoEncontrado = await buscarCodigoPorEmail(user.email);
 
         if (!codigoEncontrado) {
-            await supabaseClient.auth.signOut();
-            showAuthModal();   
+            await supabaseClient.auth.signOut(); 
             if (errEl) {
                 errEl.innerHTML = '🚫 Tu cuenta de Google no está registrada en el sistema. <span class="saber-mas-link" onclick="mostrarSaberMas()">Saber más</span>';
                 errEl.style.display = 'block';
@@ -525,7 +524,6 @@ async function procesarLoginGoogle(user) {
 }
 
 function mostrarPasoRegistroNuevo(nombre, especialidad, ciclo, api) {
-    showAuthModal(); 
     _ocultarTodosLosSteps();
     document.getElementById('auth-step-registro').style.display = 'block';
 
@@ -664,7 +662,7 @@ document.addEventListener('DOMContentLoaded', async () => {
     supabaseClient.auth.onAuthStateChange(async (event, session) => {
         // DESPUÉS (cámbialo por esto):
 if (_authValidating) {
-    if (!session?.user) { hideConnectionLoader(); return; }
+    if (_authValidating) { hideConnectionLoader(); return; }
     _authValidating = false; // tiene sesión válida, resetea el bloqueo
 }
 
@@ -694,6 +692,7 @@ if (_authValidating) {
             } else {
     if (_registrandoAhora) { _authValidating = false; return; }
     hideConnectionLoader();
+    showAuthModal();
     await procesarLoginGoogle(user);
 }
         } else {
