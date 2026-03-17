@@ -437,6 +437,7 @@ async function procesarLoginGoogle(user) {
 
         if (!codigoEncontrado) {
             await supabaseClient.auth.signOut();
+            showAuthModal();   
             if (errEl) {
                 errEl.innerHTML = '🚫 Tu cuenta de Google no está registrada en el sistema. <span class="saber-mas-link" onclick="mostrarSaberMas()">Saber más</span>';
                 errEl.style.display = 'block';
@@ -447,6 +448,7 @@ async function procesarLoginGoogle(user) {
 
         if (codigoEncontrado.bloqueado === true) {
             await supabaseClient.auth.signOut();
+            showAuthModal();
             if (errEl) {
                 errEl.textContent = `🚫 ACCESO BLOQUEADO: ${codigoEncontrado.motivo_bloqueo || 'Tu acceso ha sido bloqueado.'}`;
                 errEl.style.display = 'block';
@@ -516,12 +518,14 @@ async function procesarLoginGoogle(user) {
 
     } catch (error) {
         console.error('Error en procesarLoginGoogle:', error);
+        showAuthModal(); 
         if (errEl) { errEl.textContent = '❌ Error de conexión. Intenta nuevamente.'; errEl.style.display = 'block'; }
         if (btn) { btn.disabled = false; btn.innerHTML = googleBtnHTML(); }
     }
 }
 
 function mostrarPasoRegistroNuevo(nombre, especialidad, ciclo, api) {
+    showAuthModal(); 
     _ocultarTodosLosSteps();
     document.getElementById('auth-step-registro').style.display = 'block';
 
@@ -658,9 +662,11 @@ document.addEventListener('DOMContentLoaded', async () => {
     }
 
     supabaseClient.auth.onAuthStateChange(async (event, session) => {
-        if (_authValidating) { hideConnectionLoader(); return; }
-        _authValidating = true;
-        hideConnectionLoader();
+        // DESPUÉS (cámbialo por esto):
+if (_authValidating) {
+    if (!session?.user) { hideConnectionLoader(); return; }
+    _authValidating = false; // tiene sesión válida, resetea el bloqueo
+}
 
         const user = session?.user ?? null;
 
@@ -688,7 +694,6 @@ document.addEventListener('DOMContentLoaded', async () => {
             } else {
     if (_registrandoAhora) { _authValidating = false; return; }
     hideConnectionLoader();
-    showAuthModal();
     await procesarLoginGoogle(user);
 }
         } else {
