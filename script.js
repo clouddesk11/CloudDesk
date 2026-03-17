@@ -2312,6 +2312,27 @@ function iniciarListenerChats() {
     _amigosListenerRef.on('value', () => { if (currentTab === 'chat') cargarListaChats(); });
 }
 
+function renderMensaje(msg, miKey) {
+    const messagesEl = document.getElementById('chat-messages');
+    if (!messagesEl || !msg) return;
+
+    const esMio = msg.de_key === miKey;
+    const hora = msg.fecha
+        ? new Date(msg.fecha).toLocaleTimeString('es-ES', {
+            hour: '2-digit', minute: '2-digit'
+          })
+        : '';
+
+    const wrap = document.createElement('div');
+    wrap.className = `chat-bubble-wrapper ${esMio ? 'mio' : 'otro'}`;
+    wrap.innerHTML = `
+        <div class="chat-bubble ${esMio ? 'mio' : 'otro'}">
+            ${msg.texto}
+            <div class="chat-bubble-time">${hora}</div>
+        </div>`;
+    messagesEl.appendChild(wrap);
+}
+
 function abrirChatConAmigo(chatId, otroKey, otroNombre, otroFoto) {
     _chatActivoId = chatId; _chatActivoOtroKey = otroKey;
     document.querySelectorAll('.chat-item').forEach(i => i.classList.remove('active'));
@@ -2341,27 +2362,49 @@ function abrirChatConAmigo(chatId, otroKey, otroNombre, otroFoto) {
             </button>`;
     }
 
-    if (_mensajesListenerRef) { _mensajesListenerRef.off('child_added'); _mensajesListenerRef = null; }
+    
+// Limpiar listener anterior de Supabase
+    if (_mensajesListenerRef) {
+        supabaseClient.removeChannel(_mensajesListenerRef);
+        _mensajesListenerRef = null;
+    }
+
     const messagesEl = document.getElementById('chat-messages');
     if (messagesEl) messagesEl.innerHTML = '';
 
     const miKey = getMiKey();
-    _mensajesListenerRef = database.ref(`chats/${chatId}/mensajes`);
-    _mensajesListenerRef.on('child_added', (snap) => {
-        const msg = snap.val();
-        if (!msg || !messagesEl) return;
-        const esMio = msg.de_key === miKey;
-        const hora  = msg.fecha ? new Date(msg.fecha).toLocaleTimeString('es-ES', { hour:'2-digit', minute:'2-digit' }) : '';
-        const wrap = document.createElement('div');
-        wrap.className = `chat-bubble-wrapper ${esMio ? 'mio' : 'otro'}`;
-        wrap.innerHTML = `<div class="chat-bubble ${esMio ? 'mio' : 'otro'}">${msg.texto}<div class="chat-bubble-time">${hora}</div></div>`;
-        messagesEl.appendChild(wrap);
-        messagesEl.scrollTop = messagesEl.scrollHeight;
-    });
+
+    // Cargar mensajes históricos primero
+    const { data: mensajesAnteriores } = await supabaseClient
+        .from('mensajes')
+        .select('*')
+        .eq('chat_id', chatId)
+        .order('fecha', { ascending: true });
+
+    if (mensajesAnteriores) {
+        mensajesAnteriores.forEach(msg => renderMensaje(msg, miKey));
+        if (messagesEl) messagesEl.scrollTop = messagesEl.scrollHeight;
+    }
+
+    // Escuchar mensajes nuevos en tiempo real
+    _mensajesListenerRef = supabaseClient
+        .channel(`chat-${chatId}`)
+        .on('postgres_changes', {
+            event: 'INSERT',
+            schema: 'public',
+            table: 'mensajes',
+            filter: `chat_id=eq.${chatId}`
+        }, (payload) => {
+            renderMensaje(payload.new, miKey);
+            if (messagesEl) messagesEl.scrollTop = messagesEl.scrollHeight;
+        })
+        .subscribe();
+
     setTimeout(() => document.getElementById('chat-input')?.focus(), 100);
 }
-
-function volverListaChats() {
+    
+    
+    function volverListaChats() {
     const sp = document.getElementById('chat-sidebar-panel');
     const cm = document.getElementById('chat-main');
     if (sp) sp.style.display = 'flex';
@@ -2370,7 +2413,9 @@ function volverListaChats() {
     const chatWindow  = document.getElementById('chat-window');
     if (chatWindow)  chatWindow.style.display   = 'none';
     if (placeholder) placeholder.style.display  = 'flex';
-    if (_mensajesListenerRef) { _mensajesListenerRef.off('child_added'); _mensajesListenerRef = null; }
+    if (_mensajesListenerRef) {  
+        supabaseClient.removeChannel(_mensajesListenerRef); 
+        _mensajesListenerRef = null; }
     _chatActivoId = null; _chatActivoOtroKey = null;
 }
 
@@ -2378,16 +2423,41 @@ async function enviarMensaje() {
     const input = document.getElementById('chat-input');
     const texto = input?.value?.trim();
     if (!texto || !_chatActivoId) return;
-    const miPerfil = getMiPerfil(); const miKey = getMiKey();
+
+    const miPerfil = getMiPerfil();
+    const miKey = getMiKey();
     if (!miPerfil || !miKey) return;
+
     input.value = '';
+
     try {
-        const msg = { de_key: miKey, de_nombre: miPerfil.nombre, texto, fecha: Date.now() };
-        await database.ref(`chats/${_chatActivoId}/mensajes`).push(msg);
-        await database.ref(`chats/${_chatActivoId}/ultimo_mensaje`).set({ texto, fecha: Date.now(), de_key: miKey });
-        const itemUlt = document.querySelector(`#chat-item-${_chatActivoOtroKey} .chat-item-ultimo`);
+        // Mensajes van a Supabase
+        const { error } = await supabaseClient
+            .from('mensajes')
+            .insert([{
+                chat_id: _chatActivoId,
+                de_key: miKey,
+                de_nombre: miPerfil.nombre,
+                texto: texto
+            }]);
+
+        if (error) throw error;
+
+        // Último mensaje sigue en Firebase
+        await database.ref(`chats/${_chatActivoId}/ultimo_mensaje`).set({
+            texto,
+            fecha: Date.now(),
+            de_key: miKey
+        });
+
+        const itemUlt = document.querySelector(
+            `#chat-item-${_chatActivoOtroKey} .chat-item-ultimo`
+        );
         if (itemUlt) itemUlt.textContent = texto;
-    } catch(e) { console.error('Error enviando mensaje:', e); }
+
+    } catch(e) {
+        console.error('Error enviando mensaje:', e);
+    }
 }
 
 if ('visualViewport' in window) {
