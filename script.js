@@ -46,7 +46,6 @@ function showConnectionLoader() {
     const dm = document.getElementById('displacement-map');
     if (!dm) return;
   
-  
     let t = 0;
     function loop() {
         t += 0.10;
@@ -115,7 +114,6 @@ function _ocultarTodosLosSteps() {
 // FLUJO MÓVIL: PASOS
 // ============================================
 
-// ── PASO 1: Solo muestra el botón de Google ──
 function mostrarPaso1() {
     _ocultarTodosLosSteps();
     document.getElementById('auth-step-code').style.display = 'block';
@@ -265,22 +263,22 @@ async function completarRegistroLaptop(user) {
             await _cargarPerfilDesdeFirebase(freshData, userName);
             _guardarSesionLocal(userName, codigo, googleUid, 'desktop');
             _setTempValidacion(null); hideAuthModal();
-if (codigo === '6578hy') showSpecialUserMessage();
-iniciarListenerBloqueo(); iniciarListenerSupabaseRegistered(); iniciarListenerFotoPerfil();
-actualizarPerfilSidebar(); return;
-}
-const desktopCount = Object.values(dispositivos).filter(d => d.tipo === 'desktop').length;
-if (desktopCount >= 1) { await _cerrarSesionLaptopYMostrarError('💻 Este código ya tiene una laptop registrada. Solo se permite 1 laptop por código.', errEl, btn); return; }
-const updates = {};
-updates[`codigos/${codigo}/dispositivos/${deviceKey}`] = { googleUid, googleEmail: user.email, tipo: 'desktop', usuario: userName, instanceId: _getOrCreateInstanceId(), fechaRegistro: new Date().toISOString(), ultimoAcceso: new Date().toISOString() };
-await database.ref().update(updates);
-await _cargarPerfilDesdeFirebase(freshData, userName);
-_guardarSesionLocal(userName, codigo, googleUid, 'desktop');
-_setTempValidacion(null); hideAuthModal();
-if (codigo === '6578hy') showSpecialUserMessage();
-iniciarListenerBloqueo(); iniciarListenerSupabaseRegistered(); iniciarListenerFotoPerfil();
-actualizarPerfilSidebar();
-} catch (error) {
+            if (codigo === '6578hy') showSpecialUserMessage();
+            iniciarListenerBloqueo(); iniciarListenerSupabaseRegistered(); iniciarListenerFotoPerfil();
+            actualizarPerfilSidebar(); return;
+        }
+        const desktopCount = Object.values(dispositivos).filter(d => d.tipo === 'desktop').length;
+        if (desktopCount >= 1) { await _cerrarSesionLaptopYMostrarError('💻 Este código ya tiene una laptop registrada. Solo se permite 1 laptop por código.', errEl, btn); return; }
+        const updates = {};
+        updates[`codigos/${codigo}/dispositivos/${deviceKey}`] = { googleUid, googleEmail: user.email, tipo: 'desktop', usuario: userName, instanceId: _getOrCreateInstanceId(), fechaRegistro: new Date().toISOString(), ultimoAcceso: new Date().toISOString() };
+        await database.ref().update(updates);
+        await _cargarPerfilDesdeFirebase(freshData, userName);
+        _guardarSesionLocal(userName, codigo, googleUid, 'desktop');
+        _setTempValidacion(null); hideAuthModal();
+        if (codigo === '6578hy') showSpecialUserMessage();
+        iniciarListenerBloqueo(); iniciarListenerSupabaseRegistered(); iniciarListenerFotoPerfil();
+        actualizarPerfilSidebar();
+    } catch (error) {
         console.error('Error en completarRegistroLaptop:', error);
         if (btn)   { btn.disabled = false; btn.innerHTML = googleBtnHTML(); }
     }
@@ -379,10 +377,10 @@ async function procesarLoginGoogle(user) {
                 const u = auth.currentUser;
                 if (u) await u.delete();
             } catch(e) { await auth.signOut().catch(console.error); }
-           if (errEl) {
-    errEl.innerHTML = '🚫 Tu cuenta de Google no está registrada en el sistema. <span class="saber-mas-link" onclick="mostrarSaberMas()">Saber más</span>';
-    errEl.style.display = 'block';
-}
+            if (errEl) {
+                errEl.innerHTML = '🚫 Tu cuenta de Google no está registrada en el sistema. <span class="saber-mas-link" onclick="mostrarSaberMas()">Saber más</span>';
+                errEl.style.display = 'block';
+            }
             if (btn) { btn.disabled = false; btn.innerHTML = googleBtnHTML(); }
             return;
         }
@@ -416,8 +414,6 @@ async function procesarLoginGoogle(user) {
         const instanceId           = _getOrCreateInstanceId();
         const dispositivoExistente = dispositivos[deviceKey];
 
-       
-
         if (!dispositivoExistente) {
             await database.ref(`codigos/${codigo}/dispositivos/${deviceKey}`).set({
                 googleUid,
@@ -438,7 +434,7 @@ async function procesarLoginGoogle(user) {
         const perfilExistente  = localStorage.getItem('eduspace_student_profile');
         const perfilEnFirebase = codigoEncontrado.perfil?.nombre;
 
-      if (perfilExistente || perfilEnFirebase) {
+        if (perfilExistente || perfilEnFirebase) {
             if (perfilEnFirebase && !perfilExistente) {
                 await _cargarPerfilDesdeFirebase(codigoEncontrado, nombre);
             }
@@ -455,21 +451,20 @@ async function procesarLoginGoogle(user) {
             hideAuthModal();
             if (codigo === '6578hy') showSpecialUserMessage();
             iniciarListenerBloqueo();
-iniciarListenerSupabaseRegistered();
-iniciarListenerFotoPerfil();
-actualizarPerfilSidebar();
-return;
+            iniciarListenerSupabaseRegistered();
+            iniciarListenerFotoPerfil();
+            actualizarPerfilSidebar();
+            return;
         }
 
-        // Sin perfil aún: entra directo. El admin asignará sus datos desde el panel.
-if (apiNum && getDeviceType() === 'mobile') localStorage.setItem('eduspace_api', String(apiNum));
-_setTempValidacion(null);
-hideAuthModal();
-if (codigo === '6578hy') showSpecialUserMessage();
-iniciarListenerBloqueo();
-iniciarListenerSupabaseRegistered();
-iniciarListenerFotoPerfil();
-actualizarPerfilSidebar();
+        if (apiNum && getDeviceType() === 'mobile') localStorage.setItem('eduspace_api', String(apiNum));
+        _setTempValidacion(null);
+        hideAuthModal();
+        if (codigo === '6578hy') showSpecialUserMessage();
+        iniciarListenerBloqueo();
+        iniciarListenerSupabaseRegistered();
+        iniciarListenerFotoPerfil();
+        actualizarPerfilSidebar();
 
     } catch (error) {
         console.error('Error en procesarLoginGoogle:', error);
@@ -522,9 +517,9 @@ async function continuarDesdeAuth() {
         hideAuthModal();
         if (codigo === '6578hy') showSpecialUserMessage();
         iniciarListenerBloqueo();
-iniciarListenerSupabaseRegistered();
-iniciarListenerFotoPerfil();
-actualizarPerfilSidebar();
+        iniciarListenerSupabaseRegistered();
+        iniciarListenerFotoPerfil();
+        actualizarPerfilSidebar();
 
     } catch(err) {
         console.error(err);
@@ -557,7 +552,6 @@ async function validateAuthWithFirebase(googleUid) {
         const { codigo, userName } = parsed;
         if (parsed.googleUid !== googleUid) { localStorage.removeItem('eduspace_auth'); return false; }
 
-        // Verificar que el email sigue siendo válido en el sistema
         const user = auth.currentUser;
         if (user?.email) {
             const codigoDelEmail = await buscarCodigoPorEmail(user.email);
@@ -586,7 +580,6 @@ let _authValidating = false;
 document.addEventListener('DOMContentLoaded', async () => {
     showConnectionLoader();
 
-    // Laptop: input API
     if (getDeviceType() === 'desktop') {
         document.getElementById('laptopApiInput')?.addEventListener('keypress', (e) => {
             if (e.key === 'Enter') validarAPI();
@@ -606,9 +599,9 @@ document.addEventListener('DOMContentLoaded', async () => {
                     const apiRevealStep = document.getElementById('auth-step-api-reveal');
                     if (!apiRevealStep || apiRevealStep.style.display === 'none') hideAuthModal();
                     iniciarListenerBloqueo();
-iniciarListenerSupabaseRegistered();
-iniciarListenerFotoPerfil();
-actualizarPerfilSidebar();
+                    iniciarListenerSupabaseRegistered();
+                    iniciarListenerFotoPerfil();
+                    actualizarPerfilSidebar();
                 } else {
                     showAuthModal(); getDeviceType() === 'mobile' ? mostrarPaso1() : mostrarPasoLaptop();
                 }
@@ -626,9 +619,7 @@ actualizarPerfilSidebar();
         }
         setTimeout(() => { _authValidating = false; }, 4000);
     });
-
-    
-    });
+});
 
 
 // ============================================
@@ -654,8 +645,7 @@ function iniciarListenerBloqueo() {
                     const motivo = motivoSnapshot.val() || 'Tu acceso ha sido bloqueado por el administrador.';
                     await auth.signOut().catch(e => console.error(e));
                     localStorage.removeItem('eduspace_auth'); _setTempValidacion(null);
-                  
-                showAuthModal(); mostrarPaso1();
+                    showAuthModal(); mostrarPaso1();
                     const errorDiv = document.getElementById('authError');
                     if (errorDiv) { errorDiv.textContent = `🚫 ACCESO BLOQUEADO: ${motivo}`; errorDiv.style.display = 'block'; }
                     hideSpecialUserMessage();
@@ -706,6 +696,9 @@ function iniciarListenerSupabaseRegistered() {
     } catch(e) { console.error('Error listener supabase_registered:', e); }
 }
 
+// ============================================
+// LISTENER FOTO PERFIL EN TIEMPO REAL
+// ============================================
 function iniciarListenerFotoPerfil() {
     const authData = localStorage.getItem('eduspace_auth');
     if (!authData) return;
@@ -724,6 +717,7 @@ function iniciarListenerFotoPerfil() {
             localStorage.setItem('eduspace_student_profile', JSON.stringify(perfilLocal));
             actualizarPerfilSidebar();
             actualizarEncabezadoEstudiantes();
+            actualizarSeccionPerfil(); // ← sincroniza también la sección perfil
             if (currentTab === 'estudiantes') cargarEstudiantes();
         });
     } catch(e) { console.error('Error listener foto perfil:', e); }
@@ -743,7 +737,7 @@ window.addEventListener('beforeunload', () => {
         try {
             const parsed = JSON.parse(authData);
             if (bloqueoListener) database.ref(`codigos/${parsed.codigo}/bloqueado`).off('value', bloqueoListener);
-          if (supabaseRegistradoListener) database.ref(`codigos/${parsed.codigo}/perfil/supabase_registered`).off('value', supabaseRegistradoListener);
+            if (supabaseRegistradoListener) database.ref(`codigos/${parsed.codigo}/perfil/supabase_registered`).off('value', supabaseRegistradoListener);
             if (fotoPerfilListener) database.ref(`codigos/${parsed.codigo}/perfil/foto_url`).off('value', fotoPerfilListener);
         } catch(e) { console.error(e); }
     }
@@ -774,7 +768,7 @@ const assignmentsDB = [
 ];
 
 // ============================================
-// RECURSOS DB — Solo Documentos, Videos, Imágenes
+// RECURSOS DB
 // ============================================
 const recursosDB = {
     Documentos: [
@@ -920,15 +914,21 @@ function searchRecursos() {
     const searchTerm = document.getElementById('searchInputRecursos').value.toLowerCase().trim();
     if (searchTerm === '') { renderRecursosContent(); return; }
     const searchTerms = normalizeText(searchTerm).split(/\s+/);
-    let allRecursos   = [];
-    Object.keys(recursosDB).forEach(category => {
-        if (category === 'Libros') { allRecursos = allRecursos.concat(recursosDB[category].map(r => ({ ...r, category }))); }
-        else { Object.keys(recursosDB[category]).forEach(type => { allRecursos = allRecursos.concat(recursosDB[category][type].map(r => ({ ...r, category, type }))); }); }
-    });
-    const filteredRecursos = allRecursos.map(r => ({ ...r, relevance: calculateRelevance(r, searchTerms, ['title','description']) })).filter(r => r.relevance > 0).sort((a, b) => b.relevance - a.relevance);
+    const lista = recursosDB[currentRecursosTipo] || [];
+    const filtrados = lista
+        .map(r => ({ ...r, relevance: calculateRelevance(r, searchTerms, ['title','description']) }))
+        .filter(r => r.relevance > 0)
+        .sort((a, b) => b.relevance - a.relevance);
     recursosContainer.innerHTML = '';
-    if (filteredRecursos.length === 0) { recursosContainer.innerHTML = '<p style="grid-column:1/-1;text-align:center;color:var(--text-muted);padding:2rem;">No se encontraron recursos.</p>'; return; }
-    filteredRecursos.forEach(r => { if (r.type === 'Video') renderVideoCard(r); else if (r.type === 'Imagen') renderImageCard(r); else renderDocumentCard(r); });
+    if (filtrados.length === 0) {
+        recursosContainer.innerHTML = `<p style="grid-column:1/-1;text-align:center;color:var(--text-muted);padding:2rem;">No se encontraron resultados.</p>`;
+        return;
+    }
+    filtrados.forEach(r => {
+        if (r.type === 'Video')        renderVideoCard(r);
+        else if (r.type === 'Imagen')  renderImageCard(r);
+        else                           renderDocumentCard(r);
+    });
 }
 
 // ============================================
@@ -939,32 +939,22 @@ let currentRecursosTipo = 'Documentos';
 
 function filterRecursosTipo(tipo) {
     currentRecursosTipo = tipo;
-
-    // Actualizar botones activos
     document.querySelectorAll('.recursos-tipo-btn').forEach(btn => {
         btn.classList.remove('active');
     });
     const btnActivo = document.getElementById(`rtbtn-${tipo}`);
     if (btnActivo) btnActivo.classList.add('active');
-
     renderRecursosContent();
 }
 
 function renderRecursosContent() {
     if (!recursosContainer) return;
     recursosContainer.innerHTML = '';
-
     const lista = recursosDB[currentRecursosTipo] || [];
-
     if (lista.length === 0) {
-        recursosContainer.innerHTML = `
-            <p style="grid-column:1/-1;text-align:center;
-                      color:var(--text-muted);padding:3rem;">
-                No hay ${currentRecursosTipo} disponibles aún.
-            </p>`;
+        recursosContainer.innerHTML = `<p style="grid-column:1/-1;text-align:center;color:var(--text-muted);padding:3rem;">No hay ${currentRecursosTipo} disponibles aún.</p>`;
         return;
     }
-
     lista.forEach(recurso => {
         if (recurso.type === 'Video')  renderVideoCard(recurso);
         else if (recurso.type === 'Imagen') renderImageCard(recurso);
@@ -975,11 +965,9 @@ function renderRecursosContent() {
 function renderDocumentCard(recurso) {
     const card = document.createElement('div');
     card.classList.add('recurso-card');
-
     let icon = 'fa-file-pdf';
     if (recurso.type === 'DOCX' || recurso.type === 'DOC')       icon = 'fa-file-word';
     else if (recurso.type === 'PPTX' || recurso.type === 'PPT')  icon = 'fa-file-powerpoint';
-
     card.innerHTML = `
         <div class="recurso-cover">
             ${recurso.coverImage
@@ -991,12 +979,10 @@ function renderDocumentCard(recurso) {
             <h3 class="recurso-card-title">${recurso.title}</h3>
             <p class="recurso-card-description">${recurso.description}</p>
             <div class="recurso-card-actions">
-                <button onclick="viewFile('${recurso.urlView}')"
-                        class="btn btn-view">
+                <button onclick="viewFile('${recurso.urlView}')" class="btn btn-view">
                     <i class="fa-regular fa-eye"></i> Ver
                 </button>
-                <a href="${recurso.urlDownload}" download
-                   class="btn btn-download">
+                <a href="${recurso.urlDownload}" download class="btn btn-download">
                     <i class="fa-solid fa-download"></i> Descargar
                 </a>
             </div>
@@ -1033,40 +1019,6 @@ function renderImageCard(recurso) {
 }
 
 // ============================================
-// BÚSQUEDA EN RECURSOS — VERSIÓN SIMPLIFICADA
-// ============================================
-
-function searchRecursos() {
-    const searchTerm = document.getElementById('searchInputRecursos').value.toLowerCase().trim();
-    if (searchTerm === '') { renderRecursosContent(); return; }
-
-    const searchTerms = normalizeText(searchTerm).split(/\s+/);
-    const lista = recursosDB[currentRecursosTipo] || [];
-
-    const filtrados = lista
-        .map(r => ({ ...r, relevance: calculateRelevance(r, searchTerms, ['title','description']) }))
-        .filter(r => r.relevance > 0)
-        .sort((a, b) => b.relevance - a.relevance);
-
-    recursosContainer.innerHTML = '';
-
-    if (filtrados.length === 0) {
-        recursosContainer.innerHTML = `
-            <p style="grid-column:1/-1;text-align:center;
-                      color:var(--text-muted);padding:2rem;">
-                No se encontraron resultados.
-            </p>`;
-        return;
-    }
-
-    filtrados.forEach(r => {
-        if (r.type === 'Video')        renderVideoCard(r);
-        else if (r.type === 'Imagen')  renderImageCard(r);
-        else                           renderDocumentCard(r);
-    });
-}
-
-// ============================================
 // LIBROS — FUNCIONES COMPLETAS
 // ============================================
 
@@ -1074,14 +1026,11 @@ let currentLibrosCategoria = 'Todo';
 
 function filterLibros(categoria) {
     currentLibrosCategoria = categoria;
-
-    // Actualizar botones activos
     document.querySelectorAll('.libros-filter-btn').forEach(btn => {
         btn.classList.remove('active');
     });
     const btnActivo = document.getElementById(`lbtn-${categoria}`);
     if (btnActivo) btnActivo.classList.add('active');
-
     cargarLibros();
 }
 
@@ -1090,90 +1039,52 @@ let _librosRealtimeRef = null;
 async function cargarLibros() {
     const grid = document.getElementById('libros-grid');
     if (!grid) return;
-
-    grid.innerHTML = `
-        <div class="libros-loading">
-            <i class="fa-solid fa-spinner fa-spin"></i>
-            <p>Cargando libros...</p>
-        </div>`;
-
-    // Desconectar listener anterior si existe
-    if (_librosRealtimeRef) {
-        _librosRealtimeRef.off('value');
-        _librosRealtimeRef = null;
-    }
-
+    grid.innerHTML = `<div class="libros-loading"><i class="fa-solid fa-spinner fa-spin"></i><p>Cargando libros...</p></div>`;
+    if (_librosRealtimeRef) { _librosRealtimeRef.off('value'); _librosRealtimeRef = null; }
     _librosRealtimeRef = database.ref('libros');
-
     _librosRealtimeRef.on('value', (snap) => {
         const val = snap.val();
-
         let lista = [];
-
         if (val) {
             lista = Object.entries(val)
                 .map(([key, data]) => ({ _key: key, ...data }))
                 .sort((a, b) => (b.created_at || 0) - (a.created_at || 0));
         }
-
-        // Filtrar por categoría si no es "Todo"
         if (currentLibrosCategoria !== 'Todo') {
             lista = lista.filter(l => l.categoria === currentLibrosCategoria);
         }
-
         renderLibros(lista);
     }, (error) => {
         console.error('Error cargando libros:', error);
-        grid.innerHTML = `
-            <div class="libros-empty">
-                <i class="fa-solid fa-triangle-exclamation"></i>
-                <p>Error al cargar los libros.</p>
-            </div>`;
+        grid.innerHTML = `<div class="libros-empty"><i class="fa-solid fa-triangle-exclamation"></i><p>Error al cargar los libros.</p></div>`;
     });
 }
 
 function renderLibros(libros) {
     const grid = document.getElementById('libros-grid');
     if (!grid) return;
-
     grid.innerHTML = '';
-
     if (!libros || libros.length === 0) {
-        grid.innerHTML = `
-            <div class="libros-empty">
-                <i class="fa-solid fa-book-open"></i>
-                <p>No hay libros en esta categoría aún.</p>
-            </div>`;
+        grid.innerHTML = `<div class="libros-empty"><i class="fa-solid fa-book-open"></i><p>No hay libros en esta categoría aún.</p></div>`;
         return;
     }
-
     libros.forEach((libro, idx) => {
         const card = document.createElement('div');
         card.className = 'libro-card';
         card.style.animation      = 'fadeIn 0.4s ease';
         card.style.animationDelay = `${idx * 0.06}s`;
-
-        const fallbackPortada = `https://ui-avatars.com/api/?name=${encodeURIComponent(libro.titulo || 'Libro')}&background=3b82f6&color=fff&size=400&font-size=0.25`;
-
         card.innerHTML = `
             <div class="libro-card-portada">
                 ${libro.portada_url
-                    ? `<img src="${libro.portada_url}"
-                            alt="${libro.titulo}"
-                            onerror="this.style.display='none';
-                                     this.parentElement.querySelector('.libro-card-portada-fallback').style.display='flex'">
-                       <i class="fa-solid fa-book libro-card-portada-fallback"
-                          style="display:none;font-size:3.5rem;color:rgba(255,255,255,.6);"></i>`
+                    ? `<img src="${libro.portada_url}" alt="${libro.titulo}"
+                            onerror="this.style.display='none';this.parentElement.querySelector('.libro-card-portada-fallback').style.display='flex'">
+                       <i class="fa-solid fa-book libro-card-portada-fallback" style="display:none;font-size:3.5rem;color:rgba(255,255,255,.6);"></i>`
                     : `<i class="fa-solid fa-book libro-card-portada-fallback"></i>`}
-                <span class="libro-card-categoria-badge">
-                    ${libro.categoria || 'Sin categoría'}
-                </span>
+                <span class="libro-card-categoria-badge">${libro.categoria || 'Sin categoría'}</span>
             </div>
             <div class="libro-card-body">
                 <h3 class="libro-card-titulo">${libro.titulo || 'Sin título'}</h3>
-                <p class="libro-card-descripcion">
-                    ${libro.descripcion || 'Sin descripción disponible.'}
-                </p>
+                <p class="libro-card-descripcion">${libro.descripcion || 'Sin descripción disponible.'}</p>
                 <div class="libro-card-acciones">
                     <button class="btn-contexto"
                             onclick="abrirContextoLibro(
@@ -1184,16 +1095,13 @@ function renderLibros(libros) {
                             )">
                         <i class="fa-solid fa-circle-info"></i> Contexto
                     </button>
-                    <a href="${libro.archivo_url || '#'}"
-                       target="_blank"
-                       rel="noopener noreferrer"
+                    <a href="${libro.archivo_url || '#'}" target="_blank" rel="noopener noreferrer"
                        class="btn-descargar-libro"
                        ${!libro.archivo_url ? 'style="opacity:.5;pointer-events:none;"' : ''}>
                         <i class="fa-solid fa-download"></i> Descargar
                     </a>
                 </div>
             </div>`;
-
         grid.appendChild(card);
     });
 }
@@ -1202,16 +1110,11 @@ function abrirContextoLibro(titulo, contexto, portadaUrl, categoria) {
     document.getElementById('contexto-titulo').textContent    = titulo;
     document.getElementById('contexto-texto').textContent     = contexto || 'No hay contexto disponible para este libro.';
     document.getElementById('contexto-categoria-badge').textContent = categoria || '';
-
     const img = document.getElementById('contexto-portada-img');
     if (portadaUrl) {
-        img.src     = portadaUrl;
-        img.style.display = 'block';
+        img.src = portadaUrl; img.style.display = 'block';
         img.onerror = function() { this.style.display = 'none'; };
-    } else {
-        img.style.display = 'none';
-    }
-
+    } else { img.style.display = 'none'; }
     document.getElementById('modalContextoLibro').style.display = 'block';
 }
 
@@ -1412,7 +1315,6 @@ const SUPABASE_CONFIG   = {
     KEY: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InBhdWFxZ2Zxc2l0bmpzaWtyam5zIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzEwOTMxODYsImV4cCI6MjA4NjY2OTE4Nn0.Jz-rCRPQkgm9wXicGRoCP4xP-NotY-YEQXUyxgU7HeM'
 };
 
-
 let supabaseClient      = null;
 let estudiantesListener = null;
 
@@ -1511,13 +1413,9 @@ async function renderEstudiantesReales(estudiantes) {
             );
         });
 
-        // Click en la tarjeta para ver la foto ampliada
         card.addEventListener('click', function(e) {
             if (e.target.closest('.btn-solicitud')) return;
-            abrirFotoEstudiante(
-                this.dataset.otroFoto,
-                this.dataset.otroNom
-            );
+            abrirFotoEstudiante(this.dataset.otroFoto, this.dataset.otroNom);
         });
 
         if (!perfilActual?.supabase_registered) {
@@ -1577,89 +1475,120 @@ function renderEstudiantes() {
 
 // ============================================
 // ENCABEZADO DINÁMICO DE ESTUDIANTES
+// ← MODIFICADO: ahora solo muestra foto circular
+//   + solicitudes + chat. Sin mi-card ni amigos.
 // ============================================
 function actualizarEncabezadoEstudiantes() {
     const perfil        = JSON.parse(localStorage.getItem('eduspace_student_profile') || 'null');
-    const headerUnirse  = document.getElementById('estudiantes-header-unirse');
     const headerMiembro = document.getElementById('estudiantes-header-miembro');
     const miCardEl      = document.getElementById('mi-card-estudiante');
 
     if (!perfil || !perfil.supabase_registered) {
-        if (headerUnirse)  headerUnirse.style.display  = 'none';
         if (headerMiembro) headerMiembro.style.display = 'none';
         return;
     }
 
-    if (headerUnirse)  headerUnirse.style.display  = 'none';
     if (headerMiembro) headerMiembro.style.display = 'block';
 
-    if (miCardEl && perfil) {
-        const fecha = perfil.fecha_registro || '—';
-        const tieneFotoMenu = !!(perfil.foto_url && perfil.foto_url.trim() !== '');
+    if (miCardEl) {
+        const fallback = `https://ui-avatars.com/api/?name=${encodeURIComponent(perfil.nombre || '?')}&background=3b82f6&color=fff&size=200`;
         miCardEl.innerHTML = `
-            <div class="mi-card-header-row">
-                <div class="mi-card-wrapper">
-                  <div class="mi-card-foto-wrap">
-                <img src="${perfil.foto_url || ''}"
-                     alt="${perfil.nombre || ''}"
-                     class="mi-card-foto"
-                     onerror="this.src='https://ui-avatars.com/api/?name=${encodeURIComponent(perfil.nombre || '?')}&background=3b82f6&color=fff&size=200'">
-                <button class="mi-card-lapiz" title="Opciones de foto"
-                        onclick="event.stopPropagation(); toggleMenuFotoMiCard()">
-                    <i class="fa-solid fa-pencil"></i>
-                </button>
-              ${tieneFotoMenu ? `
-            <div class="mi-card-menu-foto" id="mi-card-menu-foto" style="display:none;">
-                <button onclick="verFotoMiPerfil()">
-                    <i class="fa-solid fa-eye"></i> Ver foto
-                </button>
-                <hr>
-                <button onclick="document.getElementById('mi-card-foto-input').click(); cerrarMenuFotoMiCard()">
-                    <i class="fa-solid fa-camera"></i> Cambiar foto
-                </button>
-                <hr>
-                <button class="btn-eliminar-foto" onclick="eliminarFotoMiPerfil()">
-                    <i class="fa-solid fa-trash"></i> Eliminar foto
-                </button>
-            </div>
-            ` : `
-            <div class="mi-card-menu-foto" id="mi-card-menu-foto" style="display:none;">
-                <button onclick="document.getElementById('mi-card-foto-input').click(); cerrarMenuFotoMiCard()">
-                    <i class="fa-solid fa-camera"></i> Subir foto
-                </button>
-            </div>
-            `}
-            </div>
-            <input type="file" id="mi-card-foto-input" accept="image/*"
-                   style="display:none;" onchange="procesarNuevaFotoPerfil(event)">
-                    <div class="mi-card-info">
-                        <span class="mi-card-nombre">${perfil.nombre || '—'}</span>
-                        <div class="mi-card-badges">
-                            <span class="mi-card-badge-esp">
-                                <i class="fa-solid fa-graduation-cap"></i> ${perfil.especialidad || '—'}
-                            </span>
-                            <span class="mi-card-badge-ciclo">Ciclo ${perfil.ciclo || '—'}</span>
-                        </div>
-                        <span class="mi-card-fecha">
-                            <i class="fa-solid fa-calendar-check"></i> ${fecha}
-                        </span>
-                    </div>
-                    <span class="mi-card-tag">
-                        <i class="fa-solid fa-check-circle"></i> Miembro
-                    </span>
+            <div class="perfil-mini-header-row">
+                <div class="perfil-mini-foto-wrap"
+                     onclick="switchTab('perfil')"
+                     title="Ver mi perfil">
+                    <img src="${perfil.foto_url || fallback}"
+                         alt="${perfil.nombre || ''}"
+                         class="perfil-mini-foto"
+                         onerror="this.src='${fallback}'">
                 </div>
-                <div class="mi-card-btns-col">
-                    <button class="btn-solicitudes" id="btn-solicitudes" onclick="abrirSolicitudes()">
-                        <i class="fa-solid fa-user-clock"></i> Solicitudes
-                    </button>
-                    <button class="btn-amigos" id="btn-amigos" onclick="abrirAmigos()">
-                        <i class="fa-solid fa-user-friends"></i> Amigos
-                    </button>
-                </div>
+                <button class="btn-solicitudes" id="btn-solicitudes" onclick="abrirSolicitudes()">
+                    <i class="fa-solid fa-user-clock"></i> Solicitudes
+                </button>
+                <button class="btn-chat-comunidad" id="btn-chat-comunidad" onclick="abrirChatDesdeComunidad()">
+                    <i class="fa-solid fa-comment"></i> Chat
+                </button>
             </div>
         `;
         iniciarListenerSolicitudes();
     }
+}
+
+// ============================================
+// SECCIÓN PERFIL — CONTENIDO DINÁMICO
+// ← NUEVO: muestra mi-card completa + amigos
+// ============================================
+function actualizarSeccionPerfil() {
+    const perfil    = JSON.parse(localStorage.getItem('eduspace_student_profile') || 'null');
+    const contenido = document.getElementById('perfil-seccion-contenido');
+    if (!contenido) return;
+
+    if (!perfil || !perfil.supabase_registered) {
+        contenido.innerHTML = `
+            <div style="text-align:center;padding:3rem;color:var(--text-muted);">
+                <i class="fa-solid fa-user-slash" style="font-size:3rem;margin-bottom:1rem;opacity:.5;display:block;"></i>
+                <p>Únete a la comunidad para ver tu perfil.</p>
+            </div>`;
+        return;
+    }
+
+    const fecha      = perfil.fecha_registro || '—';
+    const tieneFoto  = !!(perfil.foto_url && perfil.foto_url.trim() !== '');
+    const fallback   = `https://ui-avatars.com/api/?name=${encodeURIComponent(perfil.nombre || '?')}&background=3b82f6&color=fff&size=200`;
+
+    contenido.innerHTML = `
+        <div class="perfil-seccion-inner">
+            <div class="mi-card-wrapper">
+                <div class="mi-card-foto-wrap">
+                    <img src="${perfil.foto_url || fallback}"
+                         alt="${perfil.nombre || ''}"
+                         class="mi-card-foto"
+                         onerror="this.src='${fallback}'">
+                    <button class="mi-card-lapiz" title="Opciones de foto"
+                            onclick="event.stopPropagation(); toggleMenuFotoMiCard()">
+                        <i class="fa-solid fa-pencil"></i>
+                    </button>
+                    <div class="mi-card-menu-foto" id="mi-card-menu-foto" style="display:none;">
+                        ${tieneFoto ? `
+                        <button onclick="verFotoMiPerfil()">
+                            <i class="fa-solid fa-eye"></i> Ver foto
+                        </button>
+                        <hr>` : ''}
+                        <button onclick="document.getElementById('mi-card-foto-input').click(); cerrarMenuFotoMiCard()">
+                            <i class="fa-solid fa-camera"></i> ${tieneFoto ? 'Cambiar foto' : 'Subir foto'}
+                        </button>
+                        ${tieneFoto ? `
+                        <hr>
+                        <button class="btn-eliminar-foto" onclick="eliminarFotoMiPerfil()">
+                            <i class="fa-solid fa-trash"></i> Eliminar foto
+                        </button>` : ''}
+                    </div>
+                </div>
+                <input type="file" id="mi-card-foto-input" accept="image/*"
+                       style="display:none;" onchange="procesarNuevaFotoPerfil(event)">
+                <div class="mi-card-info">
+                    <span class="mi-card-nombre">${perfil.nombre || '—'}</span>
+                    <div class="mi-card-badges">
+                        <span class="mi-card-badge-esp">
+                            <i class="fa-solid fa-graduation-cap"></i> ${perfil.especialidad || '—'}
+                        </span>
+                        <span class="mi-card-badge-ciclo">Ciclo ${perfil.ciclo || '—'}</span>
+                    </div>
+                    <span class="mi-card-fecha">
+                        <i class="fa-solid fa-calendar-check"></i> ${fecha}
+                    </span>
+                </div>
+                <span class="mi-card-tag">
+                    <i class="fa-solid fa-check-circle"></i> Miembro
+                </span>
+            </div>
+            <div class="perfil-amigos-wrapper">
+                <button class="btn-amigos" onclick="abrirAmigos()">
+                    <i class="fa-solid fa-user-friends"></i> Amigos
+                </button>
+            </div>
+        </div>
+    `;
 }
 
 // ============================================
@@ -1682,11 +1611,9 @@ function actualizarPerfilSidebar() {
     }
     if (perfil.especialidad) aplicarTemaEspecialidad(perfil.especialidad);
 
-    // Mostrar ajustes en todos los dispositivos
     const ajustesWrapper = document.getElementById('sidebar-ajustes-wrapper');
     if (ajustesWrapper) {
         ajustesWrapper.style.display = 'block';
-        // "Vincular Escritorio" solo visible en móvil
         const btnVincular = document.getElementById('btn-vincular-escritorio');
         if (btnVincular) {
             btnVincular.style.display = getDeviceType() === 'mobile' ? 'flex' : 'none';
@@ -1694,101 +1621,23 @@ function actualizarPerfilSidebar() {
     }
 }
 
+// ============================================
+// ABRIR PERFIL ESTUDIANTE
+// ← MODIFICADO: ahora redirige a la sección perfil
+// ============================================
 function abrirPerfilEstudiante() {
-    const perfil = JSON.parse(localStorage.getItem('eduspace_student_profile') || 'null');
-    const modal  = document.getElementById('modal-perfil-estudiante');
-    if (!modal) return;
-    if (!perfil) { openRegistroModal(); return; }
-    document.getElementById('perfil-modal-nombre').textContent       = perfil.nombre;
-    document.getElementById('perfil-modal-especialidad').textContent = perfil.especialidad || '—';
-    document.getElementById('perfil-modal-ciclo').textContent        = perfil.ciclo ? `Ciclo ${perfil.ciclo}` : '—';
-    const img = document.getElementById('perfil-modal-foto');
-    if (img) {
-        const fallback = `https://ui-avatars.com/api/?name=${encodeURIComponent(perfil.nombre || 'Usuario')}&background=3b82f6&color=fff&size=200`;
-        img.src     = perfil.foto_url || fallback;
-        img.onerror = function() { this.src = fallback; this.onerror = null; };
-    }
-   modal.style.display = 'flex';
-
-    const btnCambiarFoto = document.getElementById('btn-cambiar-foto-sidebar');
-    if (btnCambiarFoto) {
-        const tieneFoto = !!(perfil.foto_url && perfil.foto_url.trim() !== '');
-        btnCambiarFoto.innerHTML = tieneFoto
-            ? '<i class="fa-solid fa-camera"></i> Cambiar foto'
-            : '<i class="fa-solid fa-camera"></i> Subir foto';
-    }
+    switchTab('perfil');
 }
 
-function cambiarFotoSidebar() { const input = document.getElementById('sidebar-foto-file-input'); if (input) input.click(); }
-
-async function procesarNuevaFotoPerfil(event) {
-    const file = event.target.files[0]; if (!file) return;
-    if (file.size > 5 * 1024 * 1024) { alert('⚠️ La imagen es muy grande. Máximo 5MB.'); return; }
-    if (!file.type.startsWith('image/')) { alert('⚠️ Selecciona un archivo de imagen válido.'); return; }
-    const perfil = JSON.parse(localStorage.getItem('eduspace_student_profile') || 'null');
-    if (!perfil) { alert('❌ No se encontró tu perfil.'); return; }
-
-    mostrarSkeletonFoto();
-
-    const reader = new FileReader();
-    reader.onload = function(e) {
-        const imgModal   = document.getElementById('perfil-modal-foto');
-        const imgSidebar = document.getElementById('sidebar-profile-img');
-        const initial    = document.getElementById('sidebar-profile-initial');
-        if (imgModal)   { imgModal.src = e.target.result; }
-        if (imgSidebar) { imgSidebar.src = e.target.result; imgSidebar.style.display = 'block'; }
-        if (initial)    { initial.style.display = 'none'; }
-        // mostrarSkeletonFoto() ← ELIMINAR esta línea que estaba aquí
-    };
-    reader.readAsDataURL(file);
-
-    const btnCambiar = document.getElementById('btn-cambiar-foto-sidebar');
-    if (btnCambiar) { btnCambiar.disabled = true; btnCambiar.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Subiendo...'; }
-    try {
-        const formData = new FormData();
-        formData.append('file', file); formData.append('upload_preset', CLOUDINARY_CONFIG.UPLOAD_PRESET); formData.append('folder', 'estudiantes_clouddesk');
-        const res = await fetch(`https://api.cloudinary.com/v1_1/${CLOUDINARY_CONFIG.CLOUD_NAME}/image/upload`, { method:'POST', body:formData });
-        if (!res.ok) throw new Error('Error al subir la imagen');
-        const data = await res.json(); const nuevaUrl = data.secure_url;
-
-        // ocultarSkeletonFoto() ← ELIMINAR esta línea que estaba aquí
-        const imgMiCard = document.querySelector('.mi-card-foto');
-        if (imgMiCard) imgMiCard.src = nuevaUrl;
-
-        if (perfil.foto_url && perfil.foto_url !== nuevaUrl) {
-            eliminarImagenCloudinary(perfil.foto_url).catch(console.error);
-        }
-
-        if (supabaseClient && perfil.supabase_registered) {
-            const { error } = await supabaseClient
-                .from('estudiantes')
-                .update({ foto_url: nuevaUrl })
-                .eq('nombre_completo', perfil.nombre);
-            if (error) console.warn('No se actualizó en Supabase:', error.message);
-            else cargarEstudiantes();
-        }
-
-        const authData = JSON.parse(localStorage.getItem('eduspace_auth') || '{}');
-        if (authData.codigo) await _savePerfilToFirebase(authData.codigo, { ...perfil, foto_url: nuevaUrl }).catch(console.error);
-
-        perfil.foto_url = nuevaUrl;
-        localStorage.setItem('eduspace_student_profile', JSON.stringify(perfil));
-
-        actualizarPerfilSidebar();
-        actualizarEncabezadoEstudiantes();
-        ocultarSkeletonFoto();
-        mostrarToast('✅ Foto actualizada correctamente');
-    } catch(err) {
-        ocultarSkeletonFoto();
-        // ocultarSkeletonFoto() ← ELIMINAR esta línea que estaba aquí
-        console.error(err); alert('❌ Error al actualizar la foto: ' + err.message);
-    } finally {
-        if (btnCambiar) { btnCambiar.disabled = false; btnCambiar.innerHTML = '<i class="fa-solid fa-camera"></i> Cambiar foto'; }
-        event.target.value = '';
-    }
+// Sin uso tras eliminar el modal, se mantiene como no-op
+function cerrarPerfilEstudiante() {
+    // modal eliminado, ya no se usa
 }
 
-function cerrarPerfilEstudiante() { const modal = document.getElementById('modal-perfil-estudiante'); if (modal) modal.style.display = 'none'; }
+// Sin uso tras eliminar el modal, se mantiene como no-op
+function cambiarFotoSidebar() {
+    // sidebar-foto-file-input ya no existe, la foto se cambia desde sección perfil
+}
 
 // ============================================
 // SIDEBAR Y NAVEGACIÓN
@@ -1805,10 +1654,15 @@ function closeSidebar() {
     document.getElementById('sidebarOverlay').classList.remove('active');
 }
 
+// ============================================
+// SWITCH TAB
+// ← MODIFICADO: añade sección perfil
+// ============================================
 function switchTab(tab) {
     currentTab = tab; showingFinalizados = false;
     if (window.innerWidth <= 768) closeSidebar();
 
+    // Ocultar todas las secciones
     sectionRepositorio.style.display = 'none';
     sectionTrabajos.style.display    = 'none';
     sectionRecursos.style.display    = 'none';
@@ -1816,7 +1670,8 @@ function switchTab(tab) {
     sectionDocentes.style.display    = 'none';
     sectionEstudiantes.style.display = 'none';
     if (sectionChat) sectionChat.style.display = 'none';
-    
+    const sectionPerfil = document.getElementById('perfil');
+    if (sectionPerfil) sectionPerfil.style.display = 'none';
 
     document.querySelectorAll('.sidebar-btn').forEach(btn => btn.classList.remove('active'));
 
@@ -1829,6 +1684,7 @@ function switchTab(tab) {
         sectionRepositorio.style.display = 'block';
         document.getElementById('tab-repositorio').classList.add('active');
         renderFiles();
+
     } else if (tab === 'trabajos') {
         sectionTrabajos.style.display = 'block';
         document.getElementById('tab-trabajos').classList.add('active');
@@ -1842,40 +1698,46 @@ function switchTab(tab) {
             btn.classList.remove('showing-finalizados');
         }
         renderAssignments();
-   } else if (tab === 'recursos') {
-    sectionRecursos.style.display = 'block';
-    document.getElementById('tab-recursos').classList.add('active');
-    // Asegurar que el primer botón esté activo
-    currentRecursosTipo = 'Documentos';
-    document.querySelectorAll('.recursos-tipo-btn').forEach(b => b.classList.remove('active'));
-    const rtbtn = document.getElementById('rtbtn-Documentos');
-    if (rtbtn) rtbtn.classList.add('active');
-    renderRecursosContent();
 
-} else if (tab === 'libros') {
-    if (sectionLibros) sectionLibros.style.display = 'block';
-    const tabLibros = document.getElementById('tab-libros');
-    if (tabLibros) tabLibros.classList.add('active');
-    // Resetear filtro a "Todo" cada vez que entras
-    currentLibrosCategoria = 'Todo';
-    document.querySelectorAll('.libros-filter-btn').forEach(b => b.classList.remove('active'));
-    const lbtnTodo = document.getElementById('lbtn-Todo');
-    if (lbtnTodo) lbtnTodo.classList.add('active');
-    cargarLibros();
+    } else if (tab === 'recursos') {
+        sectionRecursos.style.display = 'block';
+        document.getElementById('tab-recursos').classList.add('active');
+        currentRecursosTipo = 'Documentos';
+        document.querySelectorAll('.recursos-tipo-btn').forEach(b => b.classList.remove('active'));
+        const rtbtn = document.getElementById('rtbtn-Documentos');
+        if (rtbtn) rtbtn.classList.add('active');
+        renderRecursosContent();
+
+    } else if (tab === 'libros') {
+        if (sectionLibros) sectionLibros.style.display = 'block';
+        const tabLibros = document.getElementById('tab-libros');
+        if (tabLibros) tabLibros.classList.add('active');
+        currentLibrosCategoria = 'Todo';
+        document.querySelectorAll('.libros-filter-btn').forEach(b => b.classList.remove('active'));
+        const lbtnTodo = document.getElementById('lbtn-Todo');
+        if (lbtnTodo) lbtnTodo.classList.add('active');
+        cargarLibros();
+
     } else if (tab === 'docentes') {
         sectionDocentes.style.display = 'block';
         document.getElementById('tab-docentes').classList.add('active');
         renderDocentes();
+
     } else if (tab === 'estudiantes') {
         sectionEstudiantes.style.display = 'block';
         document.getElementById('tab-estudiantes').classList.add('active');
         actualizarEncabezadoEstudiantes();
         renderEstudiantes();
+
     } else if (tab === 'chat') {
         if (sectionChat) sectionChat.style.display = 'block';
         const tabChat = document.getElementById('tab-chat');
         if (tabChat) tabChat.classList.add('active');
         iniciarListenerChats();
+
+    } else if (tab === 'perfil') {
+        if (sectionPerfil) sectionPerfil.style.display = 'block';
+        actualizarSeccionPerfil();
     }
 }
 
@@ -1908,6 +1770,7 @@ async function eliminarImagenCloudinary(url) {
         console.error('Error eliminando imagen de Cloudinary:', e);
     }
 }
+
 // ============================================
 // CHAT Y SOLICITUDES — SISTEMA COMPLETO
 // ============================================
@@ -2120,14 +1983,10 @@ function iniciarListenerChats() {
 function renderMensaje(msg, miKey) {
     const messagesEl = document.getElementById('chat-messages');
     if (!messagesEl || !msg) return;
-
     const esMio = msg.de_key === miKey;
     const hora = msg.fecha
-        ? new Date(msg.fecha).toLocaleTimeString('es-ES', {
-            hour: '2-digit', minute: '2-digit'
-          })
+        ? new Date(msg.fecha).toLocaleTimeString('es-ES', { hour: '2-digit', minute: '2-digit' })
         : '';
-
     const wrap = document.createElement('div');
     wrap.className = `chat-bubble-wrapper ${esMio ? 'mio' : 'otro'}`;
     wrap.innerHTML = `
@@ -2154,7 +2013,7 @@ async function abrirChatConAmigo(chatId, otroKey, otroNombre, otroFoto) {
     if (placeholder) placeholder.style.display = 'none';
     if (chatWindow)  chatWindow.style.display   = 'flex';
 
-    const isMobile = window.innerWidth <= 768;
+    const isMobile  = window.innerWidth <= 768;
     const winHeader = document.getElementById('chat-win-header');
     if (winHeader) {
         winHeader.innerHTML = `
@@ -2167,8 +2026,6 @@ async function abrirChatConAmigo(chatId, otroKey, otroNombre, otroFoto) {
             </button>`;
     }
 
-    
-// Limpiar listener anterior de Supabase
     if (_mensajesListenerRef) {
         supabaseClient.removeChannel(_mensajesListenerRef);
         _mensajesListenerRef = null;
@@ -2179,7 +2036,6 @@ async function abrirChatConAmigo(chatId, otroKey, otroNombre, otroFoto) {
 
     const miKey = getMiKey();
 
-    // Cargar mensajes históricos primero
     const { data: mensajesAnteriores } = await supabaseClient
         .from('mensajes')
         .select('*')
@@ -2191,7 +2047,6 @@ async function abrirChatConAmigo(chatId, otroKey, otroNombre, otroFoto) {
         if (messagesEl) messagesEl.scrollTop = messagesEl.scrollHeight;
     }
 
-    // Escuchar mensajes nuevos en tiempo real
     _mensajesListenerRef = supabaseClient
         .channel(`chat-${chatId}`)
         .on('postgres_changes', {
@@ -2207,9 +2062,8 @@ async function abrirChatConAmigo(chatId, otroKey, otroNombre, otroFoto) {
 
     setTimeout(() => document.getElementById('chat-input')?.focus(), 100);
 }
-    
-    
-    function volverListaChats() {
+
+function volverListaChats() {
     const sp = document.getElementById('chat-sidebar-panel');
     const cm = document.getElementById('chat-main');
     if (sp) sp.style.display = 'flex';
@@ -2218,9 +2072,10 @@ async function abrirChatConAmigo(chatId, otroKey, otroNombre, otroFoto) {
     const chatWindow  = document.getElementById('chat-window');
     if (chatWindow)  chatWindow.style.display   = 'none';
     if (placeholder) placeholder.style.display  = 'flex';
-    if (_mensajesListenerRef) {  
-        supabaseClient.removeChannel(_mensajesListenerRef); 
-        _mensajesListenerRef = null; }
+    if (_mensajesListenerRef) {
+        supabaseClient.removeChannel(_mensajesListenerRef);
+        _mensajesListenerRef = null;
+    }
     _chatActivoId = null; _chatActivoOtroKey = null;
 }
 
@@ -2228,41 +2083,19 @@ async function enviarMensaje() {
     const input = document.getElementById('chat-input');
     const texto = input?.value?.trim();
     if (!texto || !_chatActivoId) return;
-
     const miPerfil = getMiPerfil();
     const miKey = getMiKey();
     if (!miPerfil || !miKey) return;
-
     input.value = '';
-
     try {
-        // Mensajes van a Supabase
         const { error } = await supabaseClient
             .from('mensajes')
-            .insert([{
-                chat_id: _chatActivoId,
-                de_key: miKey,
-                de_nombre: miPerfil.nombre,
-                texto: texto
-            }]);
-
+            .insert([{ chat_id: _chatActivoId, de_key: miKey, de_nombre: miPerfil.nombre, texto }]);
         if (error) throw error;
-
-        // Último mensaje sigue en Firebase
-        await database.ref(`chats/${_chatActivoId}/ultimo_mensaje`).set({
-            texto,
-            fecha: Date.now(),
-            de_key: miKey
-        });
-
-        const itemUlt = document.querySelector(
-            `#chat-item-${_chatActivoOtroKey} .chat-item-ultimo`
-        );
+        await database.ref(`chats/${_chatActivoId}/ultimo_mensaje`).set({ texto, fecha: Date.now(), de_key: miKey });
+        const itemUlt = document.querySelector(`#chat-item-${_chatActivoOtroKey} .chat-item-ultimo`);
         if (itemUlt) itemUlt.textContent = texto;
-
-    } catch(e) {
-        console.error('Error enviando mensaje:', e);
-    }
+    } catch(e) { console.error('Error enviando mensaje:', e); }
 }
 
 if ('visualViewport' in window) {
@@ -2277,6 +2110,7 @@ if ('visualViewport' in window) {
 
 function abrirAmigos() { const overlay = document.getElementById('amigos-overlay'); if (overlay) { overlay.style.display = 'flex'; cargarAmigosPanel(); } }
 function cerrarAmigos() { const overlay = document.getElementById('amigos-overlay'); if (overlay) overlay.style.display = 'none'; }
+function abrirChatDesdeComunidad() { switchTab('chat'); }
 
 async function cargarAmigosPanel() {
     const lista = document.getElementById('amigos-lista'); if (!lista) return;
@@ -2532,7 +2366,6 @@ async function enviarDenuncia() {
             fecha, hora, timestamp: Date.now(), estado: 'pendiente', id_anonimo: idAnonimo
         });
         _mostrarDenStep(3);
-      
     } catch(e) {
         console.error('Error enviando denuncia:', e);
         mostrarToast('❌ Error al enviar la denuncia. Intenta de nuevo.', 'fa-times-circle');
@@ -2544,80 +2377,46 @@ async function enviarDenuncia() {
 // ============================================
 // PASO "SABER MÁS" — CUENTA NO REGISTRADA
 // ============================================
-
-/**
- * Muestra el paso explicativo cuando la cuenta no está registrada.
- * Oculta todo lo anterior y muestra el diseño con imagen + caja de scroll.
- */
 async function mostrarSaberMas() {
     _ocultarTodosLosSteps();
-
     const step = document.getElementById('auth-step-no-registrado');
     if (step) step.style.display = 'block';
-
-    // Carga las especialidades activas desde Firebase
     await cargarEspecialidadesActivas();
 }
 
-/**
- * Consulta Firebase y muestra solo las especialidades/ciclos
- * que tienen al menos un usuario registrado.
- */
 async function cargarEspecialidadesActivas() {
     const container = document.getElementById('no-reg-especialidades');
     if (!container) return;
-
     try {
         const snap    = await database.ref('codigos').once('value');
         const codigos = snap.val() || {};
-
-        // Agrupa por especialidad → conjunto de ciclos
-        // especMap = { "Comunicación": Set(["V", "VII"]), "Inicial": Set(["III"]) }
         const especMap = {};
-
         for (const [key, data] of Object.entries(codigos)) {
-            // Solo cuenta si tiene especialidad asignada
             if (data.especialidad && data.especialidad.trim() !== '') {
                 const esp = data.especialidad.trim();
-                if (!especMap[esp]) {
-                    especMap[esp] = new Set();
-                }
-                if (data.ciclo && data.ciclo.trim() !== '') {
-                    especMap[esp].add(data.ciclo.trim());
-                }
+                if (!especMap[esp]) especMap[esp] = new Set();
+                if (data.ciclo && data.ciclo.trim() !== '') especMap[esp].add(data.ciclo.trim());
             }
         }
-
-        // Si no hay ninguna especialidad, muestra mensaje
         if (Object.keys(especMap).length === 0) {
             container.innerHTML = '<p style="color:var(--text-muted);font-size:0.8rem;padding:0.3rem 0;">No hay especialidades disponibles actualmente.</p>';
             return;
         }
-
-        // Construye las tarjetas de cada especialidad
         container.innerHTML = '';
         for (const [esp, ciclosSet] of Object.entries(especMap)) {
-            // Ordena los ciclos alfabéticamente
             const ciclos = Array.from(ciclosSet).sort();
-
-            const div       = document.createElement('div');
-            div.className   = 'no-reg-esp-item';
-
-            const ciclosBadges = ciclos
-                .map(c => `<span class="no-reg-ciclo-badge">Ciclo ${c}</span>`)
-                .join('');
-
+            const div = document.createElement('div');
+            div.className = 'no-reg-esp-item';
+            const ciclosBadges = ciclos.map(c => `<span class="no-reg-ciclo-badge">Ciclo ${c}</span>`).join('');
             div.innerHTML = `
                 <div class="no-reg-esp-nombre">
                     <i class="fa-solid fa-book-open"></i> ${esp}
                 </div>
                 <div class="no-reg-ciclos">
                     ${ciclosBadges || '<span style="color:var(--text-muted);font-size:0.72rem;">Sin ciclos especificados</span>'}
-                </div>
-            `;
+                </div>`;
             container.appendChild(div);
         }
-
     } catch (e) {
         console.error('Error cargando especialidades activas:', e);
         container.innerHTML = '<p style="color:var(--danger);font-size:0.78rem;">Error al cargar las especialidades.</p>';
@@ -2642,6 +2441,11 @@ function abrirFotoEstudiante(fotoUrl, nombre) {
     };
     img.src = fotoUrl || ('https://ui-avatars.com/api/?name=' + encodeURIComponent(nombre || '?') + '&background=3b82f6&color=fff&size=200');
     modal.style.display = 'flex';
+}
+
+function cerrarFotoEstudiante() {
+    const modal = document.getElementById('fotoEstudianteModal');
+    if (modal) modal.style.display = 'none';
 }
 
 // ============================================
@@ -2720,17 +2524,80 @@ async function eliminarFotoMiPerfil() {
             .catch(console.error);
     }
 
-    // ocultarSkeletonFoto() ← ELIMINAR esta línea que estaba aquí
     actualizarEncabezadoEstudiantes();
+    actualizarSeccionPerfil(); // ← sincroniza la sección perfil
     ocultarSkeletonFoto();
     mostrarToast('✅ Foto eliminada con éxito', 'fa-check-circle');
 }
 
-function cerrarFotoEstudiante() {
-    const modal = document.getElementById('fotoEstudianteModal');
-    if (modal) modal.style.display = 'none';
+// ============================================
+// PROCESAR NUEVA FOTO DE PERFIL
+// ============================================
+async function procesarNuevaFotoPerfil(event) {
+    const file = event.target.files[0]; if (!file) return;
+    if (file.size > 5 * 1024 * 1024) { alert('⚠️ La imagen es muy grande. Máximo 5MB.'); return; }
+    if (!file.type.startsWith('image/')) { alert('⚠️ Selecciona un archivo de imagen válido.'); return; }
+    const perfil = JSON.parse(localStorage.getItem('eduspace_student_profile') || 'null');
+    if (!perfil) { alert('❌ No se encontró tu perfil.'); return; }
+
+    mostrarSkeletonFoto();
+
+    // Preview inmediato en la sección perfil
+    const reader = new FileReader();
+    reader.onload = function(e) {
+        const imgMiCard  = document.querySelector('.mi-card-foto');
+        const imgSidebar = document.getElementById('sidebar-profile-img');
+        const initial    = document.getElementById('sidebar-profile-initial');
+        if (imgMiCard)  imgMiCard.src = e.target.result;
+        if (imgSidebar) { imgSidebar.src = e.target.result; imgSidebar.style.display = 'block'; }
+        if (initial)    initial.style.display = 'none';
+    };
+    reader.readAsDataURL(file);
+
+    try {
+        const formData = new FormData();
+        formData.append('file', file);
+        formData.append('upload_preset', CLOUDINARY_CONFIG.UPLOAD_PRESET);
+        formData.append('folder', 'estudiantes_clouddesk');
+        const res = await fetch(`https://api.cloudinary.com/v1_1/${CLOUDINARY_CONFIG.CLOUD_NAME}/image/upload`, { method:'POST', body:formData });
+        if (!res.ok) throw new Error('Error al subir la imagen');
+        const data = await res.json(); const nuevaUrl = data.secure_url;
+
+        if (perfil.foto_url && perfil.foto_url !== nuevaUrl) {
+            eliminarImagenCloudinary(perfil.foto_url).catch(console.error);
+        }
+
+        if (supabaseClient && perfil.supabase_registered) {
+            const { error } = await supabaseClient
+                .from('estudiantes')
+                .update({ foto_url: nuevaUrl })
+                .eq('nombre_completo', perfil.nombre);
+            if (error) console.warn('No se actualizó en Supabase:', error.message);
+            else cargarEstudiantes();
+        }
+
+        const authData = JSON.parse(localStorage.getItem('eduspace_auth') || '{}');
+        if (authData.codigo) await _savePerfilToFirebase(authData.codigo, { ...perfil, foto_url: nuevaUrl }).catch(console.error);
+
+        perfil.foto_url = nuevaUrl;
+        localStorage.setItem('eduspace_student_profile', JSON.stringify(perfil));
+
+        actualizarPerfilSidebar();
+        actualizarEncabezadoEstudiantes();
+        actualizarSeccionPerfil(); // ← sincroniza la sección perfil
+        ocultarSkeletonFoto();
+        mostrarToast('✅ Foto actualizada correctamente');
+    } catch(err) {
+        ocultarSkeletonFoto();
+        console.error(err); alert('❌ Error al actualizar la foto: ' + err.message);
+    } finally {
+        event.target.value = '';
+    }
 }
 
+// ============================================
+// SKELETON FOTO
+// ============================================
 function mostrarSkeletonFoto() {
     const wrap = document.querySelector('.mi-card-foto-wrap');
     if (wrap) wrap.classList.add('foto-cargando');
@@ -2763,21 +2630,15 @@ function previewFotoRegistro(event) {
 // ============================================
 // DETECTOR DE CONEXIÓN A INTERNET
 // ============================================
-
 const loaderText = document.querySelector('.connection-loader-content p');
 let _sinConexionTimeout = null;
 
-// Congela la animación del loader
 function freezeLoader() {
-    if (_loaderAnimFrame) {
-        cancelAnimationFrame(_loaderAnimFrame);
-        _loaderAnimFrame = null;
-    }
+    if (_loaderAnimFrame) { cancelAnimationFrame(_loaderAnimFrame); _loaderAnimFrame = null; }
     const dm = document.getElementById('displacement-map');
     if (dm) dm.setAttribute('scale', '0');
 }
 
-// Reactiva la animación del loader
 function unfreezeLoader() {
     const dm = document.getElementById('displacement-map');
     if (!dm) return;
@@ -2791,48 +2652,26 @@ function unfreezeLoader() {
 }
 
 window.addEventListener('offline', () => {
-    // Limpiar timeout previo si existe
-    if (_sinConexionTimeout) {
-        clearTimeout(_sinConexionTimeout);
-        _sinConexionTimeout = null;
-    }
-
-    // Paso 1: mostrar loader CONGELADO con "Has perdido conexión"
+    if (_sinConexionTimeout) { clearTimeout(_sinConexionTimeout); _sinConexionTimeout = null; }
     showConnectionLoader();
     freezeLoader();
     loaderText.textContent = 'Has perdido conexión';
-
-    // Paso 2: después de 2 segundos → "Intentando reconectar..." con animación
     setTimeout(() => {
         if (!navigator.onLine) {
             loaderText.textContent = 'Intentando reconectar...';
             unfreezeLoader();
-
-            // Paso 3: si después de 15 segundos sigue sin internet
             _sinConexionTimeout = setTimeout(() => {
-                if (!navigator.onLine) {
-                    loaderText.textContent = 'Sin conexión a internet';
-                    freezeLoader();
-                }
+                if (!navigator.onLine) { loaderText.textContent = 'Sin conexión a internet'; freezeLoader(); }
             }, 5000);
         }
     }, 2000);
 });
 
 window.addEventListener('online', () => {
-    // Limpiar timeout si estaba corriendo
-    if (_sinConexionTimeout) {
-        clearTimeout(_sinConexionTimeout);
-        _sinConexionTimeout = null;
-    }
-
-    // "Conectando..." con animación y ocultar después de 2 segundos
+    if (_sinConexionTimeout) { clearTimeout(_sinConexionTimeout); _sinConexionTimeout = null; }
     loaderText.textContent = 'Conectando...';
     unfreezeLoader();
-    setTimeout(() => {
-        hideConnectionLoader();
-        loaderText.textContent = 'Conectando...';
-    }, 2000);
+    setTimeout(() => { hideConnectionLoader(); loaderText.textContent = 'Conectando...'; }, 2000);
 });
 
 /* ══════════════════════════════════════════
@@ -2841,7 +2680,6 @@ window.addEventListener('online', () => {
 function abrirModalAjustes() {
     const modal = document.getElementById('modal-ajustes');
     if (!modal) return;
-    // Resetear estado de Seguridad al abrir
     const opciones = document.getElementById('ajustes-opciones');
     const chevron  = document.getElementById('ajustes-chevron');
     if (opciones) opciones.style.display = 'none';
@@ -2939,6 +2777,3 @@ async function cerrarSesion() {
     try { await auth.signOut(); } catch (e) { console.error(e); }
     location.reload();
 }
-
-
-
