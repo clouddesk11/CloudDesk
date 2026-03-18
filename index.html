@@ -122,28 +122,20 @@
           <!-- ══ PASO NO REGISTRADO: Saber Más ══ -->
 <div id="auth-step-no-registrado" style="display: none;">
     <div class="no-reg-layout">
-
-        <!-- Imagen del personaje (izquierda, como el muñeco del dibujo) -->
         <div class="no-reg-imagen-col">
             <img src="https://res.cloudinary.com/dvrr4swky/image/upload/v1772986102/Humaaans_-_Standing_t9jpmk.png"
                  alt="Soporte CloudDesk"
                  class="no-reg-img">
         </div>
-
-        <!-- Caja de contenido con scroll amarillo (derecha) -->
         <div class="no-reg-content-col">
             <div class="no-reg-scroll-box">
-
                 <h3 class="no-reg-titulo">
                     <i class="fa-solid fa-circle-info"></i> ¿Por qué no puedo acceder?
                 </h3>
-
                 <p class="no-reg-texto">
                     Lamentablemente, tu cuenta de Google no se encuentra registrada en nuestra
                     base de datos actual. Esto puede deberse a dos razones principales:
                 </p>
-
-                <!-- Razón 1 -->
                 <div class="no-reg-razon">
                     <div class="no-reg-razon-icon">
                         <i class="fa-solid fa-envelope"></i>
@@ -154,8 +146,6 @@
                         sea exactamente el mismo que proporcionaste a tu delegado.</p>
                     </div>
                 </div>
-
-                <!-- Razón 2 -->
                 <div class="no-reg-razon">
                     <div class="no-reg-razon-icon">
                         <i class="fa-solid fa-graduation-cap"></i>
@@ -164,15 +154,12 @@
                         <strong>Especialidad no vinculada</strong>
                         <p>Actualmente, FILRED solo está habilitado para las
                         siguientes especialidades:</p>
-
-                        <!-- Aquí se cargan dinámicamente las especialidades activas -->
                         <div id="no-reg-especialidades" class="no-reg-esp-list">
                             <div class="no-reg-loading">
                                 <i class="fa-solid fa-spinner fa-spin"></i>
                                 Cargando especialidades…
                             </div>
                         </div>
-
                         <p class="no-reg-esp-footer">
                             Si tu especialidad aún no está conectada, no te preocupes:
                             puedes solicitar a tu delegado de aula que gestione la
@@ -180,8 +167,6 @@
                         </p>
                     </div>
                 </div>
-
-                <!-- Sección de Soporte -->
                 <div class="no-reg-soporte-box">
                     <div class="no-reg-advertencia">
                         <i class="fa-solid fa-triangle-exclamation no-reg-adv-icon"></i>
@@ -192,11 +177,6 @@
                             la integración de tu aula a CloudDesk.</p>
                         </div>
                     </div>
-
-                    <!--
-                        ⚠️ REEMPLAZA "51XXXXXXXXX" con tu número de WhatsApp
-                        Ejemplo: si tu número es 999888777 (Perú), pon: 51999888777
-                    -->
                     <a href="https://wa.me/message/O2LIKF7OKLECG1"
                        target="_blank"
                        rel="noopener noreferrer"
@@ -205,18 +185,15 @@
                         Contactar Soporte vía WhatsApp
                     </a>
                 </div>
-
-            </div><!-- /no-reg-scroll-box -->
-        </div><!-- /no-reg-content-col -->
-    </div><!-- /no-reg-layout -->
-
+            </div>
+        </div>
+    </div>
     <button class="no-reg-volver-btn" onclick="volverAlLogin()">
         <i class="fa-solid fa-arrow-left"></i> Volver al inicio de sesión
     </button>
 </div>
           
-          
-           <!-- ══ PASO API REVEAL: Solo aparece en móvil después del auth ══ -->
+          <!-- ══ PASO API REVEAL: Solo aparece en móvil después del auth ══ -->
 <div id="auth-step-api-reveal" style="display: none; position: relative;">
     <button class="api-reveal-close-btn" onclick="finalizarRegistroMobile()">
         <i class="fa-solid fa-times"></i>
@@ -289,14 +266,7 @@
         <i class="fa-solid fa-user-graduate"></i>
         <span class="sidebar-btn-text">Estudiantes</span>
     </button>
-    <!-- HTML CHANGE 1 — Botón Chat en sidebar -->
-    <button id="tab-chat" class="sidebar-btn" onclick="switchTab('chat')">
-        <div style="position: relative; display: inline-block;">
-            <i class="fa-solid fa-comment"></i>
-            <span id="chat-badge" class="notification-dot" style="display: none;"></span>
-        </div>
-        <span class="sidebar-btn-text">Chat</span>
-    </button>
+  
     <!-- Perfil del estudiante al fondo del sidebar -->
 <div id="sidebar-profile-wrapper" class="sidebar-profile-wrapper" style="display:none;">
     <div class="sidebar-profile-divider"></div>
@@ -309,10 +279,9 @@
     <span class="sidebar-profile-name">Ajustes</span>
 </div>
     </div>
-  <div class="sidebar-profile-divider"></div>
-
+ <div class="sidebar-profile-divider" id="sidebar-second-divider"></div>
     <!-- Mi Perfil debajo -->
-    <div class="sidebar-profile" onclick="abrirPerfilEstudiante()">
+    <div id="sidebar-mi-perfil" class="sidebar-profile" onclick="abrirPerfilEstudiante()">
         <div class="sidebar-profile-avatar">
             <img id="sidebar-profile-img" src="" alt="Perfil" style="display:none;">
             <span id="sidebar-profile-initial" style="display:flex;">?</span>
@@ -405,8 +374,6 @@
                 </div>
             </div>
         </div>
-
-        <!-- Solo estos 3 botones, siempre visibles -->
         <div class="recursos-tipo-buttons">
             <button class="recursos-tipo-btn active"
                     id="rtbtn-Documentos"
@@ -425,7 +392,6 @@
             </button>
         </div>
     </div>
-
     <div class="recursos-list">
         <div id="recursos-container" class="recursos-grid"></div>
     </div>
@@ -438,8 +404,6 @@
             <h2><i class="fa-solid fa-book-open"></i> Biblioteca</h2>
             <p>Explora nuestra colección de textos y lecturas.</p>
         </div>
-
-        <!-- Botones de categoría con scroll horizontal (sin hamburguesa) -->
         <div class="libros-filter-buttons">
             <button class="libros-filter-btn active"
                     id="lbtn-Todo"
@@ -468,8 +432,6 @@
             </button>
         </div>
     </div>
-
-    <!-- Aquí se renderizan las tarjetas de libros -->
     <div id="libros-grid" class="libros-grid-container"></div>
 </section>
 
@@ -498,34 +460,38 @@
     </div>
     <div id="docentes-grid" class="grid-container"></div>
 </section>
+
             <!-- Sección de Estudiantes -->
 <section id="estudiantes" class="section-content" style="display: none;">
-    <!-- Header cuando YA está unido (reemplaza al anterior) -->
+    <!-- Header cuando YA está unido -->
     <div id="estudiantes-header-miembro" class="header-section header-section-sticky" style="display:none;">
         <div id="mi-card-estudiante"></div>
     </div>
     <div id="estudiantes-grid" class="grid-container">
         <div class="loading-estudiantes" id="loading-estudiantes">
-    <div class="loading-icon-wrapper">
-        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 600 586" style="width:100%;height:auto;display:block;">
-            <use href="#filred-logo"/>
-        </svg>
-    </div>
-    <p>Cargando estudiantes...</p>
-</div>
-
+            <div class="loading-icon-wrapper">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 600 586" style="width:100%;height:auto;display:block;">
+                    <use href="#filred-logo"/>
+                </svg>
+            </div>
+            <p>Cargando estudiantes...</p>
+        </div>
     </div>
 </section>
-            <!-- HTML CHANGE 2 — Sección Chat -->
+
+            <!-- Sección Chat -->
 <section id="chat" class="section-content" style="display: none;">
     <div class="chat-container">
         <div class="chat-sidebar-panel" id="chat-sidebar-panel">
     <div class="chat-panel-topbar">
-        <span class="chat-panel-title"><i class="fa-solid fa-comment"></i> Chats</span>
-        <button class="btn-denunciar-topbar" onclick="abrirDenuncia('')">
-            <i class="fa-solid fa-flag"></i> Denunciar
-        </button>
-    </div>
+    <button class="btn-volver-comunidad" onclick="switchTab('estudiantes')" title="Volver a Comunidad">
+        <i class="fa-solid fa-arrow-left"></i>
+    </button>
+    <span class="chat-panel-title"><i class="fa-solid fa-comment"></i> Chats</span>
+    <button class="btn-denunciar-topbar" onclick="abrirDenuncia('')">
+        <i class="fa-solid fa-flag"></i> Denunciar
+    </button>
+</div>
     <div class="chat-list" id="chat-list">
                 <p class="chat-empty">
                     <i class="fa-solid fa-comment-slash"></i><br>
@@ -553,10 +519,23 @@
         </div>
     </div>
 </section>
+
+            <!-- ══ SECCIÓN MI PERFIL (nueva) ══ -->
+<section id="perfil" class="section-content" style="display: none;">
+    <div class="header-section header-section-sticky">
+        <h2><i class="fa-solid fa-user-circle"></i> Mi Perfil</h2>
+    </div>
+    <div id="perfil-seccion-contenido" style="padding: 1.5rem;"></div>
+</section>
+
         </main>
-        <!-- HTML CHANGE 3 — Footer actualizado -->
-        <footer>
+        <!-- Footer -->
+       <footer>
     <p class="footer-text">© 2025 EduSpace Plataforma Académica - Todos los derechos reservados.</p>
+    <button class="mobile-footer-btn" onclick="switchTab('estudiantes')">
+        <i class="fa-solid fa-user-group"></i>
+        <span>Comunidad</span>
+    </button>
     <button class="mobile-footer-btn" onclick="switchTab('trabajos')">
         <div style="position: relative;">
             <i class="fa-solid fa-clipboard-list"></i>
@@ -564,20 +543,13 @@
         </div>
         <span>Trabajos</span>
     </button>
-    <button class="mobile-footer-btn" onclick="switchTab('chat')">
-        <div style="position: relative;">
-            <i class="fa-solid fa-comment"></i>
-            <span id="chat-badge-footer" class="notification-dot" style="display: none;"></span>
-        </div>
-        <span>Chat</span>
-    </button>
     <button class="mobile-footer-btn" onclick="switchTab('repositorio')">
         <i class="fa-solid fa-home"></i>
         <span>Inicio</span>
     </button>
-    <button class="mobile-footer-btn" onclick="switchTab('estudiantes')">
-        <i class="fa-solid fa-user-group"></i>
-        <span>Comunidad</span>
+    <button class="mobile-footer-btn" onclick="abrirPerfilEstudiante()">
+        <i class="fa-solid fa-user-circle"></i>
+        <span>Perfil</span>
     </button>
     <button class="mobile-footer-btn" onclick="toggleSidebar()">
         <i class="fa-solid fa-bars"></i>
@@ -669,64 +641,6 @@
             </div>
         </div>
     </div>
-    <!-- Modal Perfil Estudiante (sidebar) -->
-    <div id="modal-perfil-estudiante" class="modal-perfil-overlay" style="display:none;" onclick="cerrarPerfilEstudiante()">
-        <div class="modal-perfil-box" onclick="event.stopPropagation()">
-            <button class="modal-perfil-close" onclick="cerrarPerfilEstudiante()">
-                <i class="fa-solid fa-times"></i>
-            </button>
-            <div class="modal-perfil-foto-wrap">
-                <img id="perfil-modal-foto" src="" alt="Foto de perfil" class="modal-perfil-foto"
-                     onerror="this.src='https://ui-avatars.com/api/?name=?&background=3b82f6&color=fff&size=200'">
-            </div>
-            <h3 class="modal-perfil-nombre" id="perfil-modal-nombre">—</h3>
-            <div class="modal-perfil-badges">
-                <span class="modal-perfil-badge-esp" id="perfil-modal-especialidad">—</span>
-                <span class="modal-perfil-badge-ciclo" id="perfil-modal-ciclo">—</span>
-            </div>
-            <!-- Botón cambiar foto SOLO aquí en el sidebar -->
-            <input type="file" id="sidebar-foto-file-input" accept="image/*" style="display:none;"
-                   onchange="procesarNuevaFotoPerfil(event)">
-            <button id="btn-cambiar-foto-sidebar" class="btn-cambiar-foto-sidebar"
-                    onclick="cambiarFotoSidebar()">
-                <i class="fa-solid fa-camera"></i> Cambiar foto
-            </button>
-        </div>
-    </div>
-    <!-- HTML CHANGE 4 — Overlay Solicitudes -->
-    <div id="solicitudes-overlay" class="solicitudes-overlay"
-         style="display:none;" onclick="cerrarSolicitudes()">
-        <div class="solicitudes-panel" onclick="event.stopPropagation()">
-            <div class="solicitudes-header">
-                <h3><i class="fa-solid fa-user-plus"></i> Solicitudes recibidas</h3>
-                <button class="sol-close-btn" onclick="cerrarSolicitudes()">
-                    <i class="fa-solid fa-times"></i>
-                </button>
-            </div>
-            <div id="solicitudes-lista" class="solicitudes-lista">
-                <p style="text-align:center;color:var(--text-muted);padding:2rem;">
-                    Sin solicitudes pendientes.
-                </p>
-            </div>
-        </div>
-    </div>
-    <!-- Overlay Amigos -->
-<div id="amigos-overlay" class="solicitudes-overlay"
-     style="display:none;" onclick="cerrarAmigos()">
-    <div class="solicitudes-panel" onclick="event.stopPropagation()">
-        <div class="solicitudes-header">
-            <h3><i class="fa-solid fa-user-friends"></i> Mis Amigos</h3>
-            <button class="sol-close-btn" onclick="cerrarAmigos()">
-                <i class="fa-solid fa-times"></i>
-            </button>
-        </div>
-        <div id="amigos-lista" class="solicitudes-lista">
-            <p style="text-align:center;color:var(--text-muted);padding:2rem;">
-                Sin amigos aún.
-            </p>
-        </div>
-    </div>
-</div>
     <!-- Scripts -->
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-database-compat.js"></script>
@@ -810,7 +724,6 @@
                         <option value="Director">Director</option>
                     </select>
                 </div>
-                <!-- CAMBIO A: Nuevo row con Especialidad + Ciclo -->
                 <div class="denuncia-row-2" id="denuncia-estudiante-row" style="display:none;">
                     <div class="denuncia-form-group">
                         <label><i class="fa-solid fa-graduation-cap"></i> Especialidad</label>
@@ -900,7 +813,6 @@
                 </button>
             </div>
         </div>
-        <!-- CAMBIO B: Nuevo paso de éxito -->
         <!-- PASO 3: Éxito -->
         <div id="denuncia-step-success" style="display:none;">
             <div class="denuncia-success-wrap">
@@ -926,8 +838,8 @@
                 </button>
             </div>
         </div>
-    </div><!-- /modal-content-denuncia -->
-</div><!-- /denunciaModal -->
+    </div>
+</div>
   
   <!-- Modal Foto Estudiante (popup circular) -->
 <div id="fotoEstudianteModal" class="foto-est-overlay" style="display:none;" onclick="cerrarFotoEstudiante()">
@@ -987,5 +899,41 @@
     </div>
 </div>
   
+<!-- Overlay Solicitudes -->
+    <div id="solicitudes-overlay" class="solicitudes-overlay"
+         style="display:none;" onclick="cerrarSolicitudes()">
+        <div class="solicitudes-panel" onclick="event.stopPropagation()">
+            <div class="solicitudes-header">
+                <h3><i class="fa-solid fa-user-plus"></i> Solicitudes recibidas</h3>
+                <button class="sol-close-btn" onclick="cerrarSolicitudes()">
+                    <i class="fa-solid fa-times"></i>
+                </button>
+            </div>
+            <div id="solicitudes-lista" class="solicitudes-lista">
+                <p style="text-align:center;color:var(--text-muted);padding:2rem;">
+                    Sin solicitudes pendientes.
+                </p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Overlay Amigos -->
+<div id="amigos-overlay" class="solicitudes-overlay"
+     style="display:none;" onclick="cerrarAmigos()">
+    <div class="solicitudes-panel" onclick="event.stopPropagation()">
+        <div class="solicitudes-header">
+            <h3><i class="fa-solid fa-user-friends"></i> Mis Amigos</h3>
+            <button class="sol-close-btn" onclick="cerrarAmigos()">
+                <i class="fa-solid fa-times"></i>
+            </button>
+        </div>
+        <div id="amigos-lista" class="solicitudes-lista">
+            <p style="text-align:center;color:var(--text-muted);padding:2rem;">
+                Sin amigos aún.
+            </p>
+        </div>
+    </div>
+</div>
+
 </body>
 </html>
