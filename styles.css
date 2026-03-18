@@ -5621,3 +5621,139 @@ body.tema-inicial .notification-dot {
     gap: 0.8rem;
     flex-wrap: wrap;
 }
+
+/* ── Botón activo en footer móvil ── */
+@media (max-width: 768px) {
+    .mobile-footer-btn.active {
+        color: var(--primary-color);
+    }
+    .mobile-footer-btn.active i {
+        color: var(--primary-color);
+    }
+    .mobile-footer-btn.active span {
+        color: var(--primary-color);
+        font-weight: 700;
+    }
+}
+
+/* ============================================
+   FACEPILE DE AMIGOS — SECCIÓN MI PERFIL
+   ============================================ */
+
+.perfil-amigos-seccion {
+    margin-top: 1rem;
+    display: flex;
+    flex-direction: column;
+    gap: 0.6rem;
+}
+
+/* Título "Amigos" */
+.perfil-amigos-label {
+    font-size: 0.88rem;
+    font-weight: 700;
+    color: var(--text-light);
+    margin: 0;
+    display: flex;
+    align-items: center;
+    gap: 7px;
+}
+
+.perfil-amigos-label i {
+    color: var(--primary-color);
+}
+
+/* Fila horizontal de círculos */
+.facepile-row {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.75rem;
+    flex-wrap: nowrap;
+    overflow-x: auto;
+    padding-bottom: 4px;
+    scrollbar-width: none;
+}
+
+.facepile-row::-webkit-scrollbar {
+    display: none;
+}
+
+/* Cada elemento de la fila (foto o círculo azul) */
+.facepile-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    cursor: pointer;
+    flex-shrink: 0;
+}
+
+/* Foto circular del amigo */
+.facepile-item img {
+    width: 48px;
+    height: 48px;
+    border-radius: 50%;
+    object-fit: cover;
+    border: 2px solid var(--primary-color);
+    display: block;
+    transition: transform 0.2s ease, box-shadow 0.2s ease;
+}
+
+.facepile-item:hover img {
+    transform: scale(1.1);
+    box-shadow: 0 4px 14px rgba(59, 130, 246, 0.45);
+}
+
+/* Círculo azul sólido "Ver todos / +N" */
+.facepile-ver-todos-circulo {
+    width: 48px;
+    height: 48px;
+    border-radius: 50%;
+    background: var(--primary-color);
+    color: white;
+    font-size: 0.8rem;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: background 0.2s ease, transform 0.2s ease;
+}
+
+.facepile-item:hover .facepile-ver-todos-circulo {
+    background: var(--secondary-color);
+    transform: scale(1.1);
+}
+
+/* Etiqueta "Ver todos" debajo del círculo azul */
+.facepile-ver-todos-label {
+    font-size: 0.62rem;
+    color: var(--text-muted);
+    text-align: center;
+    white-space: nowrap;
+}
+
+/* Texto de la institución al fondo */
+.perfil-institucion {
+    margin-top: 0.4rem;
+    color: var(--text-muted);
+    font-size: 0.78rem;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+}
+
+.perfil-institucion i {
+    color: var(--primary-color);
+    font-size: 0.8rem;
+}
+
+/* En móvil los círculos son más grandes para facilitar el toque */
+@media (max-width: 768px) {
+    .facepile-item img,
+    .facepile-ver-todos-circulo {
+        width: 56px;
+        height: 56px;
+    }
+    .facepile-ver-todos-circulo {
+        font-size: 0.85rem;
+    }
+}
