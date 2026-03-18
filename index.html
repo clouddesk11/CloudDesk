@@ -532,29 +532,29 @@
         <!-- Footer -->
        <footer>
     <p class="footer-text">© 2025 EduSpace Plataforma Académica - Todos los derechos reservados.</p>
-    <button class="mobile-footer-btn" onclick="switchTab('estudiantes')">
-        <i class="fa-solid fa-user-group"></i>
-        <span>Comunidad</span>
-    </button>
-    <button class="mobile-footer-btn" onclick="switchTab('trabajos')">
-        <div style="position: relative;">
-            <i class="fa-solid fa-clipboard-list"></i>
-            <span id="pending-badge-footer" class="notification-dot" style="display: none;"></span>
-        </div>
-        <span>Trabajos</span>
-    </button>
-    <button class="mobile-footer-btn" onclick="switchTab('repositorio')">
-        <i class="fa-solid fa-home"></i>
-        <span>Inicio</span>
-    </button>
-    <button class="mobile-footer-btn" onclick="abrirPerfilEstudiante()">
-        <i class="fa-solid fa-user-circle"></i>
-        <span>Perfil</span>
-    </button>
-    <button class="mobile-footer-btn" onclick="toggleSidebar()">
-        <i class="fa-solid fa-bars"></i>
-        <span>Menú</span>
-    </button>
+   <button id="footer-btn-comunidad" class="mobile-footer-btn" onclick="switchTab('estudiantes')">
+    <i class="fa-solid fa-user-group"></i>
+    <span>Comunidad</span>
+</button>
+<button id="footer-btn-trabajos" class="mobile-footer-btn" onclick="switchTab('trabajos')">
+    <div style="position: relative;">
+        <i class="fa-solid fa-clipboard-list"></i>
+        <span id="pending-badge-footer" class="notification-dot" style="display: none;"></span>
+    </div>
+    <span>Trabajos</span>
+</button>
+<button id="footer-btn-repositorio" class="mobile-footer-btn" onclick="switchTab('repositorio')">
+    <i class="fa-solid fa-home"></i>
+    <span>Inicio</span>
+</button>
+<button id="footer-btn-perfil" class="mobile-footer-btn" onclick="abrirPerfilEstudiante()">
+    <i class="fa-solid fa-user-circle"></i>
+    <span>Perfil</span>
+</button>
+<button class="mobile-footer-btn" onclick="toggleSidebar()">
+    <i class="fa-solid fa-bars"></i>
+    <span>Menú</span>
+</button>
 </footer>
     </div>
     <!-- Modal Perfil Docente -->
