@@ -935,5 +935,84 @@
     </div>
 </div>
 
+  <!-- ══ MODAL BIENVENIDA — PRIMERA VEZ ══ -->
+<div id="modal-bienvenida" class="bienvenida-overlay-wrap" style="display:none;">
+
+    <!-- ── Tarjeta principal (steps 1, 2 y 3) ── -->
+    <div class="bienvenida-panel" id="bienvenida-panel">
+
+        <!-- STEP 1: Saludo -->
+        <div id="bienvenida-s1">
+            <div class="bienvenida-logo-wrap">
+    <svg id="bienvenida-logo-svg">
+        <use href="#filred-logo"/>
+    </svg>
+</div>
+            <h2 class="bienvenida-hola">
+                ¡Hola, <span id="bienvenida-nombre-span"></span>!
+            </h2>
+            <p class="bienvenida-main-text">Bienvenido a <strong>QilCloud</strong></p>
+            <p class="bienvenida-pronunciacion">(Se pronuncia <em>Kel-Klaud</em>)</p>
+            <div class="bienvenida-acciones-row">
+                <span class="bienvenida-link-mas" onclick="bienvenida_verMas()">
+                    ver más sobre QilCloud
+                </span>
+                <button class="bienvenida-btn-continuar" onclick="bienvenida_continuar()">
+                    Continuar <i class="fa-solid fa-arrow-right"></i>
+                </button>
+            </div>
+        </div>
+
+        <!-- STEP 2: Etimología -->
+        <div id="bienvenida-s2" style="display:none;">
+            <button class="bienvenida-x-btn" onclick="bienvenida_volverS1()" title="Volver">
+                <i class="fa-solid fa-times"></i>
+            </button>
+            <div class="bienvenida-etimologia">
+                <p>
+                    <strong>"Quil"</strong>
+                    <span class="bienvenida-pron">(Kel)</span>
+                    es la esencia de la raíz quechua <em>Qillqa</em>,
+                    que representa el registro y la memoria.
+                </p>
+                <p>
+                    <strong>"Cloud"</strong>
+                    <span class="bienvenida-pron">(Klaud)</span>
+                    es tu infraestructura en la nube que sostiene esta red.
+                </p>
+            </div>
+        </div>
+
+        <!-- STEP 3: ¿Ver video? -->
+        <div id="bienvenida-s3" style="display:none;">
+            <button class="bienvenida-x-btn" onclick="bienvenida_cerrarTodo()" title="Saltar">
+                <i class="fa-solid fa-times"></i>
+            </button>
+            <p class="bienvenida-pregunta-video">
+                ¿Te gustaría ver un video sobre cada parte y sus funciones?
+            </p>
+            <button class="bienvenida-btn-ver-video" onclick="bienvenida_abrirVideo()">
+                <i class="fa-solid fa-play"></i> Ver funcionamiento.
+            </button>
+        </div>
+
+    </div>
+
+    <!-- ── Contenedor de video (reemplaza la tarjeta cuando se abre) ── -->
+    <div class="bienvenida-video-wrap" id="bienvenida-video-wrap" style="display:none;">
+        <button class="bienvenida-video-x" onclick="bienvenida_cerrarTodo()" title="Saltar">
+            <i class="fa-solid fa-times"></i>
+        </button>
+        <iframe
+            id="bienvenida-video-iframe"
+            src=""
+            frameborder="0"
+            allowfullscreen
+            allow="autoplay; fullscreen"
+        ></iframe>
+    </div>
+
+</div>
+  
 </body>
 </html>
