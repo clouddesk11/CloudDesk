@@ -6261,7 +6261,7 @@ body.tema-inicial .notification-dot {
     border: 1px solid var(--border-color);
     border-top: 4px solid var(--primary-color);
     display: grid;
-    grid-template-columns: 70px 1fr;
+    grid-template-columns: 90px 1fr;
     gap: 25px;
     transition: all 0.3s ease;
     box-shadow: var(--shadow);
@@ -6278,6 +6278,8 @@ body.tema-inicial .notification-dot {
     align-items: flex-start;
     justify-content: center;
     padding-top: 4px;
+    width: 90px;
+    flex-shrink: 0;
 }
 
 .ia-card-body h2 {
@@ -6337,7 +6339,9 @@ body.tema-inicial .notification-dot {
     }
     .ia-card-icon {
         justify-content: center;
+        width: 100%;
     }
+}
     .ia-steps {
         grid-template-columns: 1fr;
     }
