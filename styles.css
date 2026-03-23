@@ -6162,19 +6162,6 @@ body.tema-inicial .notification-dot {
     border-color: var(--primary-color);
 }
 
-.ai-sparkles {
-    color: white;
-    width: 35px;
-    height: 25px;
-    min-width: 18px;
-    flex-shrink: 0;
-    transition: all 0.2s ease;
-}
-
-.ai-btn:hover .ai-sparkles {
-    transform: scale(1.1);
-}
-
 .ai-label {
     font-size: 0.78rem;
     font-weight: 500;
@@ -6232,26 +6219,6 @@ body.tema-inicial .notification-dot {
     margin-bottom: 30px;
 }
 
-.ia-main-image {
-    width: 100%;
-    max-width: 260px;
-    height: auto;
-    border-radius: 24px;
-    filter: drop-shadow(0 0 30px rgba(59, 130, 246, 0.3));
-    animation: float 5s ease-in-out infinite;
-}
-
-.ia-img-glow {
-    position: absolute;
-    top: 50%; left: 50%;
-    transform: translate(-50%, -50%);
-    width: 80%; height: 80%;
-    background: var(--primary-color);
-    filter: blur(80px);
-    opacity: 0.25;
-    z-index: -1;
-}
-
 .ia-title {
     font-size: clamp(2rem, 5vw, 3rem);
     font-weight: 800;
@@ -6307,10 +6274,10 @@ body.tema-inicial .notification-dot {
 }
 
 .ia-card-icon {
-    font-size: 3rem;
     display: flex;
     align-items: flex-start;
     justify-content: center;
+    padding-top: 4px;
 }
 
 .ia-card-body h2 {
@@ -6377,11 +6344,34 @@ body.tema-inicial .notification-dot {
 }
 
 .ai-btn-mobile.active {
-    background: rgba(59, 130, 246, 0.3);
+    background: var(--primary-color);
     border-color: var(--primary-color);
-    box-shadow: 0 0 12px rgba(59, 130, 246, 0.4);
 }
 
 .ai-btn-mobile.active svg {
-    color: var(--primary-color);
+    color: white;
+}
+
+.ai-btn-mobile {
+    -webkit-tap-highlight-color: transparent;
+}
+
+.ghost-body { fill: #9ca3af; }
+.ghost-eye {
+    fill: #ffffff;
+    transform-origin: center;
+    transform-box: fill-box;
+    animation: ghost-parpadeo 1s infinite;
+}
+@keyframes ghost-parpadeo {
+    0%, 80%, 100% { transform: scaleY(1); }
+    85%, 90%      { transform: scaleY(0); }
+}
+.ia-ghost-svg {
+    width: 170px;
+    height: 170px;
+    display: block;
+    margin: 0 auto 30px;
+    filter: drop-shadow(0 0 30px rgba(59, 130, 246, 0.3));
+    animation: float 5s ease-in-out infinite;
 }
