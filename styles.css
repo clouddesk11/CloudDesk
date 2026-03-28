@@ -1,4 +1,3 @@
-/* --- Variables y Reset --- */
 :root {
   
     --primary-color: #3b82f6;
@@ -19,17 +18,12 @@
     --loader-icon-color: #FFFFFF;
 }
 
-/* ============================================
-   SIDEBAR COLAPSABLE - VERSIÓN FINAL CORREGIDA
-   ============================================ */
-
 body {
     margin: 0;
     padding: 0;
     overflow-x: hidden;
 }
 
-/* Sidebar principal */
 .sidebar {
     position: fixed;
     left: 0;
@@ -52,14 +46,10 @@ body {
     width: 250px;
 }
 
-/* ============================================
-   HEADER DEL SIDEBAR - ORDEN: IMAGEN → TEXTO → HAMBURGUESA
-   ============================================ */
-
 .sidebar-header {
     display: flex;
     align-items: center;
-    justify-content: space-between; /* Logo a la izquierda, hamburguesa a la derecha */
+    justify-content: space-between; 
     width: 100%;
     padding: 0 0.8rem;
     margin-bottom: 1.5rem;
@@ -68,7 +58,6 @@ body {
     min-height: 60px;
 }
 
-/* Logo (imagen + texto) - SIEMPRE VISIBLE */
 .sidebar-logo {
     display: flex;
     align-items: center;
@@ -80,8 +69,6 @@ body {
     overflow: hidden;
 }
 
-
-/* Texto del logo */
 .sidebar-logo-text {
     font-size: 1.1rem;
     font-weight: 700;
@@ -97,11 +84,6 @@ body {
     opacity: 1;
     transform: translateX(0);
 }
-
-
-/* ============================================
-   NAVEGACIÓN DEL SIDEBAR - ESTILO "VER DETALLE"
-   ============================================ */
 
 .sidebar {
     position: fixed;
@@ -122,8 +104,6 @@ body {
     overflow-x: hidden;
 }
 
-/* Botones del sidebar - ESTILO "VER DETALLE" */
-/* Botones del sidebar - SIN CONTENEDOR */
 .sidebar-btn {
     width: 100%;
     min-height: 45px;
@@ -136,31 +116,28 @@ body {
     display: flex;
     align-items: center;
     justify-content: center;
-    gap: 12px;  /* ← Más espacio entre ícono y texto */
-    padding: 0.6rem 1.2rem;  /* ← Padding reducido, más horizontal */
+    gap: 12px;  
+    padding: 0.6rem 1.2rem;  
     transition: all 0.3s ease;
     position: relative;
     white-space: nowrap;
 }
-/* Cuando el sidebar está ABIERTO, alinear a la izquierda */
+
 .sidebar.open .sidebar-btn {
-    justify-content: flex-start;  /* ← Alineado a izquierda cuando abierto */
+    justify-content: flex-start;  
 }
-/* Cuando el sidebar está CERRADO, botones más compactos */
 .sidebar:not(.open) .sidebar-btn {
     min-height: 2px;
-    padding:  0.-30rem 0.-30rem;  /* ← Padding reducido solo cuando cerrado */
+    padding:  0.-30rem 0.-30rem;  
      justify-content: flex-start;
 }
 
-/* Cuando el sidebar está ABIERTO, botones con más espacio */
 .sidebar.open .sidebar-btn {
     min-height: 2px;
     padding: 0.6rem;
     justify-content: flex-start;
 }
 
-/* Íconos de los botones */
 .sidebar-btn i {
     font-size: -5rem;
     min-width: 35px;
@@ -181,7 +158,6 @@ body {
     transform: translateX(0);
 }
 
-/* Estado hover - ESTILO "VER DETALLE" */
 .sidebar-btn:hover {
     background-color: rgba(59, 130, 246, 0.1);
     border-color: transparent;
@@ -192,9 +168,8 @@ body {
     color: var(--primary-color);
 }
 
-/* Estado activo - ESTILO "VER DETALLE" PERO MÁS DISTINTIVO */
 .sidebar-btn.active {
-    background-color: rgba(59, 130, 246, 0.15);  /* ← Fondo más visible */
+    background-color: rgba(59, 130, 246, 0.15);  
     border: none;
     color: var(--primary-color);
 }
@@ -203,7 +178,6 @@ body {
     color: var(--primary-color);
 }
 
-/* Indicador lateral del botón activo */
 .sidebar-btn.active::before {
     content: '';
     position: absolute;
@@ -216,8 +190,6 @@ body {
     border-radius: 0 4px 4px 0;
 }
 
-
-/* Notificación estilo Messenger - círculo simple parpadeante */
 .notification-dot {
     position: absolute;
     top: -2px;
@@ -241,7 +213,6 @@ body {
     }
 }
 
-/* Overlay para móvil */
 .sidebar-overlay {
     display: none;
     position: fixed;
@@ -260,7 +231,6 @@ body {
     opacity: 1;
 }
 
-/* Contenedor principal ajustado */
 .main-content {
     margin-left: 80px;
     min-height: 100vh;
@@ -270,10 +240,6 @@ body {
 .sidebar.open ~ .main-content {
     margin-left: 250px;
 }
-
-/* ============================================
-   RESPONSIVE - MÓVILES
-   ============================================ */
 
 @media (max-width: 768px) {
 
@@ -6162,22 +6128,6 @@ body.tema-inicial .notification-dot {
     border-color: var(--primary-color);
 }
 
-.ai-label {
-    font-size: 0.78rem;
-    font-weight: 500;
-    color: var(--text-muted);
-    white-space: nowrap;
-    transition: color 0.3s;
-}
-
-.ai-btn:hover .ai-label {
-    color: var(--text-light);
-}
-
-.ai-btn.active .ai-label {
-    color: var(--text-light);
-}
-
 .ai-btn-mobile {
     width: 38px;
     height: 38px;
@@ -6382,3 +6332,119 @@ body.tema-inicial .notification-dot {
     filter: drop-shadow(0 0 30px rgba(59, 130, 246, 0.3));
     animation: float 5s ease-in-out infinite;
 }
+
+/* ══════════════════════════════════════
+   BOTÓN INGRESAR — Gramática Pro Card
+══════════════════════════════════════ */
+.ia-ingresar-btn {
+    margin-top: 1.2rem;
+    width: 100%;
+    padding: 0.65rem 1rem;
+    background: linear-gradient(135deg, #4f46e5 0%, #3b82f6 100%);
+    color: white;
+    border: none;
+    border-radius: 10px;
+    font-weight: 700;
+    font-size: 0.88rem;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    transition: all 0.3s ease;
+    box-shadow: 0 4px 14px rgba(79,70,229,0.3);
+}
+.ia-ingresar-btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 20px rgba(79,70,229,0.45);
+}
+
+/* ══════════════════════════════════════
+   TOPBAR INTERNA — Gramática Pro App
+══════════════════════════════════════ */
+.gp-topbar {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0.75rem 1.5rem;
+    background: rgba(15,23,42,0.85);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border-bottom: 1px solid rgba(255,255,255,0.06);
+    position: sticky;
+    top: 0;
+    z-index: 50;
+    gap: 12px;
+}
+.gp-back-btn {
+    background: rgba(255,255,255,0.05);
+    border: 1px solid rgba(255,255,255,0.1);
+    color: #94a3b8;
+    padding: 0.4rem 0.9rem;
+    border-radius: 8px;
+    cursor: pointer;
+    font-size: 0.82rem;
+    font-weight: 600;
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    transition: all 0.2s ease;
+    white-space: nowrap;
+    flex-shrink: 0;
+}
+.gp-back-btn:hover { color: white; background: rgba(255,255,255,0.1); }
+
+.gp-topbar-brand {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    flex: 1;
+    justify-content: center;
+}
+.gp-brand-img {
+    width: 28px;
+    height: 28px;
+    object-fit: contain;
+}
+
+/* ══════════════════════════════════════
+   ESTILOS INTERNOS DE GRAMÁTICA PRO
+   (copiados de gramatica-style.css, adaptados)
+══════════════════════════════════════ */
+#gramatica-pro-app {
+    font-family: 'Plus Jakarta Sans', sans-serif;
+    background-color: #020617;
+}
+#gramatica-pro-app #app-content {
+    color: #cbd5e1;
+}
+.glass-panel {
+    background: rgba(15,23,42,0.7);
+    backdrop-filter: blur(20px);
+    -webkit-backdrop-filter: blur(20px);
+    border: 1px solid rgba(255,255,255,0.06);
+}
+.btn-primary {
+    background: linear-gradient(135deg, #4f46e5 0%, #3b82f6 100%);
+    box-shadow: 0 4px 18px 0 rgba(79,70,229,0.35);
+    transition: all 0.3s cubic-bezier(0.4,0,0.2,1);
+}
+.btn-primary:hover { transform: translateY(-2px); box-shadow: 0 8px 24px 0 rgba(79,70,229,0.45); }
+.btn-primary:active { transform: translateY(1px); }
+.card-hover { transition: all 0.35s cubic-bezier(0.4,0,0.2,1); }
+.card-hover:hover {
+    transform: translateY(-4px);
+    background: rgba(30,41,59,0.9);
+    border-color: rgba(99,102,241,0.35);
+    box-shadow: 0 12px 40px -10px rgba(79,70,229,0.18);
+}
+.chat-bubble-ai  { border-radius: 1rem 1rem 1rem 0.25rem; }
+.chat-bubble-user{ border-radius: 1rem 1rem 0.25rem 1rem; }
+.dot-bounce { display: inline-block; animation: dotBounce 1s infinite; }
+.dot-bounce:nth-child(2) { animation-delay: 0.15s; }
+.dot-bounce:nth-child(3) { animation-delay: 0.30s; }
+@keyframes dotBounce { 0%,100%{transform:translateY(0)} 50%{transform:translateY(-5px)} }
+.ai-sparkle-btn .sparkle-icon { transition: transform 0.3s ease; display:inline-flex; align-items:center; }
+.ai-sparkle-btn:hover .sparkle-icon { transform: scale(1.15) rotate(8deg); }
+@keyframes fireWiggle { 0%,100%{transform:rotate(-4deg) scale(1)} 50%{transform:rotate(4deg) scale(1.1)} }
+.fire-anim { animation: fireWiggle 0.5s ease infinite; display:inline-block; }
