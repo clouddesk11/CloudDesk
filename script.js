@@ -1785,7 +1785,8 @@ function switchTab(tab) {
     if (sectionPerfil) sectionPerfil.style.display = 'none';
     const sectionIa = document.getElementById('ia-juegos');
     if (sectionIa) sectionIa.style.display = 'none';
-
+    const sectionGp = document.getElementById('gramatica-pro-app');
+if (sectionGp) sectionGp.style.display = 'none';
     
   document.querySelectorAll('.sidebar-btn').forEach(btn => btn.classList.remove('active'));
   document.querySelector('.ai-btn')?.classList.remove('active');
@@ -1856,13 +1857,18 @@ document.querySelector('.ai-btn-mobile')?.classList.remove('active');
     actualizarSeccionPerfil();
 
 } else if (tab === 'ia-juegos') {
-    const sectionIa = document.getElementById('ia-juegos');
-    if (sectionIa) sectionIa.style.display = 'block';
-    document.querySelector('.ai-btn')?.classList.add('active');
-    document.querySelector('.ai-btn-mobile')?.classList.add('active');
-}
-}
+        const sectionIa = document.getElementById('ia-juegos');
+        if (sectionIa) sectionIa.style.display = 'block';
+        document.querySelector('.ai-btn')?.classList.add('active');
+        document.querySelector('.ai-btn-mobile')?.classList.add('active');
 
+    } else if (tab === 'gramatica-pro-app') {   // ← ANTES de los 2 cierres
+        const sectionGp = document.getElementById('gramatica-pro-app');
+        if (sectionGp) sectionGp.style.display = 'block';
+        document.querySelector('.ai-btn')?.classList.add('active');       // ← añadir
+    document.querySelector('.ai-btn-mobile')?.classList.add('active'); // ← añadir
+    }
+}   
 // ============================================
 // CLOUDINARY — ELIMINAR IMAGEN VIA SUPABASE
 // ============================================
@@ -2965,4 +2971,755 @@ function bienvenida_cerrarTodo() {
     if (iframe) iframe.src = ''; // detiene el video
     if (modal)  modal.style.display = 'none';
     _bienvenida_marcarVista();
+}
+
+let attemptedCards = [];
+let _gpInicializado = false;
+
+const SUPABASE_URL = 'https://dowoncayanvhrbrpvdms.supabase.co';
+const SUPABASE_KEY =  'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImRvd29uY2F5YW52aHJicnB2ZG1zIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzEwMzQyMjYsImV4cCI6MjA4NjYxMDIyNn0.WyB7depGJfULdT8pi-rPf5ISASDX93Vh14nVlS-3x2s';
+const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+
+// ── PROGRESO EN FIREBASE (no más localStorage) ──
+async function gp_cargarProgreso() {
+    try {
+        const authRaw = localStorage.getItem('eduspace_auth');
+        if (!authRaw) return;
+        const { codigo } = JSON.parse(authRaw);
+        const snap = await database.ref(`codigos/${codigo}/gramatica_progress/attemptedCards`).once('value');
+        if (snap.val()) attemptedCards = snap.val();
+    } catch(e) { console.error('Error cargando progreso gramática:', e); }
+}
+async function gp_guardarProgreso() {
+    try {
+        const authRaw = localStorage.getItem('eduspace_auth');
+        if (!authRaw) return;
+        const { codigo } = JSON.parse(authRaw);
+        await database.ref(`codigos/${codigo}/gramatica_progress/attemptedCards`).set(attemptedCards);
+    } catch(e) { console.error('Error guardando progreso gramática:', e); }
+}
+function abrirGramaticaPro() {
+    if (typeof switchTab === 'function') switchTab('gramatica-pro-app');
+    initGramaticaPro();
+}
+
+function sparkle(size, gid, colorA, colorB) {
+    colorA = colorA || '#B250FF';
+    colorB = colorB || '#6550FF';
+    return `<svg width="${size}" height="${size}" viewBox="0 0 200 200" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <defs><linearGradient id="${gid}" x1="100%" y1="0%" x2="0%" y2="100%">
+            <stop offset="0%" stop-color="${colorA}"/><stop offset="100%" stop-color="${colorB}"/>
+        </linearGradient></defs>
+        <g fill="url(#${gid})" stroke="url(#${gid})" stroke-linejoin="round">
+            <path stroke-width="8" d="M 75,40 Q 75,95 130,95 Q 75,95 75,150 Q 75,95 20,95 Q 75,95 75,40 Z"/>
+            <path stroke-width="4" d="M 135,30 Q 135,50 155,50 Q 135,50 135,70 Q 135,50 115,50 Q 135,50 135,30 Z"/>
+            <path stroke-width="6" d="M 150,100 Q 150,130 180,130 Q 150,130 150,160 Q 150,130 120,130 Q 150,130 150,100 Z"/>
+        </g></svg>`;
+}
+
+document.getElementById('hdr-spark').innerHTML = sparkle(16,'hg','#ffffff','#c7d2fe');
+
+let currentView  = 'menu';
+let lastView     = '';
+let activeTab    = null;       
+let selectedItem = null;
+let chatHistory  = [];
+let sectionsData = [];         
+let gameData = {
+    questions:[], qIdx:0, score:0, streak:0, bestStreak:0,
+    feedback:false, selected:null, aiExp:null, loading:false,
+    evaluating:false, error:false
+};
+
+
+async function loadData() {
+    
+    const { data: secs } = await sb
+        .from('sections')
+        .select('*')
+        .order('display_order');
+
+    const { data: cds } = await sb
+        .from('cards')
+        .select('*')
+        .order('display_order');
+
+    if (!secs || !cds) return;
+
+    sectionsData = secs.map(s => ({
+        ...s,
+        cards: cds.filter(c => c.section_id === s.id)
+    }));
+
+    if (!activeTab && sectionsData.length > 0) {
+        activeTab = sectionsData[0].id;
+    }
+}
+
+function setupRealtime() {
+    sb.channel('cambios')
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'sections' }, async () => {
+            await loadData();
+            if (currentView === 'menu') render();
+        })
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'cards' }, async () => {
+            await loadData();
+            if (currentView === 'menu' || currentView === 'detail') render();
+        })
+        .on('postgres_changes', { event: '*', schema: 'public', table: 'questions' }, async () => {
+        })
+        .subscribe();
+}
+
+async function callGroq(prompt, system) {
+    try {
+        const r = await fetch('https://dowoncayanvhrbrpvdms.supabase.co/functions/v1/super-service', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': `Bearer ${SUPABASE_KEY}`
+            },
+            body: JSON.stringify({ prompt, system })
+        });
+        const d = await r.json();
+        return d.choices?.[0]?.message?.content || null;
+    } catch(e) { return null; }
+}
+
+async function generateQuestions(mode) {
+    gameData = {
+        questions:[], qIdx:0, score:0, streak:0, bestStreak:0,
+        feedback:false, userAnswer:null, aiExp:null,
+        loading:true, evaluating:false, error:false
+    };
+    if (mode !== 'global' && !attemptedCards.includes(mode)) {
+    attemptedCards.push(mode);
+    gp_guardarProgreso();
+}
+    currentView = 'game';
+    render();
+
+    let rows, error;
+
+    if (mode === 'global') {
+        ({ data: rows, error } = await sb
+            .from('global_questions')
+            .select('*')
+            .order('display_order'));
+
+        if (error || !rows || rows.length === 0) {
+            gameData.error = true; gameData.loading = false; render(); return;
+        }
+
+        const shuffled = rows.sort(() => Math.random() - 0.5).slice(0, 5);
+        gameData.questions = shuffled.map(q => ({
+            type: 'global',
+            itemRef: null,
+            instruction: q.instruction || 'Identifica el elemento gramatical que se pide en la oración.',
+            sentence: q.sentence,
+            answers: [],
+            logic: ''
+        }));
+
+    } else {
+        ({ data: rows, error } = await sb
+            .from('questions')
+            .select('*, cards(*)')
+            .eq('card_id', mode));
+
+        if (error || !rows || rows.length === 0) {
+            gameData.error = true; gameData.loading = false; render(); return;
+        }
+
+        const shuffled = rows.sort(() => Math.random() - 0.5).slice(0, 3);
+        gameData.questions = shuffled.map(q => ({
+            type: mode,
+            itemRef: q.cards,
+            instruction: q.instruction || `¿Cuál es ${q.cards?.title?.toLowerCase()} en esta oración?`,
+            sentence: q.sentence,
+            answers: [],
+            logic: ''
+        }));
+    }
+
+    gameData.loading = false;
+    render();
+}
+
+function startLevel(mode) { generateQuestions(mode); }
+
+async function handleSubmit() {
+    if (gameData.feedback || gameData.evaluating) return;
+    const input = document.getElementById('game-input');
+    if (!input) return;
+    const userAnswer = input.value.trim();
+    if (!userAnswer) { input.focus(); return; }
+
+    gameData.userAnswer = userAnswer;
+    gameData.evaluating = true;
+    render();
+
+    const q    = gameData.questions[gameData.qIdx];
+    const item = q.itemRef;
+
+    const sys = `Eres un evaluador experto y empático de gramática española.
+
+ORACIÓN: "${q.sentence}"
+PREGUNTA: "${q.instruction}"
+${item ? `CONCEPTO: "${item.title}" — ${item.definition}\nPISTA: "${item.how_to_find}"` : ''}
+RESPUESTA DEL ALUMNO: "${userAnswer}"
+
+INSTRUCCIONES:
+1. Analiza la oración y determina cuál es la respuesta correcta para lo que se pide.
+2. Evalúa si el alumno respondió correctamente (ignora tildes, mayúsculas y frases de relleno).
+3. Sé flexible: si el alumno demostró entender el concepto, considera CORRECTO.
+4. En "answers" pon las respuestas correctas reales que encontraste en la oración.
+5. Habla DIRECTAMENTE al alumno usando "tú".
+   Si CORRECTO: felicítalo en 1 oración diciendo qué hizo bien.
+   Si INCORRECTO: primero reconoce lo que sí acertó (si acertó algo), luego dile qué estuvo mal o qué faltó y por qué. Máximo 2 oraciones. 
+   Ej: "Identificaste bien 'comiendo', pero te faltó incluir 'estaban' y 'conversaban', que también son verbos porque indican una acción."
+   Si no acertó nada: dile directamente cuál era la respuesta y por qué, sin buscar algo positivo forzado.
+
+Responde ÚNICAMENTE con JSON válido sin backticks:
+{"correct":true,"answers":["respuesta1"],"explanation":"..."}`;
+
+    const raw = await callGroq('Evalúa si el alumno respondió correctamente.', sys);
+    let correct = false, explanation = '', correctAnswers = [];
+
+    if (raw) {
+        try {
+            let clean = raw.trim().replace(/```json|```/g,'').trim();
+            const match = clean.match(/\{[\s\S]*\}/);
+            if (match) clean = match[0];
+            const parsed = JSON.parse(clean);
+            correct        = parsed.correct === true;
+            explanation    = parsed.explanation || '';
+            correctAnswers = Array.isArray(parsed.answers) ? parsed.answers : [];
+        } catch(e) {
+            correct = false;
+            explanation = 'No se pudo evaluar. Inténtalo de nuevo.';
+        }
+    } else {
+        correct = false;
+        explanation = 'No se pudo conectar con la IA. Revisa tu conexión.';
+    }
+
+    gameData.feedback   = { correct, explanation, correctAnswers };
+    gameData.evaluating = false;
+    if (correct) {
+        gameData.score++;
+        gameData.streak++;
+        if (gameData.streak > gameData.bestStreak) gameData.bestStreak = gameData.streak;
+    } else {
+        gameData.streak = 0;
+    }
+    render();
+}
+
+function handleGameEnter(e) {
+    if (e.key === 'Enter') { e.preventDefault(); handleSubmit(); }
+}
+
+async function getAiExplanation() {
+    const btn = document.getElementById('btn-ai');
+    if (btn) btn.innerHTML = `
+        <span class="dot-bounce w-1.5 h-1.5 bg-indigo-400 rounded-full inline-block"></span>
+        <span class="dot-bounce w-1.5 h-1.5 bg-indigo-400 rounded-full inline-block"></span>
+        <span class="dot-bounce w-1.5 h-1.5 bg-indigo-400 rounded-full inline-block"></span>
+        <span class="ml-2 text-indigo-400 text-sm font-medium">Analizando...</span>`;
+
+    const q    = gameData.questions[gameData.qIdx];
+    const item = q.itemRef;
+
+    const sys = item
+        ? `Eres un profesor de gramática española amable y motivador. Explica errores en 2 oraciones máximo. Lenguaje sencillo. Concepto: ${item.title} — ${item.definition}. Pista clave: ${item.how_to_find}`
+        : `Eres un profesor de gramática española amable y motivador. Explica brevemente el error en 2 oraciones máximo. Lenguaje sencillo.`;
+
+    const correctStr = gameData.feedback.correctAnswers?.join(', ') || 'la respuesta correcta';
+    const prompt = `El alumno respondió "${gameData.userAnswer}" pero la respuesta correcta era "${correctStr}" en la oración: "${q.sentence}". Explícale amablemente el error.`;
+
+    const res = await callGroq(prompt, sys);
+    gameData.aiExp = res || (item ? `Recuerda: ${item.how_to_find}` : 'Revisa bien la oración e intenta identificar el elemento pedido.');
+    render();
+}
+
+function nextQ() {
+    if (gameData.qIdx < gameData.questions.length - 1) {
+        gameData.qIdx++;
+        gameData.feedback   = false;
+        gameData.userAnswer = null;
+        gameData.aiExp      = null;
+        gameData.evaluating = false;
+        render();
+        setTimeout(() => { const i = document.getElementById('game-input'); if(i) i.focus(); }, 80);
+    } else {
+        currentView = 'results';
+        render();
+    }
+}
+
+function generateChatHTML() {
+    let html = `
+        <div class="flex justify-start mb-3">
+            <div class="flex-shrink-0 mr-2 mt-0.5">
+                <div class="w-7 h-7 rounded-full bg-indigo-600 flex items-center justify-center shadow-lg">
+                    <span class="text-white text-[10px] font-bold">AI</span>
+                </div>
+            </div>
+            <div class="chat-bubble-ai bg-slate-800 border border-slate-700/50 px-3 py-2.5 text-xs text-slate-200 max-w-[85%] shadow-sm">
+                ¡Hola! ¿Qué duda tienes sobre <strong>${selectedItem ? selectedItem.title : 'gramática'}</strong>? 😊
+            </div>
+        </div>`;
+    chatHistory.forEach(m => {
+        if (m.role === 'user') {
+            html += `<div class="flex justify-end mb-3"><div class="chat-bubble-user bg-indigo-600 px-3 py-2.5 text-xs text-white max-w-[85%] shadow-md">${m.text}</div></div>`;
+        } else {
+            html += `
+                <div class="flex justify-start mb-3">
+                    <div class="flex-shrink-0 mr-2 mt-0.5"><div class="w-7 h-7 rounded-full bg-indigo-600 flex items-center justify-center"><span class="text-white text-[10px] font-bold">AI</span></div></div>
+                    <div class="chat-bubble-ai bg-slate-800 border border-slate-700/50 px-3 py-2.5 text-xs text-slate-200 max-w-[85%] shadow-sm">
+                        ${m.text.replace(/\*\*(.*?)\*\*/g,'<strong>$1</strong>')}
+                    </div>
+                </div>`;
+        }
+    });
+    return html;
+}
+
+function handleEnter(e) { if (e.key==='Enter'&&!e.shiftKey){ e.preventDefault(); sendChat(); } }
+
+function autoResizeTextarea() {
+     const tx = document.getElementById('gp-chat-input');
+    if (!tx) return;
+    tx.addEventListener('input', function(){ this.style.height='auto'; this.style.height=this.scrollHeight+'px'; });
+}
+
+async function sendChat() {
+     const input = document.getElementById('gp-chat-input');
+    if (!input) return;
+    const text = input.value.trim();
+    if (!text) return;
+    chatHistory.push({ role:'user', text });
+    input.value=''; input.style.height='auto'; input.focus();
+    const box = document.getElementById('chat-box');
+    const uD = document.createElement('div');
+    uD.className='flex justify-end mb-3 animate__animated animate__fadeInUp animate__faster';
+    uD.innerHTML=`<div class="chat-bubble-user bg-indigo-600 px-3 py-2.5 text-xs text-white max-w-[85%] shadow-md">${text}</div>`;
+    box.appendChild(uD);
+    box.scrollTo({top:box.scrollHeight,behavior:'smooth'});
+    const lid='msg-'+Date.now();
+    const aD=document.createElement('div');
+    aD.className='flex justify-start mb-3 animate__animated animate__fadeIn animate__faster';
+    aD.innerHTML=`
+        <div class="flex-shrink-0 mr-2 mt-0.5"><div class="w-7 h-7 rounded-full bg-indigo-600 flex items-center justify-center"><span class="text-white text-[10px] font-bold">AI</span></div></div>
+        <div id="${lid}" class="chat-bubble-ai bg-slate-800 border border-slate-700/50 px-3 py-2.5 text-xs text-slate-400 max-w-[85%] flex items-center gap-1">
+            <span class="dot-bounce w-1.5 h-1.5 bg-slate-500 rounded-full"></span>
+            <span class="dot-bounce w-1.5 h-1.5 bg-slate-500 rounded-full"></span>
+            <span class="dot-bounce w-1.5 h-1.5 bg-slate-500 rounded-full"></span>
+        </div>`;
+    box.appendChild(aD);
+    box.scrollTo({top:box.scrollHeight,behavior:'smooth'});
+    const res = await callGroq(text, `Eres el tutor de Gramática Pro. El alumno estudia: ${selectedItem?selectedItem.title:'gramática'}. ${selectedItem?'Concepto: '+selectedItem.definition:''} Usa lenguaje claro y motivador. Sé conciso (máximo 3 oraciones).`);
+    chatHistory.push({role:'model',text:res||'Lo siento, intenta de nuevo.'});
+    const el=document.getElementById(lid);
+    if(el){
+        el.className='chat-bubble-ai bg-slate-800 border border-slate-700/50 px-3 py-2.5 text-xs text-slate-200 max-w-[85%] shadow-sm';
+        el.innerHTML=(res||'Lo siento, intenta de nuevo.').replace(/\*\*(.*?)\*\*/g,'<strong>$1</strong>');
+        box.scrollTo({top:box.scrollHeight,behavior:'smooth'});
+    }
+}
+
+function getIcon(name, color, size='w-5 h-5') {
+    const icons = {
+        Zap:`<svg class="${size} ${color}" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"/></svg>`,
+        Tag:`<svg class="${size} ${color}" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A1.994 1.994 0 013 12V7a4 4 0 014-4z"/></svg>`,
+        Palette:`<svg class="${size} ${color}" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21a4 4 0 01-4-4V5a2 2 0 012-2h4a2 2 0 012 2v12a4 4 0 01-4 4zm0 0h12a2 2 0 002-2v-4a2 2 0 00-2-2h-2.343M11 7.343l1.657-1.657a2 2 0 012.828 0l2.829 2.829a2 2 0 010 2.828l-8.486 8.485M7 17h.01"/></svg>`,
+        Box:`<svg class="${size} ${color}" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"/></svg>`,
+        Target:`<svg class="${size} ${color}" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>`,
+        Gift:`<svg class="${size} ${color}" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 12V8H4v4m16 0H4m16 0v8H4v-8m16 0l-4-4m-8 4l4-4m4 4v8m-8-8v8"/></svg>`,
+        Clock:`<svg class="${size} ${color}" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>`
+    };
+    return icons[name]||'';
+}
+
+function render() {
+    const container = document.getElementById('app-content');
+    const isNewView = currentView !== lastView;
+    lastView = currentView;
+  
+   const gpBackBtn = document.querySelector('.gp-back-btn');
+    if (gpBackBtn) {
+        if (currentView === 'menu') {
+            gpBackBtn.onclick = () => switchTab('ia-juegos');
+            gpBackBtn.innerHTML = '<i class="fa-solid fa-arrow-left"></i> Volver';
+        } else {
+            gpBackBtn.onclick = () => showView('menu');
+            gpBackBtn.innerHTML = '<i class="fa-solid fa-arrow-left"></i> Volver al temario';
+        }
+    }
+
+    if (currentView === 'menu') {
+        container.innerHTML = `
+            <div class="${isNewView?'animate__animated animate__fadeIn':''}">
+                <div class="flex flex-col sm:flex-row gap-3 items-start sm:items-end mb-6 md:mb-8">
+                    <div class="flex-1">
+                        <h1 class="text-2xl md:text-3xl font-black text-white mb-1 tracking-tight">Desbloquea el Lenguaje</h1>
+                        <p class="text-slate-400 text-sm md:text-base">Haz clic en una tarjeta y empieza a aprender.</p>
+                    </div>
+                    <div class="flex bg-slate-800/50 p-1 rounded-xl border border-white/5 w-full sm:w-auto flex-wrap">
+                        ${sectionsData.map(s => `
+                            <button onclick="setTab('${s.id}')" class="flex-1 sm:flex-none px-4 py-2 rounded-lg font-bold text-xs md:text-sm transition-all ${activeTab===s.id?'bg-indigo-600 text-white shadow':'text-slate-400 hover:text-white hover:bg-white/5'}">
+                                ${s.title}
+                            </button>
+                        `).join('')}
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3 md:gap-4">
+                    ${sectionsData.length === 0 ? `
+                        <div class="col-span-full text-center py-12">
+                            <div class="flex justify-center mb-4">
+                                <div class="flex gap-1.5">
+                                    <span class="dot-bounce w-2.5 h-2.5 bg-indigo-400 rounded-full inline-block"></span>
+                                    <span class="dot-bounce w-2.5 h-2.5 bg-indigo-400 rounded-full inline-block"></span>
+                                    <span class="dot-bounce w-2.5 h-2.5 bg-indigo-400 rounded-full inline-block"></span>
+                                </div>
+                            </div>
+                            <p class="text-white font-bold text-base mb-1">Cargando contenido...</p>
+                            <p class="text-slate-500 text-xs">Conectando con la base de datos</p>
+                        </div>
+                    ` : ''}
+                    ${(sectionsData.find(s => s.id === activeTab)?.cards || []).map((item, idx) => `
+                        <div onclick="showDetail('${item.id}')" class="card-hover bg-slate-800/40 border border-white/5 rounded-2xl p-4 md:p-5 cursor-pointer flex flex-col h-full relative overflow-hidden group animate__animated animate__fadeInUp" style="animation-delay:${idx*0.06}s">
+                            <div class="absolute -top-8 -right-8 w-28 h-28 bg-gradient-to-br from-white/5 to-transparent rounded-full blur-2xl pointer-events-none"></div>
+                            <div class="p-2.5 rounded-xl ${item.bg} ${item.border} border mb-3 inline-block w-fit">
+                                ${getIcon(item.icon, item.color, 'w-4 h-4 md:w-5 md:h-5')}
+                            </div>
+                            <h3 class="text-base md:text-lg font-bold text-white mb-1.5 tracking-tight">${item.title}</h3>
+                            ${attemptedCards.includes(item.id) ? `
+    <span class="inline-flex items-center gap-1 text-[10px] font-bold text-amber-400 bg-amber-400/10 border border-amber-400/20 px-2 py-0.5 rounded-full mb-1.5">
+        📖 En proceso
+    </span>` : ''}
+                         
+                        </div>
+                    `).join('')}
+                </div>
+            </div>`;
+
+    } else if (currentView === 'detail') {
+        container.innerHTML = `
+            <div class="${isNewView?'animate__animated animate__fadeIn':''}">
+                <div class="flex flex-col lg:flex-row gap-4 md:gap-5 items-start">
+
+                    <!-- ── Panel principal ── -->
+                    <div class="w-full lg:w-3/5 xl:w-2/3">
+                        <div class="detail-card bg-slate-800/40 border border-white/5 rounded-2xl p-4 md:p-6 relative overflow-hidden">
+                            <div class="absolute top-0 right-0 w-48 h-48 bg-indigo-500/8 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2 pointer-events-none"></div>
+
+                            <!-- Icono + título -->
+                            <div class="flex items-center gap-3 mb-3 relative z-10">
+                                <div class="p-2.5 rounded-xl ${selectedItem.bg} ${selectedItem.border} border shrink-0">
+                                    ${getIcon(selectedItem.icon, selectedItem.color, 'w-5 h-5 md:w-6 md:h-6')}
+                                </div>
+                                <div>
+                                    <h2 class="text-xl md:text-2xl font-black text-white tracking-tight">${selectedItem.title}</h2>
+                                    <p class="text-xs text-slate-400 mt-0.5">${selectedItem.definition}</p>
+                                </div>
+                            </div>
+
+                            <!-- Secreto -->
+                            <div class="bg-gradient-to-r from-indigo-900/40 to-slate-800/40 border border-indigo-500/20 p-3.5 md:p-5 rounded-xl mb-3 relative z-10">
+                                <div class="flex items-center gap-1.5 text-indigo-300 font-bold text-[10px] tracking-wider uppercase mb-1.5">
+                                    <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+                                    El secreto para encontrarlo:
+                                </div>
+                                <p class="text-sm md:text-base font-bold text-white leading-snug">"${selectedItem.how_to_find}"</p>
+                            </div>
+
+                            <!-- Pro tip -->
+                            ${selectedItem.tip?`
+                            <div class="bg-amber-500/5 border border-amber-500/15 p-3 rounded-xl mb-4 relative z-10 flex gap-2.5">
+                                <span class="text-base">💡</span>
+                                <div>
+                                    <p class="text-[10px] font-bold text-amber-400 uppercase tracking-wider mb-0.5">Pro tip</p>
+                                    <p class="text-xs text-slate-300">${selectedItem.tip}</p>
+                                </div>
+                            </div>`:''}
+
+                            <!-- Botón -->
+                            <button onclick="startLevel('${selectedItem.id}')" class="ai-sparkle-btn w-full sm:w-auto px-5 btn-primary text-white font-bold py-3 rounded-xl text-sm flex items-center justify-center gap-2 relative z-10">
+                                <span class="sparkle-icon">${sparkle(18,'sg_det','#ffffff','#c7d2fe')}</span>
+                                Empezar Práctica
+                                <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M14 5l7 7m0 0l-7 7m7-7H3"/></svg>
+                            </button>
+                        </div>
+                    </div>
+
+                    <!-- ── Chat ── -->
+                    <div class="w-full lg:w-2/5 xl:w-1/3 flex flex-col bg-slate-900 border border-slate-700/50 rounded-2xl shadow-xl overflow-hidden" style="height:380px; lg:height:auto;">
+                        <!-- Header chat -->
+                        <div class="bg-slate-800/80 backdrop-blur-md px-3 py-2.5 border-b border-white/5 flex items-center gap-2 shrink-0">
+                            <div class="relative">
+                                <div class="w-1.5 h-1.5 bg-green-500 rounded-full absolute -top-0.5 -right-0.5 border border-slate-900"></div>
+                                <div class="p-1 bg-indigo-500/20 rounded-lg">${sparkle(16,'sg_ch')}</div>
+                            </div>
+                            <div>
+                                <h3 class="font-bold text-white text-xs">Tutor IA</h3>
+                                <p class="text-[9px] text-green-400 font-medium">En línea · Pregúntame lo que quieras</p>
+                            </div>
+                        </div>
+                        <!-- Mensajes -->
+                        <div id="chat-box" class="flex-1 overflow-y-auto p-3 flex flex-col scroll-smooth bg-slate-900">
+                            ${generateChatHTML()}
+                        </div>
+                        <!-- Input -->
+                        <div class="p-2.5 bg-slate-800/50 border-t border-white/5 shrink-0">
+                            <div class="flex items-end gap-2">
+                                <textarea id="gp-chat-input" onkeypress="handleEnter(event)"rows="1"
+                                    class="flex-1 bg-slate-900 rounded-xl px-3 py-2 text-xs text-white border border-slate-700 focus:border-indigo-500 focus:ring-1 focus:ring-indigo-500 transition-all outline-none resize-none"
+                                    placeholder="Escribe tu duda aquí..."
+                                    style="min-height:36px;max-height:90px;"></textarea>
+                                <button onclick="sendChat()" class="bg-indigo-600 hover:bg-indigo-500 text-white p-2 rounded-xl transition-colors shrink-0">
+                                    <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8"/></svg>
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+
+                </div>
+            </div>`;
+
+        setTimeout(()=>{
+            const b=document.getElementById('chat-box');
+            if(b) b.scrollTop=b.scrollHeight;
+            autoResizeTextarea();
+    
+            const chatEl = document.querySelector('.lg\\:w-2\\/5');
+            if(chatEl && window.innerWidth >= 1024) {
+                chatEl.style.height = 'calc(100vh - 9rem)';
+                chatEl.style.position = 'sticky';
+                chatEl.style.top = '4.5rem';
+            }
+        },50);
+
+    } else if (currentView === 'game') {
+
+        if (gameData.error) {
+            container.innerHTML = `
+                <div class="max-w-lg mx-auto animate__animated animate__fadeIn">
+                    <div class="bg-slate-800/50 border border-red-500/20 rounded-2xl p-8 md:p-12 shadow-xl text-center">
+                        <div class="text-5xl mb-4">⚠️</div>
+                        <p class="text-white font-bold text-base mb-1">No se pudo conectar con la IA</p>
+                        <p class="text-slate-500 text-xs mb-6">Revisa tu conexión a internet e inténtalo de nuevo.</p>
+                        <button onclick="showView('menu')" class="btn-primary text-white font-bold py-3 px-6 rounded-xl text-sm">
+                            Volver al menú
+                        </button>
+                    </div>
+                </div>`;
+            return;
+        }
+
+        if (gameData.loading || gameData.questions.length === 0) {
+            container.innerHTML = `
+                <div class="max-w-lg mx-auto animate__animated animate__fadeIn">
+                    <div class="bg-slate-800/50 border border-white/5 rounded-2xl p-8 md:p-12 shadow-xl text-center">
+                        <div class="flex justify-center mb-4">${sparkle(40,'sg_load')}</div>
+                        <div class="flex justify-center gap-1.5 mb-4">
+                            <span class="dot-bounce w-2.5 h-2.5 bg-indigo-400 rounded-full inline-block"></span>
+                            <span class="dot-bounce w-2.5 h-2.5 bg-indigo-400 rounded-full inline-block"></span>
+                            <span class="dot-bounce w-2.5 h-2.5 bg-indigo-400 rounded-full inline-block"></span>
+                        </div>
+                        <p class="text-white font-bold text-base mb-1">Cargando tus ejercicios...</p>
+                        <p class="text-slate-500 text-xs">Preparando preguntas desde la base de datos</p>
+                    </div>
+                </div>`;
+            return;
+        }
+
+        const q    = gameData.questions[gameData.qIdx];
+        const item = q.itemRef;
+
+        container.innerHTML = `
+            <div class="max-w-xl mx-auto ${isNewView?'animate__animated animate__zoomIn animate__faster':''}">
+                <div class="game-card bg-slate-800/50 border border-white/5 rounded-2xl p-4 md:p-6 shadow-xl relative overflow-hidden">
+
+                    <!-- Cabecera -->
+                    <div class="flex justify-between items-center mb-5">
+                        <button onclick="showView('menu')" class="flex items-center gap-1 text-xs font-bold text-slate-400 hover:text-white transition-colors bg-white/5 px-2.5 py-1.5 rounded-lg">
+                            <svg class="w-3 h-3" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg>
+                            Salir
+                        </button>
+                        <div class="flex gap-2">
+                            <div class="stat-badge bg-indigo-500/10 px-2.5 py-1.5 rounded-lg border border-indigo-500/20 flex flex-col items-center min-w-[52px]">
+                                <span class="text-[8px] text-indigo-300 font-bold uppercase tracking-wider">Puntos</span>
+                                <span class="text-sm text-white font-black leading-tight">${gameData.score}</span>
+                            </div>
+                            <div class="stat-badge bg-orange-500/10 px-2.5 py-1.5 rounded-lg border border-orange-500/20 flex flex-col items-center min-w-[52px]">
+                                <span class="text-[8px] text-orange-300 font-bold uppercase tracking-wider">Racha</span>
+                                <span class="text-sm text-white font-black leading-tight">${gameData.streak > 0 ? `<span class="${gameData.streak>=3?'fire-anim':''}">🔥</span>${gameData.streak}` : '—'}</span>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Pregunta -->
+                    <div class="text-center mb-4">
+                        <div class="flex flex-wrap justify-center gap-1.5 mb-2">
+                            ${q.multiItems && q.multiItems.length > 0
+                                ? q.multiItems.map(it => `
+                                    <div class="inline-flex items-center gap-1 px-2 py-0.5 rounded-full bg-slate-700/40 border border-slate-600/30">
+                                        ${getIcon(it.icon, it.color, 'w-2.5 h-2.5')}
+                                        <span class="text-[9px] font-bold ${it.color}">${it.title}</span>
+                                    </div>`).join('')
+                                : `<div class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-slate-700/40 border border-slate-600/30">
+                                        ${item ? getIcon(item.icon, item.color, 'w-3 h-3') : ''}
+                                        <span class="text-[10px] font-bold ${item ? item.color : ''}">${item ? item.title : ''}</span>
+                                    </div>`
+                            }
+                        </div>
+                        <span class="text-[10px] font-bold text-indigo-400 uppercase tracking-widest mb-1.5 block">Pregunta ${gameData.qIdx+1} de ${gameData.questions.length}</span>
+                        <h2 class="text-lg md:text-xl font-black text-white">${q.instruction}</h2>
+                    </div>
+
+                    <!-- Oración -->
+                    <div class="bg-slate-900/70 border border-slate-700/40 rounded-xl p-4 mb-4 text-center">
+                        <p class="sentence-text text-base md:text-lg font-semibold text-white leading-relaxed">${q.sentence}</p>
+                    </div>
+
+                    <!-- Input -->
+                    ${!gameData.feedback ? `
+                    <div class="space-y-2 mb-4">
+                        <div class="flex gap-2 items-center">
+                            <input
+                                id="game-input"
+                                type="text"
+                                placeholder="Escribe tu respuesta aquí..."
+                                onkeydown="handleGameEnter(event)"
+                                ${gameData.evaluating ? 'disabled' : ''}
+                                autocomplete="off" autocorrect="off" spellcheck="false"
+                                class="flex-1 bg-slate-900 border-2 ${gameData.evaluating ? 'border-slate-700 opacity-60' : 'border-slate-700 focus:border-indigo-500'} rounded-xl px-3 py-2.5 text-white text-sm font-medium placeholder-slate-600 outline-none transition-all"
+                            />
+                            <button onclick="handleSubmit()" ${gameData.evaluating ? 'disabled' : ''} class="btn-primary text-white px-4 py-2.5 rounded-xl font-bold text-sm shrink-0 flex items-center gap-1.5 ${gameData.evaluating ? 'opacity-60' : ''}">
+                                ${gameData.evaluating
+                                    ? `<span class="dot-bounce w-1.5 h-1.5 bg-white rounded-full inline-block"></span>
+                                       <span class="dot-bounce w-1.5 h-1.5 bg-white rounded-full inline-block"></span>
+                                       <span class="dot-bounce w-1.5 h-1.5 bg-white rounded-full inline-block"></span>`
+                                    : `<svg class="w-3.5 h-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2.5" d="M5 13l4 4L19 7"/></svg>`
+                                }
+                            </button>
+                        </div>
+                        <p class="text-[10px] text-center text-slate-600">${gameData.evaluating ? 'La IA está analizando tu respuesta...' : 'Presiona Enter o el botón para comprobar'}</p>
+                    </div>` : ''}
+
+                    <!-- Feedback -->
+                    <div class="min-h-[100px]">
+                        ${gameData.feedback ? `
+    
+   <div class="animate__animated animate__fadeInUp animate__faster space-y-2.5">
+                                <div class="p-3.5 rounded-xl ${gameData.feedback.correct?'bg-emerald-500/10 border-emerald-500/30':'bg-red-500/10 border-red-500/30'} border flex items-start gap-2.5">
+                                    <div class="mt-0.5 shrink-0">
+                                        ${gameData.feedback.correct
+                                            ? '<svg class="w-4 h-4 text-emerald-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7"/></svg>'
+                                            : '<svg class="w-4 h-4 text-red-400" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M6 18L18 6M6 6l12 12"/></svg>'}
+                                    </div>
+                                    <div>
+                                        <p class="text-white font-bold text-sm mb-0.5">${gameData.feedback.correct ? '¡Excelente!' : '¡Casi!'}</p>
+                                        <p class="text-slate-300 text-xs leading-relaxed">${gameData.feedback.explanation}</p>
+                                        ${!gameData.feedback.correct && gameData.feedback.correctAnswers?.length ? `<p class="text-[10px] text-slate-500 mt-1">Respuesta esperada: <span class="text-emerald-400 font-semibold">${gameData.feedback.correctAnswers.join(', ')}</span></p>` : ''}
+                                    </div>
+                                </div>
+
+                                ${gameData.aiExp ? `
+                                <div class="bg-indigo-900/30 p-3.5 rounded-xl text-xs text-indigo-100 border border-indigo-500/30 flex items-start gap-2">
+                                    <span class="shrink-0 mt-0.5">${sparkle(14,'sg_exp')}</span>
+                                    <div>${gameData.aiExp}</div>
+                                </div>` : ''}
+
+                                ${!gameData.feedback.correct && !gameData.aiExp ? `
+                                <button id="btn-ai" onclick="getAiExplanation()" class="w-full text-indigo-400 text-xs bg-indigo-500/5 border border-indigo-500/20 py-2 rounded-xl font-bold hover:bg-indigo-500/10 transition-colors flex justify-center items-center gap-1.5">
+                                    <span>${sparkle(13,'sg_btn')}</span>
+                                    Pedir explicación a la IA
+                                </button>` : ''}
+
+                                <button onclick="nextQ()" class="w-full bg-white text-slate-900 font-bold py-3 rounded-xl text-sm hover:bg-slate-200 hover:shadow-lg transition-all mt-1">
+                                    ${gameData.qIdx < gameData.questions.length-1 ? 'Siguiente Pregunta →' : 'Ver Resultados Finales'}
+                                </button>
+                            </div>
+                        ` : ''}
+                    </div>
+                </div>
+            </div>`;
+
+        if (!gameData.feedback && !gameData.evaluating) {
+            setTimeout(() => { const i = document.getElementById('game-input'); if(i) i.focus(); }, 80);
+        }
+
+    } else if (currentView === 'results') {
+        const pct   = gameData.questions.length > 0 ? Math.round((gameData.score/gameData.questions.length)*100) : 0;
+        const emoji = pct>=80?'🏆':pct>=60?'🌟':'💪';
+        container.innerHTML = `
+            <div class="max-w-xs md:max-w-sm mx-auto text-center ${isNewView?'animate__animated animate__zoomIn':''}">
+                <div class="bg-slate-800/60 border border-white/5 p-6 md:p-8 rounded-[2rem] shadow-2xl relative overflow-hidden">
+                    <div class="absolute inset-0 bg-gradient-to-t from-indigo-900/20 to-transparent pointer-events-none"></div>
+                    <div class="text-5xl md:text-6xl mb-4 drop-shadow-lg">${emoji}</div>
+                    <h2 class="text-xl md:text-2xl font-black text-white mb-1 tracking-tight">¡Práctica Finalizada!</h2>
+                    <p class="text-slate-400 text-xs mb-6">Has completado el desafío con éxito.</p>
+                    <div class="grid grid-cols-2 gap-3 mb-6">
+                        <div class="bg-slate-900/80 p-3.5 rounded-xl border border-white/5 shadow-inner">
+                            <p class="text-3xl font-black text-white">${gameData.score}</p>
+                            <p class="text-[10px] text-slate-500 font-bold uppercase mt-0.5 tracking-wider">Aciertos</p>
+                        </div>
+                        <div class="bg-slate-900/80 p-3.5 rounded-xl border border-white/5 shadow-inner">
+                            <p class="text-3xl font-black text-orange-300">${gameData.bestStreak}</p>
+                            <p class="text-[10px] text-slate-500 font-bold uppercase mt-0.5 tracking-wider">Racha Máx</p>
+                        </div>
+                    </div>
+                    <div class="bg-slate-900/60 rounded-xl p-3 mb-4 border border-white/5">
+                        <p class="text-xs text-slate-400 mb-0.5">Precisión</p>
+                        <div class="w-full bg-slate-700 rounded-full h-2 mb-1">
+                            <div class="h-2 rounded-full ${pct>=80?'bg-emerald-500':pct>=60?'bg-amber-500':'bg-red-500'} transition-all" style="width:${pct}%"></div>
+                        </div>
+                        <p class="text-sm font-black text-white">${pct}%</p>
+                    </div>
+                    <button onclick="showView('menu')" class="w-full btn-primary text-white font-bold py-3 rounded-xl shadow-lg text-sm">
+                        Volver al Temario
+                    </button>
+                </div>
+            </div>`;
+    }
+}
+
+
+function setTab(tab) { activeTab = tab; render(); }
+function showView(v) { currentView = v; render(); }
+function showDetail(id) {
+    
+    const todasLasTarjetas = sectionsData.flatMap(s => s.cards);
+    selectedItem = todasLasTarjetas.find(c => c.id === id);
+    currentView  = 'detail';
+    chatHistory  = [];
+    render();
+}
+
+async function initGramaticaPro() {
+    if (_gpInicializado) return;
+    _gpInicializado = true;
+
+    // Mostrar loader inmediato
+    const container = document.getElementById('app-content');
+    if (container) {
+        container.innerHTML = `
+            <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;min-height:300px;gap:1rem;">
+                <div style="display:flex;gap:8px;">
+                    <span class="dot-bounce w-2.5 h-2.5 bg-indigo-400 rounded-full inline-block"></span>
+                    <span class="dot-bounce w-2.5 h-2.5 bg-indigo-400 rounded-full inline-block"></span>
+                    <span class="dot-bounce w-2.5 h-2.5 bg-indigo-400 rounded-full inline-block"></span>
+                </div>
+                <p style="color:#94a3b8;font-size:0.85rem;font-weight:600;">Cargando contenido...</p>
+            </div>`;
+    }
+
+    await gp_cargarProgreso();
+    await loadData();
+    setupRealtime();
+    render();
 }
