@@ -228,12 +228,6 @@
         </div>
     </div>
 
-    <!-- Mensaje Especial -->
-    <div id="specialUserMessage" class="special-user-message" style="display: none;">
-        <i class="fa-solid fa-star"></i>
-        <span>Bienvenido usuario especial con código 6578hy</span>
-    </div>
-
     <!-- SIDEBAR -->
     <aside class="sidebar" id="sidebar">
     <div class="sidebar-header">
@@ -469,8 +463,7 @@
                                 <i class="fa-solid fa-arrow-left"></i>
                             </button>
                             <span class="chat-panel-title"><i class="fa-solid fa-comment"></i> Chats</span>
-                            <button class="btn-denunciar-topbar" onclick="abrirDenuncia('')">
-                                <i class="fa-solid fa-flag"></i> Denunciar
+ 
                             </button>
                         </div>
                         <div class="chat-list" id="chat-list">
@@ -563,9 +556,11 @@
           <!-- ══ Sección Gramática Pro (Aplicación completa) ══ -->
         <section id="gramatica-pro-app" class="section-content" style="display: none;">
             <div class="gp-topbar">
-                <button onclick="switchTab('ia-juegos')" class="gp-back-btn">
-                    <i class="fa-solid fa-arrow-left"></i> Volver
-                </button>
+                
+<button onclick="switchTab('ia-juegos')" class="gp-back-btn">
+    <span class="gp-back-text-desktop"><i class="fa-solid fa-arrow-left"></i> Volver</span>
+    <span class="gp-back-text-mobile">&lt;</span>
+</button>
                 <div class="gp-topbar-brand" onclick="showView('menu')" style="cursor:pointer;">
                     <img src="https://res.cloudinary.com/dvrr4swky/image/upload/v1774229935/BackgroundEraser_20260322_203543343_trsdzd.png"
                          class="gp-brand-img" alt="Gramática Pro">
@@ -573,10 +568,11 @@
                         Gramática<span style="color:#818cf8;">Pro</span>
                     </span>
                 </div>
-                <button onclick="startLevel('global')" class="btn-primary text-white rounded-lg text-xs font-bold flex items-center gap-1.5" style="padding:6px 14px; border:none; cursor:pointer;">
-                    <span id="hdr-spark" style="display:inline-flex;align-items:center;"></span>
-                    <span>Desafío Global</span>
-                </button>
+                
+<button id="btn-desafio-global" onclick="startLevel('global')" class="btn-primary text-white rounded-lg text-xs font-bold flex items-center gap-1.5" style="padding:6px 14px; border:none; cursor:pointer; display:none;">
+    <span id="hdr-spark" style="display:inline-flex;align-items:center;"></span>
+    <span>Desafío Global</span>
+</button>
             </div>
             <main id="app-content" class="max-w-7xl mx-auto px-3 sm:px-5 py-4 md:py-7"></main>
         </section>
@@ -706,187 +702,6 @@
     <script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
     <script src="script.js"></script>
 
-<!-- ══ MODAL DENUNCIA ══ -->
-<div id="denunciaModal" class="modal">
-    <div class="modal-content-denuncia">
-        <button class="denuncia-close-btn" onclick="closeDenunciaModal()">
-            <i class="fa-solid fa-times"></i>
-        </button>
-        <div id="denuncia-step-terms">
-            <div class="denuncia-header">
-                <img src="https://res.cloudinary.com/dwzwa3gp0/image/upload/v1772830986/BackgroundEraser_20260306_160112932_e67sfh.png"
-                     alt="Advertencia" style="width:100px;height:100px;object-fit:contain;margin-bottom:0.7rem;">
-                <h2>Antes de Denunciar</h2>
-                <p>Lee cuidadosamente antes de continuar</p>
-            </div>
-            <div class="denuncia-terminos-scroll">
-                <div class="denuncia-termino-item">
-                    <i class="fa-solid fa-user-secret"></i>
-                    <div><strong>Anonimato Garantizado</strong>
-                    <p>Tu identidad NO será revelada. La denuncia es completamente anónima.</p></div>
-                </div>
-                <div class="denuncia-termino-item warning">
-                    <i class="fa-solid fa-gavel"></i>
-                    <div><strong>Uso Responsable</strong>
-                    <p>Las denuncias falsas o malintencionadas pueden tener consecuencias.</p></div>
-                </div>
-                <div class="denuncia-termino-item">
-                    <i class="fa-solid fa-shield-halved"></i>
-                    <div><strong>Protección de Datos</strong>
-                    <p>La información será tratada con confidencialidad y solo revisada por el administrador.</p></div>
-                </div>
-                <div class="denuncia-termino-item warning">
-                    <i class="fa-solid fa-circle-exclamation"></i>
-                    <div><strong>Exención de Responsabilidad</strong>
-                    <p>CloudDesk actúa como intermediario y NO se hace responsable por las consecuencias.</p></div>
-                </div>
-                <div class="denuncia-termino-item">
-                    <i class="fa-solid fa-clock"></i>
-                    <div><strong>Tiempo de Respuesta</strong>
-                    <p>Las denuncias serán revisadas por el administrador sin tiempo garantizado.</p></div>
-                </div>
-                <div class="denuncia-termino-item warning">
-                    <i class="fa-solid fa-ban"></i>
-                    <div><strong>Denuncias No Permitidas</strong>
-                    <p>No se permiten denuncias con contenido ofensivo, discriminatorio o sexual.</p></div>
-                </div>
-                <label class="denuncia-check-label">
-                    <input type="checkbox" id="denuncia-terminos-check">
-                    <span>He leído y acepto los términos y condiciones del sistema de denuncias</span>
-                </label>
-                <button class="denuncia-btn-primary" onclick="continuarAFormulario()">
-                    <i class="fa-solid fa-arrow-right"></i> Continuar
-                </button>
-            </div>
-        </div>
-        <div id="denuncia-step-form" style="display:none;">
-            <div class="denuncia-header">
-                <i class="fa-solid fa-flag denuncia-icon" style="color:#ef4444;"></i>
-                <h2>Nueva Denuncia</h2>
-                <p>Los campos con * son obligatorios · Es anónimo</p>
-            </div>
-            <div class="denuncia-form-body">
-                <div class="denuncia-form-group">
-                    <label><i class="fa-solid fa-user"></i> Nombre del denunciado *</label>
-                    <input type="text" id="denuncia-nombre" class="denuncia-input" placeholder="Nombre completo">
-                </div>
-                <div class="denuncia-form-group">
-                    <label><i class="fa-solid fa-id-badge"></i> Cargo *</label>
-                    <select id="denuncia-cargo" class="denuncia-select" onchange="onCargoCambio()">
-                        <option value="" disabled selected>Selecciona un cargo</option>
-                        <option value="Docente">Docente</option>
-                        <option value="Estudiante">Estudiante</option>
-                        <option value="Director">Director</option>
-                    </select>
-                </div>
-                <div class="denuncia-row-2" id="denuncia-estudiante-row" style="display:none;">
-                    <div class="denuncia-form-group">
-                        <label><i class="fa-solid fa-graduation-cap"></i> Especialidad</label>
-                        <select id="denuncia-especialidad" class="denuncia-select">
-                            <option value="" disabled selected>Selecciona</option>
-                            <option value="Comunicación">Comunicación</option>
-                            <option value="Inicial">Inicial</option>
-                        </select>
-                    </div>
-                    <div class="denuncia-form-group" id="denuncia-ciclo-row">
-                        <label><i class="fa-solid fa-layer-group"></i> Ciclo</label>
-                        <select id="denuncia-ciclo" class="denuncia-select">
-                            <option value="" disabled selected>Selecciona el ciclo</option>
-                            <option>I</option><option>II</option><option>III</option>
-                            <option>IV</option><option>V</option><option>VI</option>
-                            <option>VII</option><option>VIII</option><option>IX</option><option>X</option>
-                        </select>
-                    </div>
-                </div>
-                <div class="denuncia-form-group">
-                    <label><i class="fa-solid fa-align-left"></i> Descripción * <small style="color:var(--text-muted);font-weight:400;">(mín. 20 caracteres)</small></label>
-                    <textarea id="denuncia-descripcion" class="denuncia-textarea"
-                              placeholder="Describe detalladamente los hechos…" rows="4"></textarea>
-                </div>
-                <div class="denuncia-form-group">
-                    <label><i class="fa-solid fa-paperclip"></i> Evidencia <small style="color:var(--text-muted);font-weight:400;">(opcional)</small></label>
-                    <div class="denuncia-ev-tabs">
-                        <button class="denuncia-ev-tab active" id="tab-ev-foto" onclick="selTabEv('foto')"><i class="fa-solid fa-image"></i> Foto</button>
-                        <button class="denuncia-ev-tab" id="tab-ev-video" onclick="selTabEv('video')"><i class="fa-solid fa-video"></i> Video</button>
-                        <button class="denuncia-ev-tab" id="tab-ev-audio" onclick="selTabEv('audio')"><i class="fa-solid fa-microphone"></i> Audio</button>
-                    </div>
-                    <div id="ev-panel-foto">
-                        <div class="denuncia-upload-area" onclick="document.getElementById('ev-input-foto').click()">
-                            <input type="file" id="ev-input-foto" accept="image/*" style="display:none;" onchange="onEvFile(event,'foto')">
-                            <i class="fa-solid fa-cloud-upload-alt"></i>
-                            <p>Clic para seleccionar imagen</p>
-                            <span>JPG, PNG, GIF · Máx 10MB</span>
-                        </div>
-                    </div>
-                    <div id="ev-panel-video" style="display:none;">
-                        <div class="denuncia-upload-area" onclick="document.getElementById('ev-input-video').click()">
-                            <input type="file" id="ev-input-video" accept="video/*" style="display:none;" onchange="onEvFile(event,'video')">
-                            <i class="fa-solid fa-film"></i>
-                            <p>Clic para seleccionar video</p>
-                            <span>MP4, MOV, AVI · Máx 50MB</span>
-                        </div>
-                    </div>
-                    <div id="ev-panel-audio" style="display:none;">
-                        <div class="denuncia-audio-controls">
-                            <button class="denuncia-btn-grabar" id="btn-grabar-den" onclick="iniciarGrabacion()">
-                                <i class="fa-solid fa-microphone"></i> Grabar Audio
-                            </button>
-                            <button class="denuncia-btn-detener" id="btn-detener-den" style="display:none;" onclick="detenerGrabacion()">
-                                <i class="fa-solid fa-stop"></i> Detener
-                            </button>
-                            <span id="den-timer" style="display:none;" class="denuncia-timer">🔴 00:00</span>
-                        </div>
-                        <p style="color:var(--text-muted);font-size:0.8rem;text-align:center;margin:0.5rem 0;">— o sube un archivo —</p>
-                        <div class="denuncia-upload-area" onclick="document.getElementById('ev-input-audio').click()">
-                            <input type="file" id="ev-input-audio" accept="audio/*" style="display:none;" onchange="onEvFile(event,'audio')">
-                            <i class="fa-solid fa-file-audio"></i>
-                            <p>Clic para subir audio</p>
-                            <span>MP3, WAV, M4A · Máx 20MB</span>
-                        </div>
-                        <div id="den-audio-preview" style="display:none;margin-top:0.5rem;"></div>
-                    </div>
-                    <div id="den-ev-preview"></div>
-                </div>
-                <div class="denuncia-row-2">
-                    <div class="denuncia-form-group">
-                        <label><i class="fa-regular fa-calendar"></i> Fecha *</label>
-                        <input type="date" id="denuncia-fecha" class="denuncia-input">
-                    </div>
-                    <div class="denuncia-form-group">
-                        <label><i class="fa-regular fa-clock"></i> Hora *</label>
-                        <input type="time" id="denuncia-hora" class="denuncia-input">
-                    </div>
-                </div>
-                <button class="denuncia-btn-primary" id="btn-enviar-denuncia" onclick="enviarDenuncia()">
-                    <i class="fa-solid fa-paper-plane"></i> Enviar Denuncia
-                </button>
-            </div>
-        </div>
-        <div id="denuncia-step-success" style="display:none;">
-            <div class="denuncia-success-wrap">
-                <div class="denuncia-success-icon">
-                    <img src="https://res.cloudinary.com/dwzwa3gp0/image/upload/v1772829179/BackgroundEraser_20260306_152927767_zjhezt.png"
-                         alt="Denuncia enviada" style="width:100px;height:100px;object-fit:contain;">
-                </div>
-                <div class="denuncia-success-florero">🌸 🌿 🌸</div>
-                <h2>¡Tu denuncia fue enviada!</h2>
-                <p class="denuncia-success-sub">
-                    Fue recibida de forma <strong>completamente anónima</strong>.<br>
-                    El administrador la revisará a la brevedad.
-                </p>
-                <div class="denuncia-success-badges">
-                    <span><i class="fa-solid fa-user-secret"></i> Anónimo</span>
-                    <span><i class="fa-solid fa-lock"></i> Seguro</span>
-                    <span><i class="fa-solid fa-magnifying-glass"></i> En revisión</span>
-                </div>
-                <button class="denuncia-btn-primary" onclick="closeDenunciaModal()"
-                        style="background:linear-gradient(135deg,var(--success),#0d9668);margin-top:1.5rem;">
-                    <i class="fa-solid fa-check"></i> Entendido
-                </button>
-            </div>
-        </div>
-    </div>
-</div>
   
 <!-- Modal Foto Estudiante -->
 <div id="fotoEstudianteModal" class="foto-est-overlay" style="display:none;" onclick="cerrarFotoEstudiante()">
