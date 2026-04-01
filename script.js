@@ -3567,7 +3567,7 @@ async function initGramaticaPro() {
 // CUA CUA QUEST — LÓGICA COMPLETA
 // ============================================
 
-const CCQ_GEMINI_URL = 'https://dowoncayanvhrbrpvdms.supabase.co/functions/v1/super-service';
+const CCQ_KEY = "AIzaSyDyqNtd8buo1sIXK7ey2YE-F5g1G3E6-jg";
 
 let ccqDocText        = "";
 let ccqVerifiedModel  = "";
@@ -3575,6 +3575,7 @@ let ccqCurrentQuestions = [];
 let ccqCurrentMode    = '';
 let ccqCorrectCount   = 0;
 const CCQ_TOTAL       = 5;
+
 // ── Abrir la sección ──
 function abrirCuaCuaQuest() {
     switchTab('cuacua-app');
@@ -3648,6 +3649,22 @@ async function ccq_onFileChange(e) {
     }
 }
 
+// ── Obtener el modelo de Gemini disponible ──
+async function ccq_getWorkingModel() {
+    if (ccqVerifiedModel) return ccqVerifiedModel;
+    try {
+        const req  = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${CCQ_KEY}`);
+        const data = await req.json();
+        if (data.models) {
+            const valid = data.models.find(
+                m => m.name.includes("gemini") &&
+                     m.supportedGenerationMethods.includes("generateContent")
+            );
+            if (valid) { ccqVerifiedModel = valid.name; return ccqVerifiedModel; }
+        }
+    } catch (e) {}
+    return "models/gemini-1.5-flash";
+}
 
 // ── Generar preguntas con IA ──
 async function ccq_process(mode) {
@@ -3658,6 +3675,7 @@ async function ccq_process(mode) {
     optBox.classList.add('hidden'); optBox.style.display = 'none';
 
     try {
+        const modelToUse = await ccq_getWorkingModel();
         const queryType  = mode === 'multiple_choice'
             ? "5 preguntas de opción múltiple con 4 alternativas"
             : "5 afirmaciones de verdadero o falso con exactamente 2 alternativas: Verdadero y Falso";
@@ -3667,16 +3685,15 @@ Genera ${queryType} basadas en este texto.
 El JSON debe ser exactamente así: {"data":[{"q":"pregunta","o":["opcion1","opcion2","opcion3","opcion4"],"a":0}]}
 Texto: ${ccqDocText.substring(0, 6000)}`;
 
-        
-const r = await fetch(CCQ_GEMINI_URL, {
-    method:  'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body:    JSON.stringify({
-        service:     'gemini',
-        prompt:      prompt,
-        temperature: 0.2,
-    }),
-});
+        const url = `https://generativelanguage.googleapis.com/v1beta/${modelToUse}:generateContent?key=${CCQ_KEY}`;
+        const r   = await fetch(url, {
+            method:  'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body:    JSON.stringify({
+                contents:         [{ parts: [{ text: prompt }] }],
+                generationConfig: { temperature: 0.2 }
+            })
+        });
 
         const j = await r.json();
         if (!r.ok)          throw new Error(j.error?.message || "Error desconocido.");
