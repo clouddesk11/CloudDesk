@@ -2,6 +2,7 @@
 // CONFIGURACIÓN DE FIREBASE
 // ============================================
 const firebaseConfig = { 
+  
     apiKey: "AIzaSyBKiq_t-gZj_l1Bzj9Y1Jpft03b60pyyuQ",
     authDomain: "eduspace-auth-d7577.firebaseapp.com",
     databaseURL: "https://eduspace-auth-d7577-default-rtdb.firebaseio.com",
@@ -2892,7 +2893,7 @@ function setupRealtime() {
 
 async function callGroq(prompt, system) {
     try {
-        const r = await fetch('https://dowoncayanvhrbrpvdms.supabase.co/functions/v1/super-service', {
+        const r = await fetch(EDGE_URL, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
@@ -3567,7 +3568,7 @@ async function initGramaticaPro() {
 // CUA CUA QUEST — LÓGICA COMPLETA
 // ============================================
 
-const CCQ_KEY = "AIzaSyDyqNtd8buo1sIXK7ey2YE-F5g1G3E6-jg";
+const EDGE_URL = "https://dowoncayanvhrbrpvdms.supabase.co/functions/v1/hyper-service";
 
 let ccqDocText        = "";
 let ccqVerifiedModel  = "";
@@ -3649,23 +3650,6 @@ async function ccq_onFileChange(e) {
     }
 }
 
-// ── Obtener el modelo de Gemini disponible ──
-async function ccq_getWorkingModel() {
-    if (ccqVerifiedModel) return ccqVerifiedModel;
-    try {
-        const req  = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${CCQ_KEY}`);
-        const data = await req.json();
-        if (data.models) {
-            const valid = data.models.find(
-                m => m.name.includes("gemini") &&
-                     m.supportedGenerationMethods.includes("generateContent")
-            );
-            if (valid) { ccqVerifiedModel = valid.name; return ccqVerifiedModel; }
-        }
-    } catch (e) {}
-    return "models/gemini-1.5-flash";
-}
-
 // ── Generar preguntas con IA ──
 async function ccq_process(mode) {
     if (!ccqDocText) { alert("Primero sube un documento."); return; }
@@ -3675,7 +3659,7 @@ async function ccq_process(mode) {
     optBox.classList.add('hidden'); optBox.style.display = 'none';
 
     try {
-        const modelToUse = await ccq_getWorkingModel();
+        
         const queryType  = mode === 'multiple_choice'
             ? "5 preguntas de opción múltiple con 4 alternativas"
             : "5 afirmaciones de verdadero o falso con exactamente 2 alternativas: Verdadero y Falso";
@@ -3685,21 +3669,19 @@ Genera ${queryType} basadas en este texto.
 El JSON debe ser exactamente así: {"data":[{"q":"pregunta","o":["opcion1","opcion2","opcion3","opcion4"],"a":0}]}
 Texto: ${ccqDocText.substring(0, 6000)}`;
 
-        const url = `https://generativelanguage.googleapis.com/v1beta/${modelToUse}:generateContent?key=${CCQ_KEY}`;
-        const r   = await fetch(url, {
-            method:  'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body:    JSON.stringify({
-                contents:         [{ parts: [{ text: prompt }] }],
-                generationConfig: { temperature: 0.2 }
-            })
-        });
+        // ✅ DESPUÉS (reemplaza todo lo de arriba por esto)
+const r = await fetch(EDGE_URL, {
+    method: 'POST',
+    headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${SUPABASE_KEY}`
+    },
+    body: JSON.stringify({ prompt })
+});
 
-        const j = await r.json();
-        if (!r.ok)          throw new Error(j.error?.message || "Error desconocido.");
-        if (!j.candidates)  throw new Error("Google no devolvió respuesta.");
-
-        const textResponse = j.candidates[0].content.parts[0].text;
+const j = await r.json();
+const textResponse = j.choices?.[0]?.message?.content;
+if (!textResponse) throw new Error("La IA no devolvió respuesta. Intenta de nuevo.");
         const startIndex   = textResponse.indexOf('{');
         const endIndex     = textResponse.lastIndexOf('}');
         if (startIndex === -1 || endIndex === -1)
