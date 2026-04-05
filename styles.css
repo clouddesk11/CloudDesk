@@ -6237,3 +6237,48 @@ body.tema-inicial .notification-dot {
     border-color: #10b981;
     background: rgba(16, 185, 129, 0.1);
 }
+
+.docente-tool-card {
+    background: var(--card-bg, #1a1a1a);
+    border: 1px solid var(--border-color, #2a2a2a);
+    border-radius: 12px;
+    overflow: hidden;
+}
+.docente-tool-header {
+    width: 100%;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 1rem 1.2rem;
+    background: transparent;
+    border: none;
+    color: var(--text-light, #e5e7eb);
+    font-size: 1rem;
+    font-weight: 600;
+    cursor: pointer;
+    text-align: left;
+}
+.docente-tool-header:hover { background: rgba(255,255,255,.04); }
+.docente-tool-body {
+    padding: 1rem 1.2rem 1.2rem;
+    border-top: 1px solid var(--border-color, #2a2a2a);
+}
+.area-upload-block {
+    background: rgba(255,255,255,.03);
+    border: 1px solid var(--border-color, #2a2a2a);
+    border-radius: 10px;
+    padding: .9rem 1rem;
+    margin-bottom: .8rem;
+}
+.area-upload-block h5 { color: var(--text-light); margin-bottom: .5rem; }
+.area-upload-block .upload-zone {
+    border: 2px dashed var(--border-color, #2a2a2a);
+    border-radius: 8px;
+    padding: .8rem;
+    text-align: center;
+    cursor: pointer;
+    transition: border-color .2s;
+    color: var(--text-muted);
+    font-size: .85rem;
+}
+.area-upload-block .upload-zone:hover { border-color: var(--primary-color, #3b82f6); }
