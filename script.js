@@ -265,7 +265,10 @@ async function completarRegistroLaptop(user) {
             _guardarSesionLocal(userName, codigo, googleUid, 'desktop');
             _setTempValidacion(null); hideAuthModal();
             if (codigo === '6578hy') showSpecialUserMessage();
-            iniciarListenerBloqueo(); iniciarListenerSupabaseRegistered(); iniciarListenerFotoPerfil();
+            iniciarListenerBloqueo(); 
+          iniciarListenerSupabaseRegistered(); 
+          iniciarListenerFotoPerfil();
+          iniciarListenerCicloEsp();   // ← agregar esta línea
             actualizarPerfilSidebar();
             verificarBienvenida();   // ← línea nueva
             return;
@@ -280,7 +283,10 @@ async function completarRegistroLaptop(user) {
         _setTempValidacion(null); hideAuthModal();
         if (codigo === '6578hy') showSpecialUserMessage();
         // DESPUÉS
-        iniciarListenerBloqueo(); iniciarListenerSupabaseRegistered(); iniciarListenerFotoPerfil();
+        iniciarListenerBloqueo(); 
+      iniciarListenerSupabaseRegistered();
+      iniciarListenerFotoPerfil();
+      iniciarListenerCicloEsp();   // ← agregar esta línea
         actualizarPerfilSidebar();
         verificarBienvenida();   // ← línea nueva
     } catch (error) {
@@ -458,6 +464,7 @@ async function procesarLoginGoogle(user) {
             iniciarListenerBloqueo();
             iniciarListenerSupabaseRegistered();
             iniciarListenerFotoPerfil();
+            iniciarListenerCicloEsp();   // ← agregar esta línea
             actualizarPerfilSidebar();
             verificarBienvenida();   // ← línea nueva
             return;
@@ -470,6 +477,7 @@ async function procesarLoginGoogle(user) {
         iniciarListenerBloqueo();
         iniciarListenerSupabaseRegistered();
         iniciarListenerFotoPerfil();
+       iniciarListenerCicloEsp();   // ← agregar esta línea
         actualizarPerfilSidebar();
 
     } catch (error) {
@@ -525,6 +533,7 @@ async function continuarDesdeAuth() {
         iniciarListenerBloqueo();
         iniciarListenerSupabaseRegistered();
         iniciarListenerFotoPerfil();
+        iniciarListenerCicloEsp();   // ← agregar esta línea
         actualizarPerfilSidebar();
 
     } catch(err) {
@@ -607,6 +616,7 @@ document.addEventListener('DOMContentLoaded', async () => {
                     iniciarListenerBloqueo();
                     iniciarListenerSupabaseRegistered();
                     iniciarListenerFotoPerfil();
+                    iniciarListenerCicloEsp();   // ← agregar esta línea
                     actualizarPerfilSidebar();
                 } else {
                     showAuthModal(); getDeviceType() === 'mobile' ? mostrarPaso1() : mostrarPasoLaptop();
@@ -729,6 +739,51 @@ function iniciarListenerFotoPerfil() {
     } catch(e) { console.error('Error listener foto perfil:', e); }
 }
 
+// ============================================
+// LISTENER CICLO/ESPECIALIDAD EN TIEMPO REAL
+// ============================================
+let cicloEspListener = null;
+
+function iniciarListenerCicloEsp() {
+    const authData = localStorage.getItem('eduspace_auth');
+    if (!authData) return;
+    try {
+        const parsed = JSON.parse(authData);
+        const { codigo } = parsed;
+        if (cicloEspListener) {
+            database.ref(`codigos/${codigo}`).off('value', cicloEspListener);
+        }
+        cicloEspListener = database.ref(`codigos/${codigo}`).on('value', (snapshot) => {
+            const data = snapshot.val();
+            if (!data) return;
+            const perfilLocal = JSON.parse(localStorage.getItem('eduspace_student_profile') || 'null');
+            if (!perfilLocal) return;
+
+            const nuevaEsp   = data.perfil?.especialidad || data.especialidad || '';
+            const nuevoCiclo = data.perfil?.ciclo        || data.ciclo        || '';
+            let cambio = false;
+
+            if (nuevaEsp   && nuevaEsp   !== perfilLocal.especialidad) { perfilLocal.especialidad = nuevaEsp;   cambio = true; }
+            if (nuevoCiclo && nuevoCiclo !== perfilLocal.ciclo)        { perfilLocal.ciclo        = nuevoCiclo; cambio = true; }
+
+            if (cambio) {
+                localStorage.setItem('eduspace_student_profile', JSON.stringify(perfilLocal));
+                actualizarPerfilSidebar();
+                // Mostrar notificación de que el ciclo cambió
+                mostrarNotificacionCambio(`Tu ciclo fue actualizado a: Ciclo ${nuevoCiclo}`);
+            }
+        });
+    } catch(e) { console.error('Error listener ciclo/esp:', e); }
+}
+
+function mostrarNotificacionCambio(mensaje) {
+    const notif = document.createElement('div');
+    notif.style.cssText = `position:fixed;top:20px;right:20px;background:linear-gradient(135deg,#3b82f6,#2563eb);color:white;padding:1rem 1.5rem;border-radius:12px;box-shadow:0 4px 15px rgba(59,130,246,0.4);display:flex;align-items:center;gap:10px;font-weight:600;z-index:9999;`;
+    notif.innerHTML = `<i class="fa-solid fa-rotate" style="font-size:1.2rem;"></i><span>${mensaje}</span>`;
+    document.body.appendChild(notif);
+    setTimeout(() => notif.remove(), 5000);
+}
+
 function mostrarNotificacionDesbloqueo() {
     const notif = document.createElement('div');
     notif.style.cssText = `position:fixed;top:20px;right:20px;background:linear-gradient(135deg,#10b981,#0d9668);color:white;padding:1rem 1.5rem;border-radius:12px;box-shadow:0 4px 15px rgba(16,185,129,0.4);display:flex;align-items:center;gap:10px;font-weight:600;z-index:9999;animation:slideInRight 0.5s ease;`;
@@ -745,9 +800,11 @@ window.addEventListener('beforeunload', () => {
             if (bloqueoListener) database.ref(`codigos/${parsed.codigo}/bloqueado`).off('value', bloqueoListener);
             if (supabaseRegistradoListener) database.ref(`codigos/${parsed.codigo}/perfil/supabase_registered`).off('value', supabaseRegistradoListener);
             if (fotoPerfilListener) database.ref(`codigos/${parsed.codigo}/perfil/foto_url`).off('value', fotoPerfilListener);
+if (cicloEspListener)   database.ref(`codigos/${parsed.codigo}`).off('value', cicloEspListener);
         } catch(e) { console.error(e); }
     }
 });
+
 
 // ============================================
 // BASE DE DATOS
