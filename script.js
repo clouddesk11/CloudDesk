@@ -1371,6 +1371,7 @@ async function cargarTrabajosDesdeSupabase() {
             deadline: t.fecha_limite || '—',
             description: t.descripcion || '',
             requirements: Array.isArray(t.requisitos) ? t.requisitos : [],
+            recursos: Array.isArray(t.recursos) ? t.recursos : [],
             status: 'Pendiente'
         }));
     } catch(e) { console.error('Error cargando trabajos:', e); }
@@ -1529,18 +1530,29 @@ function openDetailsModal(assignmentId) {
     const reqList = document.getElementById('detailsRequirements'); reqList.innerHTML = '';
     assignment.requirements.forEach(req => { const li = document.createElement('li'); li.textContent = req; reqList.appendChild(li); });
     const attList = document.getElementById('detailsAttachments'); attList.innerHTML = '';
-    if (assignment.attachments && assignment.attachments.length > 0) {
-        assignment.attachments.forEach(att => {
+    const recursos = assignment.recursos || [];
+    if (recursos.length > 0) {
+        recursos.forEach(r => {
             const div = document.createElement('div'); div.classList.add('attachment-item');
-            let icon = 'fa-file-lines';
-            if (att.type === 'PDF') icon = 'fa-file-pdf';
-            else if (att.type === 'Word' || att.type === 'DOCX') icon = 'fa-file-word';
-            else if (att.type === 'Excel') icon = 'fa-file-excel';
-            else if (att.type === 'PowerPoint') icon = 'fa-file-powerpoint';
-            div.innerHTML = `<div class="attachment-info"><i class="fa-solid ${icon} attachment-icon"></i><div class="attachment-details"><h5>${att.name}</h5><p>${att.size}</p></div></div><a href="${att.downloadUrl}" target="_blank" class="attachment-download"><i class="fa-solid fa-download"></i> Descargar</a>`;
+            const esEnlace = r.tipo === 'enlace';
+            const icon = esEnlace ? 'fa-link' :
+                         r.nombre.match(/\.(jpg|jpeg|png|gif|webp)$/i) ? 'fa-image' :
+                         r.nombre.match(/\.(mp4|mov|avi|mkv)$/i) ? 'fa-video' :
+                         r.nombre.match(/\.pdf$/i) ? 'fa-file-pdf' :
+                         r.nombre.match(/\.(docx|doc)$/i) ? 'fa-file-word' : 'fa-file-lines';
+            div.innerHTML = `
+                <div class="attachment-info">
+                    <i class="fa-solid ${icon} attachment-icon"></i>
+                    <div class="attachment-details"><h5>${r.nombre}</h5><p>${esEnlace ? 'Enlace externo' : 'Archivo adjunto'}</p></div>
+                </div>
+                <a href="${r.url}" target="_blank" rel="noopener noreferrer" class="attachment-download">
+                    <i class="fa-solid ${esEnlace ? 'fa-external-link' : 'fa-download'}"></i> ${esEnlace ? 'Abrir' : 'Descargar'}
+                </a>`;
             attList.appendChild(div);
         });
-    } else { attList.innerHTML = '<p style="color:var(--text-muted);font-style:italic;">No hay archivos adjuntos</p>'; }
+    } else {
+        attList.innerHTML = '<p style="color:var(--text-muted);font-style:italic;">No hay archivos adjuntos</p>';
+    }
     detailsModal.style.display = 'block';
 }
 
@@ -1786,19 +1798,34 @@ function actualizarSeccionPerfil() {
         contenido.innerHTML = `
             <div class="perfil-seccion-inner">
                 <div class="mi-card-wrapper">
-                    <div class="mi-card-foto-wrap" style="position:relative;display:inline-block;">
-                        <img src="${docente.foto_url || fallback}" alt="${docente.nombre || ''}"
-                             class="mi-card-foto"
-                             onerror="this.src='${fallback}'"
-                             style="width:64px;height:64px;border-radius:50%;object-fit:cover;border:3px solid #8b5cf6;">
-                        <button class="mi-card-lapiz" style="background:#8b5cf6;"
-                                title="Cambiar foto"
-                                onclick="document.getElementById('docente-foto-input').click()">
-                            <i class="fa-solid fa-pencil"></i>
-                        </button>
-                        <input type="file" id="docente-foto-input" accept="image/*" style="display:none;"
-                               onchange="procesarFotoDocente(event)">
-                    </div>
+                   <div class="mi-card-foto-wrap" style="position:relative;display:inline-block;">
+            <img src="${docente.foto_url || fallback}" alt="${docente.nombre || ''}"
+                 class="mi-card-foto"
+                 onerror="this.src='${fallback}'"
+                 style="width:64px;height:64px;border-radius:50%;object-fit:cover;border:3px solid #8b5cf6;">
+            <button class="mi-card-lapiz" style="background:#8b5cf6;"
+                    title="Opciones de foto"
+                    onclick="event.stopPropagation(); toggleMenuFotoDocente()">
+                <i class="fa-solid fa-pencil"></i>
+            </button>
+            <div class="mi-card-menu-foto" id="mi-card-menu-foto-docente" style="display:none;">
+                ${docente.foto_url ? `
+                <button onclick="verFotoDocente()">
+                    <i class='fa-solid fa-eye'></i> Ver foto
+                </button>
+                <hr>` : ''}
+                <button onclick="document.getElementById('docente-foto-input').click(); cerrarMenuFotoDocente()">
+                    <i class='fa-solid fa-camera'></i> ${docente.foto_url ? 'Cambiar foto' : 'Subir foto'}
+                </button>
+                ${docente.foto_url ? `
+                <hr>
+                <button class="btn-eliminar-foto" onclick="eliminarFotoDocente()">
+                    <i class='fa-solid fa-trash'></i> Eliminar foto
+                </button>` : ''}
+            </div>
+            <input type="file" id="docente-foto-input" accept="image/*" style="display:none;"
+                   onchange="procesarFotoDocente(event)">
+        </div>
                     <div class="mi-card-info">
                         <span class="mi-card-nombre">${docente.nombre || '—'}</span>
                         <div class="mi-card-badges">
@@ -2085,6 +2112,18 @@ async function postLoginInit() {
         const esDocente = await verificarSiEsDocente(emailUsuario);
         if (esDocente) {
             localStorage.setItem('eduspace_docente_perfil', JSON.stringify(esDocente));
+
+            // ← NUEVO: guardar API del docente igual que hace el estudiante
+            try {
+                const authRaw = localStorage.getItem('eduspace_auth');
+                if (authRaw) {
+                    const { codigo } = JSON.parse(authRaw);
+                    const snap = await database.ref(`codigos/${codigo}/api`).once('value');
+                    const apiNum = snap.val();
+                    if (apiNum) localStorage.setItem('eduspace_api', String(apiNum));
+                }
+            } catch(e) { console.warn('Error guardando API docente:', e); }
+
             activarModoDocente(esDocente);
             return;
         }
@@ -2139,6 +2178,8 @@ function mostrarPanelDocente(docente) {
     document.querySelectorAll('.sidebar-btn').forEach(btn => btn.classList.remove('active'));
     const tabInicio = document.getElementById('tab-repositorio');
     if (tabInicio) tabInicio.classList.add('active');
+    // ── Actualizar sidebar ahora que el perfil docente ya está en localStorage ──
+    actualizarPerfilSidebar();
 }
 
 // ── Renderizar selector de especialidad/ciclo para el formulario de trabajos ──
@@ -2166,6 +2207,69 @@ function renderTrabajoEspSelector() {
 }
 
 // ── Publicar trabajo desde el panel docente ──
+// ── Variable global de recursos del formulario de trabajo ──
+let trabajoRecursosActuales = [];
+
+function renderRecursosAdjuntosDocente() {
+    const lista = document.getElementById('trabajo-recursos-lista');
+    if (!lista) return;
+    if (trabajoRecursosActuales.length === 0) {
+        lista.innerHTML = '<p style="color:var(--text-muted);font-size:.82rem;font-style:italic;">No hay archivos adjuntos</p>';
+        return;
+    }
+    lista.innerHTML = '';
+    trabajoRecursosActuales.forEach((r, i) => {
+        const item = document.createElement('div');
+        item.style = 'display:flex;align-items:center;gap:.6rem;padding:.5rem .7rem;background:rgba(255,255,255,.04);border:1px solid var(--border-color);border-radius:8px;font-size:.82rem;';
+        const icon = r.tipo === 'enlace' ? 'fa-link' :
+                     r.nombre.match(/\.(jpg|jpeg|png|gif|webp)$/i) ? 'fa-image' :
+                     r.nombre.match(/\.(mp4|mov|avi|mkv)$/i) ? 'fa-video' : 'fa-file';
+        item.innerHTML = `
+            <i class="fa-solid ${icon}" style="color:var(--primary-color);flex-shrink:0;"></i>
+            <span style="flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;color:var(--text-light);">${r.nombre}</span>
+            <button onclick="quitarRecursoDocente(${i})" style="background:transparent;border:none;color:var(--danger);cursor:pointer;font-size:.9rem;padding:0 4px;">
+                <i class="fa-solid fa-times"></i>
+            </button>`;
+        lista.appendChild(item);
+    });
+}
+
+function quitarRecursoDocente(index) {
+    trabajoRecursosActuales.splice(index, 1);
+    renderRecursosAdjuntosDocente();
+}
+
+function agregarEnlaceDocente() {
+    const url   = prompt('Ingresa la URL del enlace:');
+    if (!url || !url.trim()) return;
+    const nombre = prompt('Nombre para mostrar del enlace:', url.trim()) || url.trim();
+    trabajoRecursosActuales.push({ tipo: 'enlace', nombre: nombre.trim(), url: url.trim() });
+    renderRecursosAdjuntosDocente();
+}
+
+async function agregarArchivoRecursoDocente(input) {
+    const file = input.files[0];
+    if (!file) return;
+    const btn = document.getElementById('btn-adjuntar-archivo-trabajo');
+    if (btn) { btn.disabled = true; btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Subiendo...'; }
+    try {
+        const fileName = `${Date.now()}_${file.name}`;
+        const { error: storageError } = await supabaseClient.storage
+            .from('archivos-docentes')
+            .upload(fileName, file, { contentType: file.type, upsert: false });
+        if (storageError) throw storageError;
+        const { data: urlData } = supabaseClient.storage.from('archivos-docentes').getPublicUrl(fileName);
+        trabajoRecursosActuales.push({ tipo: 'archivo', nombre: file.name, url: urlData.publicUrl });
+        renderRecursosAdjuntosDocente();
+        mostrarToast('✅ Archivo adjuntado');
+    } catch(e) {
+        alert('❌ Error al subir: ' + e.message);
+    } finally {
+        if (btn) { btn.disabled = false; btn.innerHTML = '<i class="fa-solid fa-paperclip"></i> Archivo'; }
+        input.value = '';
+    }
+}
+
 async function publicarTrabajoDocente() {
     const titulo      = document.getElementById('trabajo-titulo')?.value.trim();
     const descripcion = document.getElementById('trabajo-descripcion')?.value.trim();
@@ -2190,6 +2294,7 @@ async function publicarTrabajoDocente() {
             titulo,
             descripcion,
             requisitos,
+            recursos: trabajoRecursosActuales,
             fecha_limite: fecha || null,
             especialidad,
             ciclo,
@@ -2203,6 +2308,8 @@ async function publicarTrabajoDocente() {
         document.getElementById('trabajo-descripcion').value  = '';
         document.getElementById('trabajo-requisitos').value   = '';
         document.getElementById('trabajo-fecha').value        = '';
+        trabajoRecursosActuales = [];
+        renderRecursosAdjuntosDocente();
         cargarHistorialTrabajosDocente(docente.email);
     } catch(e) {
         if (errEl) { errEl.textContent = '❌ Error: ' + e.message; errEl.style.display = 'block'; }
@@ -2401,10 +2508,27 @@ async function cargarHistorialDocente(docEmail) {
                     <div style="font-weight:500;color:var(--text-light);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${f.titulo}</div>
                     <div style="color:var(--text-muted);font-size:.75rem;">${f.area} · ${f.especialidad} / ${f.ciclo} · ${fecha}</div>
                 </div>
-                <a href="${f.file_url}" target="_blank" style="color:var(--primary-color);font-size:.8rem;white-space:nowrap;">Ver <i class="fa-solid fa-external-link"></i></a>`;
+                <a href="${f.file_url}" target="_blank" style="color:var(--primary-color);font-size:.8rem;white-space:nowrap;margin-right:.4rem;">Ver <i class="fa-solid fa-external-link"></i></a>
+                <button onclick="eliminarArchivoDocente('${f.id}')" style="background:transparent;border:1px solid var(--danger);color:var(--danger);border-radius:6px;padding:3px 8px;font-size:.75rem;cursor:pointer;flex-shrink:0;">
+                    <i class="fa-solid fa-trash"></i>
+                </button>`;
             hist.appendChild(row);
         });
     } catch(e) { hist.innerHTML = '<p style="color:var(--danger);">Error al cargar historial.</p>'; }
+}
+
+async function eliminarArchivoDocente(archivoId) {
+    if (!confirm('¿Eliminar este archivo del repositorio?')) return;
+    try {
+        const { error } = await supabaseClient.from('archivos').delete().eq('id', archivoId);
+        if (error) throw error;
+        mostrarToast('✅ Archivo eliminado');
+        const docenteRaw = localStorage.getItem('eduspace_docente_perfil');
+        const docente = docenteRaw ? JSON.parse(docenteRaw) : {};
+        cargarHistorialDocente(docente.email);
+    } catch(e) {
+        alert('❌ Error al eliminar: ' + e.message);
+    }
 }
 // ═══════════════════════════════
 
@@ -3118,6 +3242,81 @@ async function eliminarFotoMiPerfil() {
     }
 
     actualizarEncabezadoEstudiantes();
+    actualizarSeccionPerfil();
+    ocultarSkeletonFoto();
+    mostrarToast('✅ Foto eliminada con éxito', 'fa-check-circle');
+}
+
+// ============================================
+// MENÚ FOTO DOCENTE
+// ============================================
+function toggleMenuFotoDocente() {
+    const menu = document.getElementById('mi-card-menu-foto-docente');
+    if (!menu) return;
+    const estaAbierto = menu.style.display === 'block';
+    menu.style.display = estaAbierto ? 'none' : 'block';
+    if (!estaAbierto) {
+        setTimeout(() => {
+            document.addEventListener('click', _cerrarMenuFotoDocenteFuera, { once: true });
+        }, 10);
+    }
+}
+
+function cerrarMenuFotoDocente() {
+    const menu = document.getElementById('mi-card-menu-foto-docente');
+    if (menu) menu.style.display = 'none';
+}
+
+function _cerrarMenuFotoDocenteFuera(e) {
+    const wrap = document.querySelector('#perfil-seccion-contenido .mi-card-foto-wrap');
+    if (wrap && !wrap.contains(e.target)) cerrarMenuFotoDocente();
+}
+
+function verFotoDocente() {
+    cerrarMenuFotoDocente();
+    const docenteRaw = localStorage.getItem('eduspace_docente_perfil');
+    if (!docenteRaw) return;
+    const docente = JSON.parse(docenteRaw);
+    if (!docente.foto_url) {
+        mostrarToast('⚠️ Aún no tienes foto de perfil', 'fa-exclamation-circle');
+        return;
+    }
+    abrirFotoEstudiante(docente.foto_url, docente.nombre || '');
+}
+
+async function eliminarFotoDocente() {
+    cerrarMenuFotoDocente();
+    const docenteRaw = localStorage.getItem('eduspace_docente_perfil');
+    if (!docenteRaw) return;
+    const docente = JSON.parse(docenteRaw);
+    if (!docente.foto_url) {
+        mostrarToast('⚠️ No tienes foto de perfil', 'fa-exclamation-circle');
+        return;
+    }
+    const confirmar = confirm('¿Seguro que quieres eliminar tu foto de perfil?');
+    if (!confirmar) return;
+
+    const urlActual = docente.foto_url;
+    mostrarSkeletonFoto();
+
+    // Actualizar local inmediatamente
+    docente.foto_url = '';
+    localStorage.setItem('eduspace_docente_perfil', JSON.stringify(docente));
+    actualizarPerfilSidebar();
+
+    // Eliminar de Cloudinary
+    await eliminarImagenCloudinary(urlActual).catch(e => console.error('Cloudinary error:', e));
+
+    // Actualizar en Supabase
+    if (supabaseClient) {
+        await supabaseClient
+            .from('docentes')
+            .update({ foto_url: '' })
+            .eq('email', docente.email)
+            .then(({ error }) => { if (error) console.error('Supabase error:', error); })
+            .catch(console.error);
+    }
+
     actualizarSeccionPerfil();
     ocultarSkeletonFoto();
     mostrarToast('✅ Foto eliminada con éxito', 'fa-check-circle');
