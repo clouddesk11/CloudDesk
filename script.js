@@ -1266,7 +1266,7 @@ function renderFilesArray(files) {
         if (file.type === 'DOCX' || file.type === 'DOC')      iconClass = 'fa-file-word';
         else if (file.type === 'PPTX' || file.type === 'PPT') iconClass = 'fa-file-powerpoint';
         else if (file.type === 'XLSX' || file.type === 'XLS') iconClass = 'fa-file-excel';
-        card.innerHTML = `<div class="file-cover"><i class="fa-solid ${iconClass} file-cover-icon"></i><span class="file-cover-badge">${file.area}</span></div><div class="file-card-body"><h3 class="file-title">${file.title}</h3><div class="file-details"><p><i class="fa-regular fa-calendar"></i> ${file.date}</p><div class="teacher-profile"><img src="${teacher ? teacher.photo : 'https://i.pravatar.cc/150?img=3'}" alt="${teacher ? teacher.name : file.docente_nombre || ''}" class="teacher-avatar" onclick="openProfileModal('${file.teacher}')"><span class="teacher-name">${teacher ? teacher.name : file.docente_nombre || file.teacher}</span></div></div><div class="card-actions"><button onclick="viewFile('${file.file_url}')" class="btn btn-view"><i class="fa-regular fa-eye"></i> Ver</button><button onclick=\"downloadFile('${file.file_url}', '${(file.file_name || 'archivo').replace(/'/g, '')}')\" class=\"btn btn-download\"><i class=\"fa-solid fa-download\"></i> Descargar</button></div></div>`;
+        card.innerHTML = `<div class="file-cover"><i class="fa-solid ${iconClass} file-cover-icon"></i><span class="file-cover-badge">${file.area}</span></div><div class="file-card-body"><h3 class="file-title">${file.title}</h3><div class="file-details"><p><i class="fa-regular fa-calendar"></i> ${file.date}</p><div class="teacher-profile"><img src="${teacher ? teacher.photo : (file.docente_foto && file.docente_foto.trim() !== '' ? file.docente_foto : `https://ui-avatars.com/api/?name=${encodeURIComponent(file.docente_nombre || 'D')}&background=3b82f6&color=fff`)}" alt="${teacher ? teacher.name : file.docente_nombre || ''}" class="teacher-avatar" onclick="openProfileModal('${file.teacher}')"><span class="teacher-name">${teacher ? teacher.name : file.docente_nombre || file.teacher}</span></div></div><div class="card-actions"><button onclick="viewFile('${file.file_url}')" class="btn btn-view"><i class="fa-regular fa-eye"></i> Ver</button><button onclick=\"downloadFile('${file.file_url}', '${(file.file_name || 'archivo').replace(/'/g, '')}')\" class=\"btn btn-download\"><i class=\"fa-solid fa-download\"></i> Descargar</button></div></div>`;
         filesGrid.appendChild(card);
     });
 }
@@ -1482,7 +1482,7 @@ async function renderDocentes() {
         if (!data || data.length === 0) { docentesGrid.innerHTML = '<p style="grid-column:1/-1;text-align:center;color:var(--text-muted);">No hay docentes registrados aún.</p>'; return; }
         teachersDB = {};
         data.forEach(doc => {
-            teachersDB[doc.email] = { name: doc.nombre, email: doc.email, phone: doc.telefono || '', photo: doc.foto_url || 'https://i.pravatar.cc/150?img=3', especialidades: doc.especialidades || [] };
+            teachersDB[doc.email] = { name: doc.nombre, email: doc.email, phone: doc.telefono || '', photo: doc.foto_url && doc.foto_url.trim() !== '' ? doc.foto_url : `https://ui-avatars.com/api/?name=${encodeURIComponent(doc.nombre)}&background=3b82f6&color=fff`, especialidades: doc.especialidades || [] };
             const card = document.createElement('div'); card.classList.add('docente-card');
            const iniciales = (doc.nombre || 'D').split(' ').map(n => n[0]).join('').substring(0, 2).toUpperCase();
 const avatarUrl = doc.foto_url && doc.foto_url.trim() !== ''
@@ -1726,6 +1726,51 @@ function inicializarRealtimeEstudiantes() {
     if (estudiantesListener) supabaseClient.removeChannel(estudiantesListener);
     estudiantesListener = supabaseClient.channel('estudiantes-realtime')
         .on('postgres_changes', { event:'INSERT', schema:'public', table:'estudiantes' }, () => { cargarEstudiantes(); })
+        .subscribe();
+}
+
+// ── NUEVO: Realtime para archivos del repositorio ──
+let archivosRealtimeListener = null;
+function inicializarRealtimeArchivos() {
+    if (!supabaseClient) return;
+    if (archivosRealtimeListener) supabaseClient.removeChannel(archivosRealtimeListener);
+    archivosRealtimeListener = supabaseClient.channel('archivos-realtime')
+        .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'archivos' }, () => {
+            cargarArchivosDeSupabase();
+        })
+        .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'archivos' }, () => {
+            cargarArchivosDeSupabase();
+        })
+        .subscribe();
+}
+
+// ─── Agregar estas dos funciones nuevas ───
+
+let archivosListener = null;
+function inicializarRealtimeArchivos() {
+    if (!supabaseClient) return;
+    if (archivosListener) supabaseClient.removeChannel(archivosListener);
+    archivosListener = supabaseClient.channel('archivos-realtime')
+        .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'archivos' }, () => {
+            cargarArchivosDeSupabase();
+        })
+        .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'archivos' }, () => {
+            cargarArchivosDeSupabase();
+        })
+        .subscribe();
+}
+
+let trabajosListener = null;
+function inicializarRealtimeTrabajosEstudiante() {
+    if (!supabaseClient) return;
+    if (trabajosListener) supabaseClient.removeChannel(trabajosListener);
+    trabajosListener = supabaseClient.channel('trabajos-realtime')
+        .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'trabajos' }, () => {
+            cargarTrabajosDesdeSupabase().then(() => renderAssignments());
+        })
+        .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'trabajos' }, () => {
+            cargarTrabajosDesdeSupabase().then(() => renderAssignments());
+        })
         .subscribe();
 }
 
@@ -2132,6 +2177,8 @@ async function postLoginInit() {
     localStorage.removeItem('eduspace_docente_perfil');
     await renderDocentes(); // primero carga teachersDB
     cargarArchivosDeSupabase();
+    inicializarRealtimeArchivos();           // ← AGREGAR
+    inicializarRealtimeTrabajosEstudiante(); // ← AGREGAR
     renderEstudiantes();
     cargarAreasDePerfil();
 }
@@ -2351,12 +2398,40 @@ async function cargarHistorialTrabajosDocente(docEmail) {
 
 async function eliminarTrabajoDocente(trabajoId) {
     if (!confirm('¿Eliminar este trabajo?')) return;
-    const { error } = await supabaseClient.from('trabajos').delete().eq('id', trabajoId);
-    if (error) { alert('Error: ' + error.message); return; }
-    const docenteRaw = localStorage.getItem('eduspace_docente_perfil');
-    const docente = docenteRaw ? JSON.parse(docenteRaw) : {};
-    cargarHistorialTrabajosDocente(docente.email);
-    mostrarToast('✅ Trabajo eliminado');
+    try {
+        // 1. Obtener el registro para acceder a los recursos antes de borrar
+        const { data: trabajo, error: fetchError } = await supabaseClient
+            .from('trabajos')
+            .select('recursos')
+            .eq('id', trabajoId)
+            .single();
+        if (fetchError) throw fetchError;
+
+        // 2. Borrar del Storage los archivos que están en recursos
+        if (trabajo && Array.isArray(trabajo.recursos)) {
+            const pathsToDelete = [];
+            trabajo.recursos.forEach(r => {
+                if (r.tipo === 'archivo' && r.url && r.url.includes('/archivos-docentes/')) {
+                    const storagePath = decodeURIComponent(r.url.split('/archivos-docentes/')[1]);
+                    pathsToDelete.push(storagePath);
+                }
+            });
+            if (pathsToDelete.length > 0) {
+                await supabaseClient.storage.from('archivos-docentes').remove(pathsToDelete);
+            }
+        }
+
+        // 3. Borrar el registro de la tabla trabajos
+        const { error } = await supabaseClient.from('trabajos').delete().eq('id', trabajoId);
+        if (error) throw error;
+
+        const docenteRaw = localStorage.getItem('eduspace_docente_perfil');
+        const docente = docenteRaw ? JSON.parse(docenteRaw) : {};
+        cargarHistorialTrabajosDocente(docente.email);
+        mostrarToast('✅ Trabajo eliminado');
+    } catch(e) {
+        alert('❌ Error al eliminar: ' + e.message);
+    }
 }
 
 async function procesarFotoDocente(event) {
@@ -2452,11 +2527,18 @@ async function subirArchivoDocente(input, docEmail, docNombre, docFoto, especial
     const prog = document.getElementById('progress-' + safeId);
     if (prog) { prog.style.display = 'block'; prog.textContent = '⏳ Subiendo archivo...'; }
     try {
-        const ext      = file.name.split('.').pop();
-        const fileName = `${Date.now()}_${file.name}`;
+        const ext = file.name.split('.').pop().toLowerCase();
+        // Limpiar el nombre: quitar tildes, espacios y caracteres especiales
+        const nombreLimpio = file.name
+            .normalize('NFD').replace(/[\u0300-\u036f]/g, '') // quita tildes
+            .replace(/[^a-zA-Z0-9._-]/g, '_');                // reemplaza espacios y símbolos con _
+        const fileName = `${Date.now()}_${nombreLimpio}`;
+        // Fallback de contentType por si el navegador lo devuelve vacío
+        const mimeMap = { pdf:'application/pdf', docx:'application/vnd.openxmlformats-officedocument.wordprocessingml.document', pptx:'application/vnd.openxmlformats-officedocument.presentationml.presentation', xlsx:'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', jpg:'image/jpeg', jpeg:'image/jpeg', png:'image/png', mp4:'video/mp4' };
+        const contentType = file.type && file.type !== '' ? file.type : (mimeMap[ext] || 'application/octet-stream');
         const { data: storageData, error: storageError } = await supabaseClient.storage
             .from('archivos-docentes')
-            .upload(fileName, file, { contentType: file.type, upsert: false });
+            .upload(fileName, file, { contentType, upsert: false });
         if (storageError) throw storageError;
         const { data: urlData } = supabaseClient.storage.from('archivos-docentes').getPublicUrl(fileName);
         const fileUrl = urlData.publicUrl;
@@ -2520,8 +2602,24 @@ async function cargarHistorialDocente(docEmail) {
 async function eliminarArchivoDocente(archivoId) {
     if (!confirm('¿Eliminar este archivo del repositorio?')) return;
     try {
+        // 1. Obtener el registro para saber el file_url antes de borrar
+        const { data: archivo, error: fetchError } = await supabaseClient
+            .from('archivos')
+            .select('file_url')
+            .eq('id', archivoId)
+            .single();
+        if (fetchError) throw fetchError;
+
+        // 2. Borrar el archivo físico del Storage
+        if (archivo && archivo.file_url && archivo.file_url.includes('/archivos-docentes/')) {
+            const storagePath = decodeURIComponent(archivo.file_url.split('/archivos-docentes/')[1]);
+            await supabaseClient.storage.from('archivos-docentes').remove([storagePath]);
+        }
+
+        // 3. Borrar el registro de la tabla archivos
         const { error } = await supabaseClient.from('archivos').delete().eq('id', archivoId);
         if (error) throw error;
+
         mostrarToast('✅ Archivo eliminado');
         const docenteRaw = localStorage.getItem('eduspace_docente_perfil');
         const docente = docenteRaw ? JSON.parse(docenteRaw) : {};
@@ -4651,3 +4749,8 @@ function ccq_generateNextQuiz() {
     ccqCorrectCount = 0;
     if (ccqCurrentMode) ccq_process(ccqCurrentMode);
 }
+
+
+
+
+
