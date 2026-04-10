@@ -742,16 +742,11 @@
         </section>
 
         <!-- Procesando -->
-        <div id="ccq-processing" class="hidden ccq-glass-panel p-12"
-             style="text-align:center; margin-bottom:1rem;">
-            <div style="display:flex; justify-content:center; margin-bottom:1rem;">
-                <div class="ccq-loader-ring"></div>
-            </div>
-            <p id="ccq-loading-text"
-               style="color:#2563eb; font-weight:700; font-size:0.75rem; text-transform:uppercase; letter-spacing:0.1em;">
-                Analizando texto...
-            </p>
-        </div>
+        
+<div id="ccq-processing" class="hidden" style="text-align:center; padding:2rem;">
+    <i class="fa-solid fa-spinner fa-spin" style="font-size:2rem; color:var(--primary-color);"></i>
+    <p style="margin-top:1rem; color:var(--text-muted);">La IA está analizando tu documento...</p>
+</div>
 
         <!-- Preguntas generadas -->
         <section id="ccq-quiz-output" class="hidden" style="padding-bottom:3rem;">
