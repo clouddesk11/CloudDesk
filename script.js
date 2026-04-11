@@ -64,6 +64,18 @@ function hideConnectionLoader() {
         _loaderAnimFrame = null;
     }
 }
+
+function mostrarOverlayPublicando(texto = 'Publicando...') {
+    const el  = document.getElementById('overlay-publicando');
+    const txt = document.getElementById('overlay-publicando-texto');
+    if (txt) txt.textContent = texto;
+    if (el)  el.style.display = 'flex';
+}
+function ocultarOverlayPublicando() {
+    const el = document.getElementById('overlay-publicando');
+    if (el)  el.style.display = 'none';
+}
+
 function showAuthModal() {
     const el = document.getElementById('authModal');
     if (el) el.style.display = 'flex';
@@ -303,19 +315,22 @@ async function _cargarPerfilDesdeFirebase(codigoData, userName) {
     let profileData;
     if (perfil && perfil.foto_url) {
         profileData = {
-            nombre:              perfil.nombre              || userName,
-            especialidad:        perfil.especialidad        || codigoData.especialidad || '',
-            ciclo:               perfil.ciclo               || codigoData.ciclo        || '',
-            foto_url:            perfil.foto_url,
-            supabase_registered: perfil.supabase_registered === true,
-            fecha_registro:      perfil.fecha_registro || ''
-        };
-    } else {
+    nombre:              perfil.nombre              || userName,
+    especialidad:        perfil.especialidad        || codigoData.especialidad || '',
+    ciclo:               perfil.ciclo               || codigoData.ciclo        || '',
+    foto_url:            perfil.foto_url,
+    email:               perfil.email               || codigoData.email        || '',
+    supabase_registered: perfil.supabase_registered === true,
+    fecha_registro:      perfil.fecha_registro || ''
+};
+    
+       } else {
         profileData = {
             nombre:              perfil?.nombre             || userName,
             especialidad:        perfil?.especialidad       || codigoData.especialidad || '',
             ciclo:               perfil?.ciclo              || codigoData.ciclo        || '',
             foto_url:            '',
+            email:               perfil?.email              || codigoData.email        || '',
             supabase_registered: perfil?.supabase_registered === true || false,
             fecha_registro:      perfil?.fecha_registro || ''
         };
@@ -795,6 +810,7 @@ async function cargarArchivosDeSupabase() {
     const perfil = JSON.parse(localStorage.getItem('eduspace_student_profile') || 'null');
     if (!perfil || !perfil.especialidad || !perfil.ciclo) return;
     try {
+        // 1. Archivos normales del repositorio
         const { data, error } = await supabaseClient
             .from('archivos')
             .select('*')
@@ -802,7 +818,8 @@ async function cargarArchivosDeSupabase() {
             .eq('ciclo', perfil.ciclo)
             .order('fecha_subida', { ascending: false });
         if (error) throw error;
-        filesDB = (data || []).map(f => ({
+
+        const archivosNormales = (data || []).map(f => ({
             id:            f.id,
             title:         f.titulo,
             area:          f.area,
@@ -814,6 +831,8 @@ async function cargarArchivosDeSupabase() {
             docente_nombre:f.docente_nombre,
             docente_foto:  f.docente_foto
         }));
+
+        filesDB = [...archivosNormales];
         renderFiles('all');
         cargarAreasDePerfil();
     } catch(e) {
@@ -1360,6 +1379,7 @@ async function cargarTrabajosDesdeSupabase() {
     const perfil = JSON.parse(localStorage.getItem('eduspace_student_profile') || 'null');
     if (!perfil || !perfil.especialidad || !perfil.ciclo) return;
     try {
+        // 1. Cargar trabajos individuales (sin cambios)
         const { data, error } = await supabaseClient
             .from('trabajos')
             .select('*')
@@ -1367,7 +1387,8 @@ async function cargarTrabajosDesdeSupabase() {
             .eq('ciclo', perfil.ciclo)
             .order('fecha_creacion', { ascending: false });
         if (error) throw error;
-        assignmentsDB = (data || []).map(t => ({
+
+        const individuales = (data || []).map(t => ({
             id: t.id,
             task: t.titulo,
             teacher: t.docente_email,
@@ -1377,8 +1398,63 @@ async function cargarTrabajosDesdeSupabase() {
             description: t.descripcion || '',
             requirements: Array.isArray(t.requisitos) ? t.requisitos : [],
             recursos: Array.isArray(t.recursos) ? t.recursos : [],
-            status: 'Pendiente'
+            status: 'Pendiente',
+            tipo: 'individual',
+            curso: t.curso || ''  // NUEVO
         }));
+
+        const { data: dataGrupales, error: errorGrupales } = await supabaseClient
+    .from('trabajos_grupales')
+    .select('*')
+    .eq('especialidad', perfil.especialidad)
+    .eq('ciclo', perfil.ciclo)
+    .order('fecha_creacion', { ascending: false });
+
+if (errorGrupales) console.error('❌ Error cargando grupales:', errorGrupales);
+
+        console.log('=== DEBUG GRUPALES ===');
+        console.log('Especialidad perfil:', perfil.especialidad);
+        console.log('Ciclo perfil:', perfil.ciclo);
+        console.log('Nombre estudiante:', perfil.nombre);
+        console.log('Email estudiante:', perfil.email);
+        console.log('Grupales del servidor:', dataGrupales);
+        
+        const nombreEst = (perfil.nombre || '').trim().toLowerCase();
+        const emailEst  = (perfil.email || '').trim().toLowerCase();
+
+const grupalesFiltrados = (dataGrupales || []).filter(t => {
+    const grupos = Array.isArray(t.miembros) ? t.miembros : [];
+    return grupos.some(g => {
+        if (Array.isArray(g.integrantes)) {
+            return g.integrantes.some(m => {
+                const coincideNombre = (m.nombre || '').trim().toLowerCase() === nombreEst;
+                const coincideEmail  = emailEst && (m.email || '').trim().toLowerCase() === emailEst;
+                return coincideNombre || coincideEmail;
+            });
+        }
+        return (g.nombre || '').trim().toLowerCase() === nombreEst;
+    });
+});
+
+        const grupales = grupalesFiltrados.map(t => ({
+            id: 'grp_' + t.id,
+            task: t.titulo,
+            teacher: t.docente_email,
+            teacherName: t.docente_nombre,
+            teacherPhoto: t.docente_foto || '',
+            deadline: t.fecha_limite || '—',
+            description: t.archivo_descripcion || '',
+            requirements: [],
+            recursos: t.archivo_url
+                ? [{ tipo: 'archivo', nombre: t.archivo_nombre || 'Archivo', url: t.archivo_url, descripcion: t.archivo_descripcion }]
+                : [],
+            status: 'Pendiente',
+            tipo: 'grupal',
+            curso: t.curso || '',
+            grupos: Array.isArray(t.miembros) ? t.miembros : []   // ← usado en "Ver Detalles"
+        }));
+
+        assignmentsDB = [...individuales, ...grupales];
     } catch(e) { console.error('Error cargando trabajos:', e); }
 }
 
@@ -1393,11 +1469,31 @@ function renderAssignments() {
     pending.forEach(work => {
         const card = document.createElement('div');
         card.classList.add('assignment-card');
+        const tipoBadge = work.tipo === 'grupal'
+            ? `<span style="display:inline-flex;align-items:center;gap:4px;padding:3px 10px;
+                  background:rgba(16,185,129,.12);border:1px solid rgba(16,185,129,.35);
+                  border-radius:20px;color:#34d399;font-size:.76rem;font-weight:700;">
+                  <i class="fa-solid fa-users"></i> Grupal</span>`
+            : `<span style="display:inline-flex;align-items:center;gap:4px;padding:3px 10px;
+                  background:rgba(59,130,246,.12);border:1px solid rgba(59,130,246,.3);
+                  border-radius:20px;color:var(--accent-color);font-size:.76rem;font-weight:700;">
+                  <i class="fa-solid fa-user"></i> Individual</span>`;
         card.innerHTML = `
             <div class="assignment-header">
                 <h3 class="assignment-title">${work.task}</h3>
                 <span class="status-badge status-pending">Pendiente</span>
             </div>
+            <div style="margin-bottom:.55rem;">${tipoBadge}</div>
+
+            ${work.curso ? `
+            <div style="margin-bottom:.6rem;">
+                <span style="display:inline-flex;align-items:center;gap:5px;padding:3px 10px;
+                      background:rgba(59,130,246,.12);border:1px solid rgba(59,130,246,.3);
+                      border-radius:20px;color:var(--accent-color);font-size:.78rem;font-weight:700;">
+                    <i class="fa-solid fa-book"></i> ${work.curso}
+                </span>
+            </div>` : ''}
+
             <div class="assignment-teacher">
                 <img src="${work.teacherPhoto || 'https://ui-avatars.com/api/?name=' + encodeURIComponent(work.teacherName || 'Docente') + '&background=3b82f6&color=fff'}"
                      alt="${work.teacherName || ''}" class="teacher-avatar-card"
@@ -1436,11 +1532,21 @@ function renderFinalizados() {
     finished.forEach(work => {
         const card = document.createElement('div');
         card.classList.add('assignment-card');
+        const tipoBadge = work.tipo === 'grupal'
+            ? `<span style="display:inline-flex;align-items:center;gap:4px;padding:3px 10px;
+                  background:rgba(16,185,129,.12);border:1px solid rgba(16,185,129,.35);
+                  border-radius:20px;color:#34d399;font-size:.76rem;font-weight:700;">
+                  <i class="fa-solid fa-users"></i> Grupal</span>`
+            : `<span style="display:inline-flex;align-items:center;gap:4px;padding:3px 10px;
+                  background:rgba(59,130,246,.12);border:1px solid rgba(59,130,246,.3);
+                  border-radius:20px;color:var(--accent-color);font-size:.76rem;font-weight:700;">
+                  <i class="fa-solid fa-user"></i> Individual</span>`;
         card.innerHTML = `
             <div class="assignment-header">
                 <h3 class="assignment-title">${work.task}</h3>
                 <span class="status-badge status-submitted">Finalizado</span>
             </div>
+            <div style="margin-bottom:.55rem;">${tipoBadge}</div>
             <div class="assignment-teacher">
                 <img src="${work.teacherPhoto || 'https://ui-avatars.com/api/?name=' + encodeURIComponent(work.teacherName || 'D') + '&background=3b82f6&color=fff'}"
                      alt="${work.teacherName || ''}" class="teacher-avatar-card"
@@ -1532,6 +1638,45 @@ function openDetailsModal(assignmentId) {
     const isCompleted = completed.includes(assignment.id);
     document.getElementById('detailsStatus').innerHTML = isCompleted ? '<span class="status-badge status-submitted">Finalizado</span>' : `<span class="status-badge status-pending">${assignment.status}</span>`;
     document.getElementById('detailsDescription').textContent = assignment.description;
+
+    // ── Sección grupos (solo para trabajo grupal) ──
+    const gruposSection = document.getElementById('detailsGruposSection');
+    const gruposContainer = document.getElementById('detailsGrupos');
+    if (gruposSection && gruposContainer) {
+        if (assignment.tipo === 'grupal' && Array.isArray(assignment.grupos) && assignment.grupos.length > 0) {
+            gruposSection.style.display = 'block';
+            gruposContainer.innerHTML = assignment.grupos.map((g, i) => {
+                const integrantes = Array.isArray(g.integrantes) ? g.integrantes : [];
+                const nombresList = integrantes.length > 0
+                    ? integrantes.map(m => `<span style="display:inline-flex;align-items:center;gap:4px;
+                        padding:3px 9px;background:rgba(16,185,129,.08);
+                        border:1px solid rgba(16,185,129,.25);border-radius:20px;
+                        color:#34d399;font-size:.78rem;">
+                        <i class="fa-solid fa-user-graduate"></i> ${m.nombre || m}</span>`).join(' ')
+                    : '<span style="color:var(--text-muted);font-size:.82rem;">Sin integrantes</span>';
+                return `
+                <div style="margin-bottom:.85rem;padding:.85rem 1rem;
+                            background:rgba(16,185,129,.05);
+                            border:1px solid rgba(16,185,129,.2);
+                            border-radius:10px;">
+                    <div style="display:flex;align-items:center;gap:8px;margin-bottom:.4rem;">
+                        <span style="background:rgba(16,185,129,.15);border:1px solid rgba(16,185,129,.35);
+                                     border-radius:6px;padding:2px 9px;color:#34d399;
+                                     font-size:.78rem;font-weight:800;">
+                            ${g.nombre_grupo || `Grupo ${i + 1}`}
+                        </span>
+                        ${g.titulo_grupo ? `<span style="color:var(--text-light);font-size:.88rem;font-weight:600;">
+                            — ${g.titulo_grupo}</span>` : ''}
+                    </div>
+                    <div style="display:flex;flex-wrap:wrap;gap:5px;">${nombresList}</div>
+                </div>`;
+            }).join('');
+        } else {
+            gruposSection.style.display = 'none';
+        }
+    }
+
+    // ── Requisitos ──
     const reqList = document.getElementById('detailsRequirements'); reqList.innerHTML = '';
     assignment.requirements.forEach(req => { const li = document.createElement('li'); li.textContent = req; reqList.appendChild(li); });
     const attList = document.getElementById('detailsAttachments'); attList.innerHTML = '';
@@ -1734,28 +1879,12 @@ function inicializarRealtimeEstudiantes() {
         .subscribe();
 }
 
-// ── NUEVO: Realtime para archivos del repositorio ──
-let archivosRealtimeListener = null;
-function inicializarRealtimeArchivos() {
-    if (!supabaseClient) return;
-    if (archivosRealtimeListener) supabaseClient.removeChannel(archivosRealtimeListener);
-    archivosRealtimeListener = supabaseClient.channel('archivos-realtime')
-        .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'archivos' }, () => {
-            cargarArchivosDeSupabase();
-        })
-        .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'archivos' }, () => {
-            cargarArchivosDeSupabase();
-        })
-        .subscribe();
-}
-
-// ─── Agregar estas dos funciones nuevas ───
 
 let archivosListener = null;
 function inicializarRealtimeArchivos() {
     if (!supabaseClient) return;
     if (archivosListener) supabaseClient.removeChannel(archivosListener);
-    archivosListener = supabaseClient.channel('archivos-realtime')
+  archivosListener = supabaseClient.channel('archivos-realtime')
         .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'archivos' }, () => {
             cargarArchivosDeSupabase();
         })
@@ -1774,6 +1903,12 @@ function inicializarRealtimeTrabajosEstudiante() {
             cargarTrabajosDesdeSupabase().then(() => renderAssignments());
         })
         .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'trabajos' }, () => {
+            cargarTrabajosDesdeSupabase().then(() => renderAssignments());
+        })
+        .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'trabajos_grupales' }, () => {
+            cargarTrabajosDesdeSupabase().then(() => renderAssignments());
+        })
+        .on('postgres_changes', { event: 'DELETE', schema: 'public', table: 'trabajos_grupales' }, () => {
             cargarTrabajosDesdeSupabase().then(() => renderAssignments());
         })
         .subscribe();
@@ -2204,13 +2339,26 @@ function activarModoDocente(docenteData) {
     mostrarPanelDocente(docenteData);
 }
 function toggleToolCard(id) {
-    const body  = document.getElementById('body-' + id);
-    const arrow = document.getElementById('arrow-' + id);
-    const isOpen = body.style.display !== 'none';
-    body.style.display    = isOpen ? 'none' : 'block';
-    arrow.style.transform = isOpen ? '' : 'rotate(180deg)';
-    if (id === 'repo' && !isOpen) cargarRepoDocente();
-    if (id === 'trabajos' && !isOpen) {
+    // Mantiene compatibilidad por si algo más la llama
+    switchDocenteTab(id === 'manual' ? 'manual' : id === 'repo' ? 'repo' : 'trabajos');
+}
+
+function switchDocenteTab(tab) {
+    // Desactivar todos los tabs y ocultar todos los paneles
+    ['manual', 'repo', 'trabajos'].forEach(t => {
+        const btn   = document.getElementById('dtab-' + t);
+        const panel = document.getElementById('dpanel-' + t);
+        if (btn)   btn.classList.remove('active');
+        if (panel) panel.style.display = 'none';
+    });
+    // Activar el seleccionado
+    const activeBtn   = document.getElementById('dtab-' + tab);
+    const activePanel = document.getElementById('dpanel-' + tab);
+    if (activeBtn)   activeBtn.classList.add('active');
+    if (activePanel) activePanel.style.display = 'block';
+    // Lógica de carga
+    if (tab === 'repo') cargarRepoDocente();
+    if (tab === 'trabajos') {
         renderTrabajoEspSelector();
         const docenteRaw = localStorage.getItem('eduspace_docente_perfil');
         const docente = docenteRaw ? JSON.parse(docenteRaw) : {};
@@ -2327,6 +2475,7 @@ async function publicarTrabajoDocente() {
     const descripcion = document.getElementById('trabajo-descripcion')?.value.trim();
     const reqRaw      = document.getElementById('trabajo-requisitos')?.value.trim();
     const fecha       = document.getElementById('trabajo-fecha')?.value;
+    const curso       = document.getElementById('trabajo-curso')?.value.trim(); // NUEVO
     const espCiclo    = document.getElementById('trabajo-esp-ciclo')?.value;
     const errEl       = document.getElementById('trabajo-error');
 
@@ -2341,6 +2490,7 @@ async function publicarTrabajoDocente() {
     const docenteRaw = localStorage.getItem('eduspace_docente_perfil');
     const docente    = docenteRaw ? JSON.parse(docenteRaw) : {};
 
+    mostrarOverlayPublicando('Publicando trabajo...');
     try {
         const { error } = await supabaseClient.from('trabajos').insert([{
             titulo,
@@ -2350,6 +2500,7 @@ async function publicarTrabajoDocente() {
             fecha_limite: fecha || null,
             especialidad,
             ciclo,
+            curso: curso || '',
             docente_email:  docente.email  || '',
             docente_nombre: docente.nombre || '',
             docente_foto:   docente.foto_url || ''
@@ -2360,11 +2511,14 @@ async function publicarTrabajoDocente() {
         document.getElementById('trabajo-descripcion').value  = '';
         document.getElementById('trabajo-requisitos').value   = '';
         document.getElementById('trabajo-fecha').value        = '';
+        document.getElementById('trabajo-curso').value        = ''; // NUEVO
         trabajoRecursosActuales = [];
         renderRecursosAdjuntosDocente();
         cargarHistorialTrabajosDocente(docente.email);
     } catch(e) {
         if (errEl) { errEl.textContent = '❌ Error: ' + e.message; errEl.style.display = 'block'; }
+    } finally {
+        ocultarOverlayPublicando();
     }
 }
 
@@ -2489,40 +2643,70 @@ async function cargarRepoDocente() {
     const docenteRaw = localStorage.getItem('eduspace_docente_perfil');
     if (!docenteRaw) return;
     const docente = JSON.parse(docenteRaw);
-    const cont = document.getElementById('repo-areas-docente');
-    cont.innerHTML = '';
     const areas = docente.especialidades || [];
-    if (areas.length === 0) { cont.innerHTML = '<p style="color:var(--text-muted);">No tienes áreas asignadas aún.</p>'; return; }
 
+    // ── Llenar sidebar de especialidades ──
+    const sidebar = document.getElementById('docente-esp-sidebar');
+    if (!sidebar) return;
+
+    if (areas.length === 0) {
+        sidebar.innerHTML = '<p style="color:var(--text-muted);font-size:.8rem;padding:.5rem;">Sin especialidades asignadas.</p>';
+        return;
+    }
+
+    // Agrupar por especialidad/ciclo
     const grupos = {};
     areas.forEach(a => {
-        const gKey = `${a.especialidad} — Ciclo ${a.ciclo}`;
-        if (!grupos[gKey]) grupos[gKey] = [];
-        grupos[gKey].push(a);
+        const k = `${a.especialidad}||${a.ciclo}`;
+        if (!grupos[k]) grupos[k] = { especialidad: a.especialidad, ciclo: a.ciclo, areas: [] };
+        grupos[k].areas.push(a.area);
     });
 
-    Object.entries(grupos).forEach(([grupo, areasG]) => {
-        const grupoDiv = document.createElement('div');
-        grupoDiv.style = 'margin-bottom:1rem;';
-        grupoDiv.innerHTML = `<h5 style="color:var(--primary-color);margin-bottom:.6rem;">${grupo}</h5>`;
-        areasG.forEach(areaObj => {
-            const area = areaObj.area;
-            const block = document.createElement('div');
-            block.className = 'area-upload-block';
-            const safeId = area.replace(/\s/g, '_');
-            block.innerHTML = `
-                <h5><i class="fa-solid fa-folder-open"></i> ${area}</h5>
-                <input type="file" id="file-input-${safeId}" style="display:none;" accept=".pdf,.docx,.pptx,.xlsx,.jpg,.png,.mp4"
-                    onchange="subirArchivoDocente(this, '${docente.email}', '${docente.nombre}', '${docente.foto_url || ''}', '${areaObj.especialidad}', '${areaObj.ciclo}', '${area}')">
-                <div class="upload-zone" onclick="document.getElementById('file-input-${safeId}').click()">
-                    <i class="fa-solid fa-cloud-arrow-up"></i> Haz clic para subir un archivo
-                </div>
-                <div id="progress-${safeId}" style="display:none;margin-top:.5rem;font-size:.8rem;color:var(--text-muted);"></div>`;
-            grupoDiv.appendChild(block);
-        });
-        cont.appendChild(grupoDiv);
+    sidebar.innerHTML = '';
+    let primeraKey = null;
+    Object.entries(grupos).forEach(([key, g], idx) => {
+        if (idx === 0) primeraKey = key;
+        const btn = document.createElement('button');
+        btn.className = 'docente-esp-btn' + (idx === 0 ? ' active' : '');
+        btn.dataset.key = key;
+        btn.textContent = `${g.especialidad}\nCiclo ${g.ciclo}`;
+        btn.style.whiteSpace = 'pre-line';
+        btn.onclick = () => seleccionarEspDocente(key, grupos, docente);
+        sidebar.appendChild(btn);
     });
+
+    // Cargar la primera automáticamente
+    if (primeraKey) seleccionarEspDocente(primeraKey, grupos, docente);
+
+    // Historial general
     cargarHistorialDocente(docente.email);
+}
+
+function seleccionarEspDocente(key, grupos, docente) {
+    // Marcar activo en sidebar
+    document.querySelectorAll('.docente-esp-btn').forEach(b => {
+        b.classList.toggle('active', b.dataset.key === key);
+    });
+
+    const g = grupos[key];
+    const cont = document.getElementById('repo-areas-docente');
+    if (!cont) return;
+
+    // Guardar key activa para el botón sticky
+    cont.dataset.activeKey = key;
+    cont.dataset.activeEsp = g.especialidad;
+    cont.dataset.activeCiclo = g.ciclo;
+
+    cont.innerHTML = '';
+    g.areas.forEach(area => {
+        const areaObj = (docente.especialidades || []).find(a => a.especialidad === g.especialidad && a.ciclo === g.ciclo && a.area === area);
+        const block = document.createElement('div');
+        block.className = 'area-upload-block';
+block.innerHTML = `
+            <h5><i class="fa-solid fa-folder"></i> ${area}</h5>
+        `;
+        cont.appendChild(block);
+    });
 }
 
 async function subirArchivoDocente(input, docEmail, docNombre, docFoto, especialidad, ciclo, area) {
@@ -2531,6 +2715,7 @@ async function subirArchivoDocente(input, docEmail, docNombre, docFoto, especial
     const safeId = area.replace(/\s/g, '_');
     const prog = document.getElementById('progress-' + safeId);
     if (prog) { prog.style.display = 'block'; prog.textContent = '⏳ Subiendo archivo...'; }
+    mostrarOverlayPublicando('Subiendo archivo...');
     try {
         const ext = file.name.split('.').pop().toLowerCase();
         // Limpiar el nombre: quitar tildes, espacios y caracteres especiales
@@ -2567,8 +2752,10 @@ async function subirArchivoDocente(input, docEmail, docNombre, docFoto, especial
         cargarHistorialDocente(docEmail);
     } catch(e) {
         if (prog) prog.textContent = '❌ Error: ' + e.message;
+    } finally {
+        ocultarOverlayPublicando();
+        input.value = '';
     }
-    input.value = '';
 }
 
 async function cargarHistorialDocente(docEmail) {
@@ -4764,3 +4951,681 @@ function ccq_generateNextQuiz() {
 
 
 
+function subirDesdeBotonSticky(input) {
+    const cont = document.getElementById('repo-areas-docente');
+    if (!cont || !cont.dataset.activeEsp) {
+        alert('Primero selecciona una especialidad/ciclo.');
+        return;
+    }
+    const docenteRaw = localStorage.getItem('eduspace_docente_perfil');
+    if (!docenteRaw) return;
+    const docente = JSON.parse(docenteRaw);
+    // Usar la primera área de la especialidad activa
+    const areas = (docente.especialidades || []).filter(a =>
+        a.especialidad === cont.dataset.activeEsp && a.ciclo === cont.dataset.activeCiclo
+    );
+    if (areas.length === 0) return;
+    subirArchivoDocente(input, docente.email, docente.nombre, docente.foto_url || '',
+        cont.dataset.activeEsp, cont.dataset.activeCiclo, areas[0].area);
+    // Reset input para poder subir el mismo archivo de nuevo
+    input.value = '';
+}
+
+// ============================================
+// TRABAJO GRUPAL — Variables globales
+// ============================================
+let gruposActuales     = [];   // [{ id, nombre_grupo, titulo_grupo, miembros:[{nombre}] }]
+let grupoArchivoActual = null; // {url, nombre}
+// Compatibilidad: alias usado en buscarEnFila y funciones heredadas
+let grupoMiembrosActuales = []; // ya no se usa directo, conservar para no romper otras refs
+
+function switchTipoTrabajo(tipo) {
+    const esInd = tipo === 'individual';
+    document.getElementById('panel-tipo-individual').style.display = esInd ? 'block' : 'none';
+    document.getElementById('panel-tipo-grupal').style.display     = esInd ? 'none'  : 'block';
+
+    const btnInd = document.getElementById('btn-tipo-individual');
+    const btnGrp = document.getElementById('btn-tipo-grupal');
+    btnInd.style.background     = esInd ? 'var(--primary-color)' : 'transparent';
+    btnInd.style.color          = esInd ? 'white' : 'var(--text-muted)';
+    btnInd.style.borderColor    = esInd ? 'var(--primary-color)' : 'var(--border-color)';
+    btnGrp.style.background     = !esInd ? '#10b981' : 'transparent';
+    btnGrp.style.color          = !esInd ? 'white' : 'var(--text-muted)';
+    btnGrp.style.borderColor    = !esInd ? '#10b981' : 'var(--border-color)';
+
+    if (tipo === 'grupal') {
+        gruposActuales = [];
+        grupoArchivoActual = null;
+        renderGrupoEspSelector();
+        renderGruposForm();   // renderiza el primer grupo vacío
+        cargarHistorialTrabajosGrupalesDocente();
+    }
+}
+
+function renderGrupoEspSelector() {
+    const docenteRaw = localStorage.getItem('eduspace_docente_perfil');
+    if (!docenteRaw) return;
+    const docente = JSON.parse(docenteRaw);
+    const cont = document.getElementById('grupo-esp-selector');
+    if (!cont) return;
+    const areas = docente.especialidades || [];
+    const grupos = {};
+    areas.forEach(a => {
+        const k = `${a.especialidad}||${a.ciclo}`;
+        if (!grupos[k]) grupos[k] = { especialidad: a.especialidad, ciclo: a.ciclo };
+    });
+    let html = '<label style="color:var(--text-muted);font-size:.85rem;">Especialidad y Ciclo destino</label>';
+    html += '<select id="grupo-esp-ciclo" onchange="cargarEstudiantesParaGrupo()" style="width:100%;padding:.7rem;background:var(--bg-darker);border:1px solid var(--border-color);border-radius:8px;color:var(--text-light);font-size:.9rem;outline:none;margin-top:.3rem;">';
+    Object.values(grupos).forEach(g => {
+        html += `<option value="${g.especialidad}||${g.ciclo}">${g.especialidad} — Ciclo ${g.ciclo}</option>`;
+    });
+    html += '</select>';
+    cont.innerHTML = html;
+    cargarEstudiantesParaGrupo();
+}
+
+let _estudiantesParaGrupo = [];
+
+async function cargarEstudiantesParaGrupo() {
+    const espCiclo = document.getElementById('grupo-esp-ciclo')?.value;
+    if (!espCiclo) return;
+    const [especialidad, ciclo] = espCiclo.split('||');
+    try {
+        const { data } = await supabaseClient
+            .from('estudiantes')
+            .select('nombre_completo, email')
+            .eq('especialidad', especialidad)
+            .eq('ciclo', ciclo)
+            .order('nombre_completo', { ascending: true });
+        _estudiantesParaGrupo = data || [];
+    } catch(e) { console.error('Error cargando estudiantes:', e); }
+}
+
+function agregarFilaIntegrante() {
+    const cont = document.getElementById('grupo-filas-integrantes');
+    if (!cont) return;
+
+    const rowId = 'fila_' + Date.now();
+    const num   = cont.children.length + 1;
+
+    const fila = document.createElement('div');
+    fila.id              = rowId;
+    fila.dataset.email   = '';
+    fila.dataset.nombre  = '';
+    fila.style.cssText   = 'position:relative;';
+
+    fila.innerHTML = `
+        <div style="display:flex;align-items:center;gap:.5rem;">
+            <span style="min-width:24px;height:24px;border-radius:50%;
+                         background:rgba(16,185,129,.15);border:1px solid rgba(16,185,129,.3);
+                         color:#34d399;font-size:.72rem;font-weight:800;
+                         display:flex;align-items:center;justify-content:center;
+                         flex-shrink:0;">${num}</span>
+            <div style="flex:1;position:relative;">
+                <input type="text"
+                       id="input-${rowId}"
+                       placeholder="Escribe el nombre del estudiante..."
+                       autocomplete="off"
+                       oninput="buscarEnFila('${rowId}')"
+                       style="width:100%;padding:.6rem .9rem;
+                              background:var(--bg-darker);
+                              border:1px solid var(--border-color);
+                              border-radius:8px;color:var(--text-light);
+                              font-size:.87rem;outline:none;box-sizing:border-box;">
+                <div id="sug-${rowId}"
+                     style="display:none;position:absolute;top:100%;left:0;right:0;
+                            z-index:300;background:var(--card-bg);
+                            border:1px solid var(--border-color);border-radius:8px;
+                            max-height:160px;overflow-y:auto;margin-top:2px;
+                            box-shadow:0 6px 20px rgba(0,0,0,.5);"></div>
+            </div>
+            <button type="button" onclick="quitarFilaIntegrante('${rowId}')"
+                    title="Quitar este integrante"
+                    style="width:30px;height:30px;border-radius:6px;
+                           background:transparent;border:1px solid rgba(239,68,68,.4);
+                           color:#f87171;cursor:pointer;flex-shrink:0;
+                           display:flex;align-items:center;justify-content:center;
+                           font-size:.8rem;transition:all .2s;">
+                <i class="fa-solid fa-times"></i>
+            </button>
+        </div>
+        <div id="badge-${rowId}" style="display:none;margin-top:.35rem;
+             padding:.35rem .7rem;background:rgba(16,185,129,.1);
+             border:1px solid rgba(16,185,129,.3);border-radius:6px;
+             font-size:.78rem;color:#34d399;font-weight:600;
+             align-items:center;gap:6px;">
+            <i class="fa-solid fa-circle-check"></i>
+            <span id="badge-nombre-${rowId}"></span>
+        </div>
+    `;
+
+    cont.appendChild(fila);
+}
+
+function buscarEnFila(rowId) {
+    const input  = document.getElementById('input-' + rowId);
+    const sugBox = document.getElementById('sug-' + rowId);
+    if (!input || !sugBox) return;
+
+    const query = input.value.toLowerCase().trim();
+
+    const fila = document.getElementById(rowId);
+    if (fila) {
+        if (fila.dataset.email) {
+            grupoMiembrosActuales = grupoMiembrosActuales.filter(m => m.email !== fila.dataset.email);
+        }
+        fila.dataset.email  = '';
+        fila.dataset.nombre = '';
+    }
+    const badge = document.getElementById('badge-' + rowId);
+    if (badge) badge.style.display = 'none';
+
+    if (!query) { sugBox.style.display = 'none'; return; }
+
+    const yaUsados = grupoMiembrosActuales.map(m => m.email);
+
+    const filtrados = _estudiantesParaGrupo.filter(e =>
+        e.nombre_completo.toLowerCase().includes(query) &&
+        !yaUsados.includes(e.email)
+    );
+
+    if (filtrados.length === 0) { sugBox.style.display = 'none'; return; }
+
+    sugBox.innerHTML = '';
+    sugBox.style.display = 'block';
+
+    filtrados.forEach(est => {
+        const opt = document.createElement('div');
+        opt.style.cssText = 'padding:.55rem .9rem;cursor:pointer;font-size:.87rem;' +
+                            'color:var(--text-light);border-bottom:1px solid var(--border-color);' +
+                            'transition:background .15s;';
+        opt.innerHTML = '<i class="fa-solid fa-user" style="color:var(--primary-color);' +
+                        'margin-right:7px;font-size:.8rem;"></i>' + est.nombre_completo;
+        opt.onmouseover = () => { opt.style.background = 'rgba(59,130,246,.1)'; };
+        opt.onmouseout  = () => { opt.style.background = ''; };
+        opt.onmousedown = (e) => {
+            e.preventDefault();
+            seleccionarIntegranteEnFila(rowId, est);
+        };
+        sugBox.appendChild(opt);
+    });
+}
+
+function seleccionarIntegranteEnFila(rowId, est) {
+    const fila   = document.getElementById(rowId);
+    const input  = document.getElementById('input-' + rowId);
+    const sugBox = document.getElementById('sug-' + rowId);
+    const badge  = document.getElementById('badge-' + rowId);
+    const badgeN = document.getElementById('badge-nombre-' + rowId);
+    if (!fila || !input) return;
+
+    fila.dataset.email  = est.email;
+    fila.dataset.nombre = est.nombre_completo;
+
+    input.value                = est.nombre_completo;
+    input.style.borderColor    = 'rgba(16,185,129,.5)';
+    input.style.color          = '#34d399';
+
+    if (sugBox) sugBox.style.display = 'none';
+
+    if (badge && badgeN) {
+        badgeN.textContent  = est.nombre_completo + ' agregado ✓';
+        badge.style.display = 'flex';
+    }
+
+    grupoMiembrosActuales = grupoMiembrosActuales.filter(m => m.email !== est.email);
+    grupoMiembrosActuales.push({ email: est.email, nombre: est.nombre_completo });
+}
+
+function quitarFilaIntegrante(rowId) {
+    const fila = document.getElementById(rowId);
+    if (!fila) return;
+
+    if (fila.dataset.email) {
+        grupoMiembrosActuales = grupoMiembrosActuales.filter(m => m.email !== fila.dataset.email);
+    }
+    fila.remove();
+
+    renumerarFilasIntegrantes();
+}
+
+function renumerarFilasIntegrantes() {
+    const filas = document.querySelectorAll('#grupo-filas-integrantes > div');
+    filas.forEach((fila, idx) => {
+        const numEl = fila.querySelector('span[style*="border-radius:50%"]');
+        if (numEl) numEl.textContent = idx + 1;
+    });
+}
+
+function quitarMiembroGrupo(email) {
+    grupoMiembrosActuales = grupoMiembrosActuales.filter(m => m.email !== email);
+    renderMiembrosGrupo();
+}
+
+function renderMiembrosGrupo() {
+    // Ya no se usa: el sistema de filas maneja el render directamente
+}
+
+async function adjuntarArchivoGrupo(input) {
+    const file = input.files[0];
+    if (!file) return;
+    mostrarOverlayPublicando('Subiendo archivo de referencia...');
+    try {
+        const fileName = `${Date.now()}_${file.name.normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/[^a-zA-Z0-9._-]/g,'_')}`;
+        const { error } = await supabaseClient.storage.from('archivos-docentes').upload(fileName, file, { contentType: file.type, upsert: false });
+        if (error) throw error;
+        const { data: urlData } = supabaseClient.storage.from('archivos-docentes').getPublicUrl(fileName);
+        grupoArchivoActual = { url: urlData.publicUrl, nombre: file.name };
+        document.getElementById('grupo-archivo-nombre').textContent = `📎 ${file.name}`;
+        mostrarToast('✅ Archivo adjuntado');
+    } catch(e) { alert('❌ Error: ' + e.message); }
+    finally { ocultarOverlayPublicando(); input.value = ''; }
+}
+
+// ─────────────────────────────────────────────────────────────
+// SISTEMA MULTI-GRUPO
+// ─────────────────────────────────────────────────────────────
+
+function renderGruposForm() {
+    const cont = document.getElementById('grupos-lista-container');
+    if (!cont) return;
+    if (gruposActuales.length === 0) agregarNuevoGrupo();
+    else _repintarGrupos();
+}
+
+function _syncGruposDesdeDOM() {
+    gruposActuales.forEach(g => {
+        const nomInput = document.getElementById('gnombre_' + g.id);
+        const titInput = document.getElementById('gtitulo_' + g.id);
+        if (nomInput) g.nombre_grupo = nomInput.value.trim();
+        if (titInput) g.titulo_grupo = titInput.value.trim();
+
+        // ← NUEVO: también sincronizar integrantes confirmados desde el DOM
+        const filasContainer = document.getElementById('filas_' + g.id);
+        if (filasContainer) {
+            const membresDOM = [];
+            filasContainer.querySelectorAll('div[id^="row_"]').forEach(fila => {
+                const nombre = (fila.dataset.nombre || '').trim();
+                if (nombre && !membresDOM.find(m => m.nombre === nombre)) {
+                    const existing = g.miembros.find(m => m.nombre === nombre);
+                    membresDOM.push(existing || { nombre, email: '' });
+                }
+            });
+            g.miembros = membresDOM; // reemplaza con lo que hay en pantalla
+        }
+    });
+}
+
+function agregarNuevoGrupo() {
+    _syncGruposDesdeDOM();
+    const gId = 'grp_' + Date.now();
+    gruposActuales.push({ id: gId, nombre_grupo: '', titulo_grupo: '', miembros: [] });
+    _repintarGrupos();
+}
+
+function quitarGrupoForm(gId) {
+    _syncGruposDesdeDOM();
+    if (gruposActuales.length <= 1) return;
+    gruposActuales = gruposActuales.filter(g => g.id !== gId);
+    _repintarGrupos();
+}
+
+function _repintarGrupos() {
+    const cont = document.getElementById('grupos-lista-container');
+    if (!cont) return;
+    cont.innerHTML = '';
+    gruposActuales.forEach((g, idx) => {
+        const card = document.createElement('div');
+        card.id = 'gcard_' + g.id;
+        card.style.cssText = `margin-bottom:.9rem;padding:.9rem 1rem;
+            background:rgba(16,185,129,.05);border:1.5px solid rgba(16,185,129,.2);
+            border-radius:12px;`;
+
+        card.innerHTML = `
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:.65rem;">
+            <span style="color:#34d399;font-weight:800;font-size:.85rem;">
+                <i class="fa-solid fa-users"></i> Grupo ${idx + 1}
+            </span>
+            ${gruposActuales.length > 1 ? `
+            <button type="button" onclick="quitarGrupoForm('${g.id}')"
+                    style="background:transparent;border:1px solid rgba(239,68,68,.4);
+                           color:#f87171;border-radius:6px;padding:2px 8px;
+                           font-size:.78rem;cursor:pointer;">
+                <i class="fa-solid fa-times"></i> Quitar
+            </button>` : ''}
+        </div>
+
+        <!-- Nombre del grupo -->
+        <div style="margin-bottom:.55rem;">
+            <label style="color:var(--text-muted);font-size:.82rem;display:block;margin-bottom:.3rem;">
+                Nombre del grupo
+            </label>
+            <input type="text" id="gnombre_${g.id}"
+                   placeholder="Ej: Grupo Alpha"
+                   value="${g.nombre_grupo}"
+                   oninput="gruposActuales.find(x=>x.id==='${g.id}').nombre_grupo = this.value"
+                   style="width:100%;padding:.6rem;background:var(--bg-darker);
+                          border:1px solid var(--border-color);border-radius:8px;
+                          color:var(--text-light);font-size:.87rem;outline:none;
+                          box-sizing:border-box;">
+        </div>
+
+        <!-- Título del trabajo de este grupo -->
+        <div style="margin-bottom:.55rem;">
+            <label style="color:var(--text-muted);font-size:.82rem;display:block;margin-bottom:.3rem;">
+                Título del trabajo de este grupo
+            </label>
+            <input type="text" id="gtitulo_${g.id}"
+                   placeholder="Ej: Análisis de requisitos del sistema"
+                   value="${g.titulo_grupo}"
+                   oninput="gruposActuales.find(x=>x.id==='${g.id}').titulo_grupo = this.value"
+                   style="width:100%;padding:.6rem;background:var(--bg-darker);
+                          border:1px solid var(--border-color);border-radius:8px;
+                          color:var(--text-light);font-size:.87rem;outline:none;
+                          box-sizing:border-box;">
+        </div>
+
+        <!-- Integrantes -->
+        <div>
+            <label style="color:var(--text-muted);font-size:.82rem;display:block;margin-bottom:.4rem;">
+                <i class="fa-solid fa-users"></i> Integrantes
+            </label>
+            <div id="filas_${g.id}" style="display:flex;flex-direction:column;gap:.4rem;margin-bottom:.5rem;"></div>
+            <button type="button" onclick="agregarFilaEnGrupo('${g.id}')"
+                    style="width:100%;padding:.55rem;background:rgba(16,185,129,.06);
+                           border:1.5px dashed rgba(16,185,129,.35);border-radius:8px;
+                           color:#34d399;font-size:.82rem;font-weight:700;cursor:pointer;">
+                <i class="fa-solid fa-plus"></i> Agregar integrante
+            </button>
+        </div>`;
+
+        cont.appendChild(card);
+        // Renderizar filas ya existentes de este grupo
+        g.miembros.forEach(m => _agregarFilaConNombre(g.id, m.nombre));
+        if (g.miembros.length === 0) agregarFilaEnGrupo(g.id);
+    });
+}
+
+function agregarFilaEnGrupo(gId) {
+    const cont = document.getElementById('filas_' + gId);
+    if (!cont) return;
+    const rowId = 'row_' + gId + '_' + Date.now();
+    const fila  = document.createElement('div');
+    fila.id = rowId;
+    fila.dataset.nombre = '';
+    fila.style.cssText  = 'position:relative;';
+    fila.innerHTML = `
+        <div style="display:flex;align-items:center;gap:.45rem;">
+            <div style="flex:1;position:relative;">
+                <input type="text" id="inp_${rowId}"
+                       placeholder="Nombre del estudiante..."
+                       autocomplete="off"
+                       oninput="buscarEnFilaGrupo('${gId}','${rowId}')"
+                       style="width:100%;padding:.55rem .85rem;background:var(--bg-darker);
+                              border:1px solid var(--border-color);border-radius:8px;
+                              color:var(--text-light);font-size:.84rem;outline:none;
+                              box-sizing:border-box;">
+                <div id="sug_${rowId}"
+                     style="display:none;position:absolute;top:100%;left:0;right:0;
+                            z-index:400;background:var(--card-bg);
+                            border:1px solid var(--border-color);border-radius:8px;
+                            max-height:150px;overflow-y:auto;margin-top:2px;
+                            box-shadow:0 6px 20px rgba(0,0,0,.5);"></div>
+            </div>
+            <button type="button" onclick="quitarFilaEnGrupo('${gId}','${rowId}')"
+                    style="width:28px;height:28px;flex-shrink:0;border-radius:6px;
+                           background:transparent;border:1px solid rgba(239,68,68,.4);
+                           color:#f87171;cursor:pointer;font-size:.78rem;">
+                <i class="fa-solid fa-times"></i>
+            </button>
+        </div>
+        <div id="badge_${rowId}" style="display:none;margin-top:.3rem;padding:.3rem .65rem;
+             background:rgba(16,185,129,.1);border:1px solid rgba(16,185,129,.3);
+             border-radius:6px;font-size:.76rem;color:#34d399;font-weight:600;">
+            <i class="fa-solid fa-circle-check"></i>
+            <span id="badgenombre_${rowId}"></span>
+        </div>`;
+    cont.appendChild(fila);
+}
+
+function _agregarFilaConNombre(gId, nombre) {
+    agregarFilaEnGrupo(gId);
+    const cont = document.getElementById('filas_' + gId);
+    if (!cont) return;
+    const fila = cont.lastElementChild;
+    if (!fila) return;
+    const rowId = fila.id;
+    const inp   = document.getElementById('inp_' + rowId);
+    if (inp) inp.value = nombre;
+    fila.dataset.nombre = nombre;
+    const badge = document.getElementById('badge_' + rowId);
+    const bn    = document.getElementById('badgenombre_' + rowId);
+    if (badge) badge.style.display = 'flex';
+    if (bn)    bn.textContent = nombre;
+    // Registrar en gruposActuales
+    const g = gruposActuales.find(x => x.id === gId);
+   // Buscar también el email del estudiante en _estudiantesParaGrupo
+    const estudianteData = _estudiantesParaGrupo.find(e => e.nombre_completo === nombre);
+    if (g && !g.miembros.find(m => m.nombre === nombre)) {
+        g.miembros.push({ 
+            nombre, 
+            email: estudianteData?.email || '' 
+        });
+    }
+}  
+
+function quitarFilaEnGrupo(gId, rowId) {
+    const fila = document.getElementById(rowId);
+    if (!fila) return;
+    const nombre = fila.dataset.nombre;
+    const g = gruposActuales.find(x => x.id === gId);
+    if (g && nombre) g.miembros = g.miembros.filter(m => m.nombre !== nombre);
+    fila.remove();
+}
+
+function buscarEnFilaGrupo(gId, rowId) {
+    const inp    = document.getElementById('inp_' + rowId);
+    const sugBox = document.getElementById('sug_' + rowId);
+    if (!inp || !sugBox) return;
+
+    // Limpiar selección previa de esta fila
+    const fila = document.getElementById(rowId);
+    if (fila && fila.dataset.nombre) {
+        const g = gruposActuales.find(x => x.id === gId);
+        if (g) g.miembros = g.miembros.filter(m => m.nombre !== fila.dataset.nombre);
+        fila.dataset.nombre = '';
+    }
+    const badge = document.getElementById('badge_' + rowId);
+    if (badge) badge.style.display = 'none';
+
+    const query = inp.value.toLowerCase().trim();
+    if (!query) { sugBox.style.display = 'none'; return; }
+
+    // Obtener todos los nombres ya usados en TODOS los grupos
+    const usados = gruposActuales.flatMap(g => g.miembros.map(m => m.nombre.toLowerCase()));
+
+    const filtrados = _estudiantesParaGrupo.filter(e =>
+        e.nombre_completo.toLowerCase().includes(query) &&
+        !usados.includes(e.nombre_completo.toLowerCase())
+    );
+
+    if (filtrados.length === 0) { sugBox.style.display = 'none'; return; }
+
+    sugBox.style.display = 'block';
+    sugBox.innerHTML = filtrados.slice(0, 8).map(e => `
+        <div onclick="seleccionarEstEnGrupo('${gId}','${rowId}','${e.nombre_completo.replace(/'/g,"&#39;")}')"
+             style="padding:.5rem .9rem;cursor:pointer;font-size:.84rem;
+                    color:var(--text-light);border-bottom:1px solid var(--border-color);"
+             onmouseover="this.style.background='rgba(16,185,129,.08)'"
+             onmouseout="this.style.background=''">
+            <i class="fa-solid fa-user-graduate" style="color:#34d399;margin-right:5px;"></i>
+            ${e.nombre_completo}
+        </div>`).join('');
+}
+
+function seleccionarEstEnGrupo(gId, rowId, nombre) {
+    const inp    = document.getElementById('inp_' + rowId);
+    const sugBox = document.getElementById('sug_' + rowId);
+    const badge  = document.getElementById('badge_' + rowId);
+    const bn     = document.getElementById('badgenombre_' + rowId);
+    const fila   = document.getElementById(rowId);
+    if (!inp || !fila) return;
+
+    inp.value = nombre;
+    fila.dataset.nombre = nombre;
+    if (sugBox) sugBox.style.display = 'none';
+    if (badge)  badge.style.display  = 'flex';
+    if (bn)     bn.textContent        = nombre;
+
+  const g = gruposActuales.find(x => x.id === gId);
+    if (g && !g.miembros.find(m => m.nombre === nombre)) {
+        const estData = _estudiantesParaGrupo.find(e => e.nombre_completo === nombre);
+        g.miembros.push({ nombre, email: estData?.email || '' });
+    }
+}
+
+async function publicarTrabajoGrupal() {
+    const titulo   = document.getElementById('grupo-titulo')?.value.trim();
+    const curso    = document.getElementById('grupo-curso')?.value.trim();
+    const fecha    = document.getElementById('grupo-fecha')?.value;
+    const espCiclo = document.getElementById('grupo-esp-ciclo')?.value;
+    const archDesc = document.getElementById('grupo-archivo-desc')?.value.trim();
+    const errEl    = document.getElementById('grupo-error');
+    if (errEl) errEl.style.display = 'none';
+
+    // ── Validaciones ──
+    if (!titulo) {
+        errEl.textContent = '⚠️ El título general es obligatorio.';
+        errEl.style.display = 'block'; return;
+    }
+    if (!espCiclo) {
+        errEl.textContent = '⚠️ Selecciona especialidad y ciclo.';
+        errEl.style.display = 'block'; return;
+    }
+
+    // Recoger datos desde el DOM (sincroniza nombre, título e integrantes)
+gruposActuales.forEach(g => {
+    const nomInput = document.getElementById('gnombre_' + g.id);
+    const titInput = document.getElementById('gtitulo_' + g.id);
+    if (nomInput) g.nombre_grupo = nomInput.value.trim();
+    if (titInput) g.titulo_grupo = titInput.value.trim();
+    const filasContainer = document.getElementById('filas_' + g.id);
+    if (filasContainer) {
+        filasContainer.querySelectorAll('div[id^="row_"]').forEach(fila => {
+            const nombreDataset = (fila.dataset.nombre || '').trim();
+            const inputEl       = fila.querySelector('input[type="text"]');
+            const nombreInput   = inputEl ? inputEl.value.trim() : '';
+            const nombre        = nombreDataset || nombreInput;
+            if (nombre && !g.miembros.find(m => m.nombre === nombre)) {
+            const estData = _estudiantesParaGrupo.find(e => e.nombre_completo === nombre);
+            g.miembros.push({ nombre, email: estData?.email || '' });
+        }
+        });
+    }
+});
+
+    // Validar que haya al menos un grupo con nombre y al menos un integrante
+    const gruposValidos = gruposActuales.filter(g => g.nombre_grupo && g.miembros.length > 0);
+    if (gruposValidos.length === 0) {
+        errEl.textContent = '⚠️ Debes tener al menos un grupo con nombre e integrantes.';
+        errEl.style.display = 'block'; return;
+    }
+
+    const [especialidad, ciclo] = espCiclo.split('||');
+    const docente = JSON.parse(localStorage.getItem('eduspace_docente_perfil') || '{}');
+
+    // Construir el array miembros con el nuevo formato multi-grupo
+    const miembrosData = gruposValidos.map(g => ({
+        nombre_grupo: g.nombre_grupo,
+        titulo_grupo:  g.titulo_grupo || '',
+        integrantes:   g.miembros          // [{ nombre }]
+    }));
+
+    // nombre_grupo en la columna = resumen (primer grupo o "Múltiples grupos")
+    const resumenGrupo = gruposValidos.length === 1
+        ? gruposValidos[0].nombre_grupo
+        : `${gruposValidos.length} grupos`;
+
+    mostrarOverlayPublicando('Publicando trabajo grupal...');
+    try {
+        const { error } = await supabaseClient.from('trabajos_grupales').insert([{
+            titulo,
+            nombre_grupo:        resumenGrupo,
+            miembros:            miembrosData,
+            especialidad,
+            ciclo,
+            fecha_limite:        fecha || null,
+            curso:               curso || '',
+            docente_email:       docente.email   || '',
+            docente_nombre:      docente.nombre  || '',
+            docente_foto:        docente.foto_url || '',
+            archivo_url:         grupoArchivoActual?.url    || null,
+            archivo_nombre:      grupoArchivoActual?.nombre || null,
+            archivo_descripcion: archDesc || null
+        }]);
+        if (error) throw error;
+
+        mostrarToast('✅ Trabajo grupal publicado');
+
+        // Limpiar formulario
+        document.getElementById('grupo-titulo').value       = '';
+        document.getElementById('grupo-curso').value        = '';
+        document.getElementById('grupo-fecha').value        = '';
+        document.getElementById('grupo-archivo-desc').value = '';
+        document.getElementById('grupo-archivo-nombre').textContent = '';
+        gruposActuales     = [];
+        grupoArchivoActual = null;
+        renderGruposForm(); // reinicia con un grupo vacío
+
+        cargarHistorialTrabajosGrupalesDocente();
+    } catch(e) {
+        if (errEl) { errEl.textContent = '❌ Error: ' + e.message; errEl.style.display = 'block'; }
+    } finally {
+        ocultarOverlayPublicando();
+    }
+}
+
+async function cargarHistorialTrabajosGrupalesDocente() {
+    const docenteRaw = localStorage.getItem('eduspace_docente_perfil');
+    const docente    = docenteRaw ? JSON.parse(docenteRaw) : {};
+    if (!docente.email) return;
+    const hist = document.getElementById('historial-trabajos-grupales');
+    if (!hist) return;
+    hist.innerHTML = '<p style="color:var(--text-muted);font-size:.83rem;"><i class="fa-solid fa-spinner fa-spin"></i> Cargando...</p>';
+    try {
+        const { data } = await supabaseClient
+            .from('trabajos_grupales')
+            .select('*')
+            .eq('docente_email', docente.email)
+            .order('fecha_creacion', { ascending: false })
+            .limit(10);
+        hist.innerHTML = '';
+        if (!data || !data.length) { hist.innerHTML = '<p style="color:var(--text-muted);font-size:.83rem;">Sin trabajos grupales.</p>'; return; }
+        data.forEach(t => {
+            const row = document.createElement('div');
+            row.style = 'display:flex;align-items:center;gap:.7rem;padding:.6rem .8rem;background:rgba(255,255,255,.03);border:1px solid var(--border-color);border-radius:8px;';
+            const fecha = t.fecha_limite ? new Date(t.fecha_limite + 'T12:00:00').toLocaleDateString('es-PE') : '—';
+            const miembros = Array.isArray(t.miembros) ? t.miembros.length : 0;
+            row.innerHTML = `
+                <i class="fa-solid fa-users" style="color:#10b981;flex-shrink:0;"></i>
+                <div style="flex:1;min-width:0;">
+                    <div style="font-weight:600;color:var(--text-light);font-size:.85rem;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;">${t.titulo}</div>
+                    <div style="color:var(--text-muted);font-size:.75rem;">${t.nombre_grupo} · ${miembros} miembro(s) · Límite: ${fecha}</div>
+                </div>
+                <button onclick="eliminarTrabajoGrupal('${t.id}')" style="background:transparent;border:1px solid var(--danger);color:var(--danger);border-radius:6px;padding:3px 8px;font-size:.75rem;cursor:pointer;">
+                    <i class="fa-solid fa-trash"></i>
+                </button>`;
+            hist.appendChild(row);
+        });
+    } catch(e) { hist.innerHTML = '<p style="color:var(--danger);font-size:.83rem;">Error al cargar.</p>'; }
+}
+
+async function eliminarTrabajoGrupal(id) {
+    if (!confirm('¿Eliminar este trabajo grupal?')) return;
+    try {
+        const { error } = await supabaseClient.from('trabajos_grupales').delete().eq('id', id);
+        if (error) throw error;
+        mostrarToast('✅ Trabajo grupal eliminado');
+        cargarHistorialTrabajosGrupalesDocente();
+    } catch(e) { alert('❌ Error: ' + e.message); }
+}
